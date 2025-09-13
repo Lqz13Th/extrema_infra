@@ -7,7 +7,6 @@ env/
 .venv/
 venv/
 ENV/
-*.env
 .env.*
 
 saved_models/
@@ -24,6 +23,7 @@ data/
 *.npz
 *.npy
 *.zip
+*.env
 
 symbol_config.json
 symbols.json
