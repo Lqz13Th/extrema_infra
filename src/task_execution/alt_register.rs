@@ -3,7 +3,7 @@ use std::time::Duration;
 use prost::bytes::Bytes;
 use serde::de::DeserializeOwned;
 use tokio::net::TcpStream;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, mpsc, Mutex};
 use tokio::time::{sleep, timeout};
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tracing::{error, info, warn};
@@ -11,8 +11,9 @@ use tungstenite::Message;
 
 use crate::errors::InfraError;
 use crate::infra_core::env_core::EnvCore;
-use crate::strategy_base::event_notify::board_cast_channels::{find_lob, find_timer, find_trade};
-use crate::market_assets::base_data::Market;
+use crate::strategy_base::handler::handler_core::{find_lob, find_timer, find_trade, BoardCastChannel};
+use crate::market_assets::market_core::Market;
+use crate::strategy_base::command::command_core::TaskCommand;
 use crate::task_execution::ws_register::{WsChannel, WsTaskBuilder};
 use crate::traits::conversion::IntoWsData;
 use crate::traits::strategy::Strategy;
@@ -29,24 +30,23 @@ pub enum AltTaskType {
 }
 
 
-#[derive(Clone, Debug)]
-pub(crate) struct AltTaskBuilder<S> {
-    pub(crate) core: EnvCore<S>,
-    pub(crate) alt_info: AltTaskInfo,
+#[derive(Debug)]
+pub(crate) struct AltTaskBuilder {
+    #[warn(dead_code)]
+    pub(crate) cmd_rx: mpsc::Receiver<TaskCommand>,
+    pub(crate) channel: Arc<Vec<BoardCastChannel>>,
+    pub(crate) alt_info: Arc<AltTaskInfo>,
 }
 
 
-impl<S> AltTaskBuilder<S>
-where
-    S: Strategy + Clone
-{
+impl AltTaskBuilder {
     async fn alt_task_distribution(&self) {
         match self.alt_info.alt_task_type {
             AltTaskType::NeuralNetwork(n) => {
                 warn!("unimplemented, AltTaskType::NeuralNetwork({})", n);
             },
             AltTaskType::TimerBasedState(n) => {
-                if let Some(tx) = find_timer(&self.core.board_cast_channels) {
+                if let Some(tx) = find_timer(&self.channel) {
                     loop {
                         sleep(Duration::from_millis(n)).await;
                         match tx.send(()) {

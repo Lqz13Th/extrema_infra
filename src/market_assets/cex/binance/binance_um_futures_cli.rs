@@ -5,19 +5,18 @@ use serde_json::{from_str, json, Value};
 use tracing::info;
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::account_data::{BalanceData, OrderData};
-use crate::market_assets::api_genral::RequestMethod;
+use crate::market_assets::api_general::RequestMethod;
 use crate::market_assets::cex::binance::{
     api_key::{read_binance_env_key, BinanceKey},
     api_utils::*,
 };
 use crate::market_assets::cex::binance::um_futures_rest::exchange_info::RestExchangeInfoBinanceUM;
 use crate::market_assets::cex::binance::config_assets::*;
-use crate::market_assets::market_data::{CandleData, OrderBookData, TickerData};
+use crate::market_assets::price_data::{CandleData, OrderBookData, TickerData};
 use crate::traits::market_cex::{CexPrivateRest, CexPublicRest, MarketCexApi};
 use crate::market_assets::base_data::*;
 use crate::task_execution::ws_register::*;
-
-
+use crate::traits::conversion::WsSubscribe;
 
 #[derive(Debug, Clone)]
 pub struct BinanceUM {
@@ -34,6 +33,7 @@ impl BinanceUM {
     }
 }
 
+impl MarketCexApi for BinanceUM {}
 
 
 impl CexPublicRest for BinanceUM {
@@ -84,7 +84,22 @@ impl CexPrivateRest for BinanceUM {
     }
 }
 
-impl MarketCexApi for BinanceUM {}
+impl WsSubscribe for BinanceUM {
+    async fn ws_cex_pub_subscription(
+        &self,
+        ws_channel: &WsChannel,
+        symbols: &[String]
+    ) -> InfraResult<WsSubscription> {
+        self.ws_cex_pub_subscription(ws_channel, symbols)
+    }
+
+    async fn ws_cex_pri_subscription(
+        &self,
+        ws_channel: &WsChannel,
+    ) -> InfraResult<WsSubscription> {
+        self.ws_cex_pri_subscription(ws_channel).await
+    }
+}
 
 impl BinanceUM {
     async fn get_spot_ticker(&self, symbols: Vec<String>) -> InfraResult<Vec<TickerData>> {
@@ -195,11 +210,11 @@ impl BinanceUM {
         Ok(listen_key)
     }
 
-    pub fn ws_cex_pub_subscription(
+    fn ws_cex_pub_subscription(
         &self,
         ws_channel: &WsChannel,
         symbols: &[String]
-    ) -> InfraResult<(Option<String>, String)> {
+    ) -> InfraResult<WsSubscription> {
         match ws_channel {
             WsChannel::Account => {
                 todo!()
@@ -222,27 +237,33 @@ impl BinanceUM {
         }
     }
 
-    pub async fn ws_cex_pri_subscription(
+    async fn ws_cex_pri_subscription(
         &self,
         ws_channel: &WsChannel
-    ) -> InfraResult<(Option<String>, String)> {
+    ) -> InfraResult<WsSubscription> {
         match ws_channel {
             WsChannel::Account => {
                 self.ws_account_subscription().await
             },
             _ => {
-                Ok((None, UM_FUTURES_WS.to_string()))
+                Ok(WsSubscription {
+                    msg: None,
+                    url: UM_FUTURES_WS.to_string(),
+                })
             },
         }
     }
 
     async fn ws_account_subscription(
         &self,
-    ) -> InfraResult<(Option<String>, String)> {
+    ) -> InfraResult<WsSubscription> {
         info!("{:?}", self.create_listen_key().await?);
         match self.create_listen_key().await {
             Ok(listen_key) => {
-                Ok((None, format!("{}/{}", UM_FUTURES_WS, listen_key.listenKey)))
+                Ok(WsSubscription {
+                    msg: None,
+                    url: format!("{}/{}", UM_FUTURES_WS, listen_key.listenKey),
+                })
             },
             Err(e) => Err(e)
         }
@@ -252,7 +273,7 @@ impl BinanceUM {
         &self,
         candle_param: &Option<CandleParam>,
         symbols: &[String],
-    ) -> InfraResult<(Option<String>, String)> {
+    ) -> InfraResult<WsSubscription> {
         let channel = match candle_param {
             Some(CandleParam::OneSecond) => FUTURE_CANDLE_SUBSCRIPTIONS[0],
             Some(CandleParam::OneMinute) => FUTURE_CANDLE_SUBSCRIPTIONS[1],
@@ -267,7 +288,10 @@ impl BinanceUM {
 
         let msg = self.generate_ws_subscription_msg(channel, symbols);
 
-        Ok((Some(msg), UM_FUTURES_WS.to_string()))
+        Ok(WsSubscription {
+            msg: Some(msg),
+            url: UM_FUTURES_WS.to_string(),
+        })
     }
 
     fn generate_ws_subscription_msg(
@@ -290,5 +314,4 @@ impl BinanceUM {
 
         subscribe_msg.to_string()
     }
-
 }

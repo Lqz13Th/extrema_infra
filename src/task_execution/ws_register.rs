@@ -1,4 +1,3 @@
-use crate::strategy_base::event_notify::board_cast_channels::BoardCastChannel::Lob;
 use std::sync::Arc;
 use serde::de::DeserializeOwned;
 use tokio::{
@@ -21,7 +20,7 @@ use tokio_tungstenite::{
 };
 use futures_util::{SinkExt, StreamExt};
 use futures_util::stream::SplitSink;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tracing::{info, warn, error};
 
 use crate::errors::InfraError;
@@ -29,24 +28,29 @@ use crate::infra_core::env_core::EnvCore;
 use crate::traits::{
     conversion::*,
 };
-use crate::strategy_base::event_notify::board_cast_channels::*;
-use crate::strategy_base::event_notify::cex_notify::*;
-use crate::market_assets::base_data::Market;
+use crate::strategy_base::handler::handler_core::*;
+use crate::strategy_base::handler::cex_events::*;
+use crate::market_assets::market_core::Market;
 use crate::traits::strategy::Strategy;
 use crate::market_assets::cex::{
     binance::binance_um_futures_cli::*,
     binance::um_futures_ws::agg_trades::*
 };
+use crate::market_assets::cex::binance::um_futures_ws::candles::WsCandleBinanceUM;
+use crate::strategy_base::command::command_core::TaskCommand;
 
 #[derive(Debug, Clone)]
 pub struct WsTaskInfo {
     pub market: Market,
     pub channel: WsChannel,
-    pub market_cex: bool,
-    pub public_uri: bool,
     pub chunk: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct WsSubscription {
+    pub msg: Option<String>,
+    pub url: String,
+}
 
 #[derive(Debug, Clone)]
 pub enum WsChannel {
@@ -77,53 +81,15 @@ pub enum TradesParam {
 }
 
 
-type WsWrite = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
-pub type SharedWsWrite = Arc<Mutex<WsWrite>>;
-
-#[derive(Debug, Clone)]
-pub struct WsTaskHandle {
-    pub shared_ws_write: SharedWsWrite,
-    pub channel: WsChannel,
-    pub task_numb: usize,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct WsTaskBuilder<S> {
-    pub(crate) core: EnvCore<S>,
-    pub(crate) ws_info: WsTaskInfo,
+#[derive(Debug)]
+pub(crate) struct WsTaskBuilder{
+    pub(crate) cmd_rx: mpsc::Receiver<TaskCommand>,
+    pub(crate) channel: Arc<Vec<BoardCastChannel>>,
+    pub(crate) ws_info: Arc<WsTaskInfo>,
     pub(crate) task_numb: usize,
 }
 
-impl<S> WsTaskBuilder<S>
-where
-    S: Strategy + Clone
-{
-    async fn handle_initial_ws_request(
-        &self,
-    ) -> Result<(Option<String>, String), InfraError> {
-        match (&self.ws_info.market_cex, &self.ws_info.public_uri) {
-            (true, true) => {
-                // let binance_um = BinanceUM::new();
-                // let (msg, url) = binance_um.ws_cex_pub_subscription(
-                //     &self.ws_info.channel,
-                //     &tokens,
-                // )?;
-                // 
-                // Ok((msg, url))
-                todo!()
-            },
-            (true, false) => {
-                // Ok(self.market.handle_ws_cex_pri_subscription(
-                //     &self.channel
-                // ).await?)
-                todo!()
-            },
-            _ => {
-                error!("WsTaskInfo::handle_request() called on unhandled ws request");
-                Err(InfraError::UnknownWsSubscription)
-            },
-        }
-    }
+impl WsTaskBuilder {
 
     async fn connect_websocket(
         &self,
@@ -138,69 +104,85 @@ where
         Ok(ws_stream)
     }
 
+
     async fn ws_loop<WsData>(
         &mut self,
         tx: broadcast::Sender<Arc<WsData::Output>>,
         ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
     ) where
-        WsData: DeserializeOwned + IntoWsData + Send + 'static,
+        WsData: DeserializeOwned + IntoWsData + Send + 'static + std::fmt::Debug,
         WsData::Output: Send + Sync + 'static,
     {
-        let (ws_write, mut ws_read) = ws_stream.split();
-        let ws_write_arc = Arc::new(Mutex::new(ws_write));
-        let task_handle = WsTaskHandle {
-            shared_ws_write: ws_write_arc.clone(),
-            channel: self.ws_info.channel.clone(),
-            task_numb: self.task_numb
-        };
-        
-        self.core.strategies.on_ws_init(task_handle).await;
-
+        let (mut ws_write, mut ws_read) = ws_stream.split();
+        info!("start");
         loop {
-            match timeout(Duration::from_secs(13), ws_read.next()).await {
-                Ok(Some(Ok(Message::Text(text)))) => {
-                    match serde_json::from_slice::<WsData>(text.as_bytes()) {
-                        Ok(parsed_raw) => {
+            tokio::select! {
+            msg = ws_read.next() => {
+                match msg {
+                    Some(Ok(Message::Text(text))) => {
+                            info!("Received message: {:?}", text);
+                        if let Ok(parsed_raw) = serde_json::from_slice::<WsData>(text.as_bytes()) {
+                            info!("{:?}", parsed_raw);
                             let parsed = parsed_raw.into_ws();
                             let _ = tx.send(Arc::new(parsed));
-                        },
-                        Err(e) => {
-                            error!("Failed to deserialize message: {}. Error: {:?}", text, e);
-                        },
-                    };
-                },
-                Ok(Some(Ok(Message::Ping(payload)))) => {
-                    if let Err(e) = ws_write_arc
-                        .lock().await
-                        .send(Message::Ping(payload)).await {
-                        error!("Error sending Pong: {:?}", e);
+
+                        } else {
+                            warn!("Failed to deserialize WS message: {}", text);
+                        }
                     }
-                },
-                Ok(Some(Ok(Message::Pong(_msg)))) => {
-                },
-                Ok(Some(Ok(Message::Close(frame)))) => {
-                    error!("WebSocket closed: {:?}", frame);
-                    break;
-                },
-                Ok(Some(Err(e))) => {
-                    error!("Error receiving message: {:?}", e);
-                    break;
-                },
-                Ok(None) => {
-                    error!("Connection closed!");
-                    break;
-                },
-                Err(_e) => {
-                    if ws_write_arc
-                        .lock().await
-                        .send(Message::Ping(Bytes::from("ping"))).await
-                        .is_err() {
-                        error!("Error sending ping");
+                    Some(Ok(Message::Ping(payload))) => {
+                        let _ = ws_write.send(Message::Pong(payload)).await;
+                    }
+                    Some(Ok(Message::Close(frame))) => {
+                        error!("WebSocket closed: {:?}", frame);
                         break;
                     }
-                },
-                _ => {},
-            };
+                    Some(Err(e)) => {
+                        error!("Error receiving WS message: {:?}", e);
+                        break;
+                    }
+                    None => {
+                        error!("WebSocket stream ended");
+                        break;
+                    }
+                    _ => {}
+                }
+            },
+            cmd = self.cmd_rx.recv() => {
+                match cmd {
+                    Some(TaskCommand::Subscribe { msg, ack }) => {
+                        info!("Task {} subscribing: {}", self.task_numb, msg);
+                        if ws_write.send(Message::text(msg)).await.is_err() {
+                            error!("Failed to send subscribe message for {}", self.task_numb);
+                        }
+                        ack.respond(Ok(()));
+                    },
+                    Some(TaskCommand::Unsubscribe { msg, ack }) => {
+                        info!("Task {} unsubscribing symbol: {}", self.task_numb, msg);
+                        if ws_write.send(Message::text(msg)).await.is_err() {
+                            error!("Failed to send unsubscribe message for {}", self.task_numb);
+                        }
+                        ack.respond(Ok(()));
+                    },
+                    Some(TaskCommand::Shutdown { msg, ack }) => {
+                        info!("Task {} shutting down", self.task_numb);
+                        ack.respond(Ok(()));
+                        break;
+                    },
+                    Some(TaskCommand::NNInput(_input)) => {
+                        todo!()
+                    },
+                    Some(TaskCommand::NNOutput(_output)) => {
+                        todo!()
+                    },
+                    None => {
+                        warn!("Command channel closed");
+                        break;
+                    },
+                    Some(TaskCommand::Connect { .. }) => todo!(),
+                }
+            }
+        }
         }
     }
 
@@ -210,14 +192,18 @@ where
     ) {
         match (&self.ws_info.market, &self.ws_info.channel) {
             (Market::BinanceUmFutures, WsChannel::Trades(..)) => {
-                if let Some(tx) = find_trade(&self.core.board_cast_channels) {
+                if let Some(tx) = find_trade(&self.channel) {
                     self.ws_loop::<WsAggTradeBinanceUM>(tx, ws_stream).await;
                 } else {
                     warn!("No broadcast channel found for Binance Futures Trades");
                 }
             },
-            (Market::BinanceUmFutures, WsChannel::Lob) => {
-                todo!()
+            (Market::BinanceUmFutures, WsChannel::Candle(..)) => {
+                if let Some(tx) = find_candle(&self.channel) {
+                    self.ws_loop::<WsCandleBinanceUM>(tx, ws_stream).await;
+                } else {
+                    warn!("No broadcast channel found for Binance Futures Candles");
+                }
                 // if let Some(tx) = find_lob(&self.core.board_cast_channels) {
                 //     self.ws_loop::<WsLobBinance>(tx, ws_stream).await;
                 // } else {
@@ -233,42 +219,42 @@ where
         };
     }
 
-    pub(crate) async fn ws_mid_relay(
-        &mut self,
-    ) {
+    pub(crate) async fn ws_mid_relay(&mut self) {
         let sleep_interval = Duration::from_secs(5 + 3 * self.task_numb as u64);
+
         loop {
             sleep(sleep_interval).await;
-            info!("Websocket task start: {}", self.task_numb);
+            info!("WebSocket task start: {}", self.task_numb);
 
-            let (msg, url) = match self.handle_initial_ws_request().await {
-                Ok((msg, url)) => {
-                    (msg, url)
-                },
-                Err(e) => {
-                    error!("Task: {} failed to handle request: {:?}", self.task_numb, e);
-                    continue;
-                },
-            };
-
-            let mut ws_stream = match self.connect_websocket(&url).await {
-                Ok(ws_stream) => ws_stream,
-                Err(e) => {
-                    error!("Task: {} failed to connect WebSocket: {:?}", self.task_numb, e);
-                    sleep(Duration::from_secs(5)).await;
-                    continue;
-                },
-            };
-
-            if let Some(msg) = msg {
-                if ws_stream.send(Message::text(msg)).await.is_err() {
-                    error!("Task: {} failed to send message", self.task_numb);
+            let initial_command = self.cmd_rx.recv().await;
+            let (url, ack) = match initial_command {
+                Some(TaskCommand::Connect { msg, ack }) => (msg, ack),
+                Some(cmd) => {
+                    warn!("Task {} received unexpected initial command: {:?}", self.task_numb, cmd);
                     continue;
                 }
-            }
+                None => {
+                    warn!("Task {} command channel closed during init", self.task_numb);
+                    break;
+                }
+            };
+
+
+            let ws_stream = match self.connect_websocket(&url).await {
+                Ok(ws) => ws,
+                Err(e) => {
+                    error!("Task {} failed to connect WebSocket: {:?}", self.task_numb, e);
+                    sleep(Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+
+            ack.respond(Ok(()));
+            info!("Task {} connected WS: {}", self.task_numb, url);
 
             self.ws_channel_distribution(ws_stream).await;
             sleep(Duration::from_secs(5)).await;
         }
     }
+
 }

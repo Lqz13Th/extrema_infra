@@ -1,13 +1,17 @@
 use std::sync::Arc;
-use futures_util::stream::SplitSink;
-use tokio::net::TcpStream;
-use tokio::sync::Mutex;
+use std::future::ready;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::info;
-use tungstenite::Message;
-use crate::strategy_base::event_notify::board_cast_channels::{strategy_board_cast_loop, BoardCastChannel};
-use crate::task_execution::ws_register::{SharedWsWrite, WsTaskHandle};
-use crate::strategy_base::event_notify::cex_notify::*;
+
+use crate::strategy_base::{
+    command::command_core::CommandHandle,
+    handler::{
+        handler_core::*,
+        alt_events::*,
+        cex_events::*,
+    }
+};
+use crate::task_execution::task_general::TaskInfo;
 use crate::traits::strategy::*;
 
 macro_rules! hlist {
@@ -32,29 +36,59 @@ pub struct HCons<Head, Tail> {
 }
 
 
-impl Strategy for HNil {}
-impl AltNotify for HNil {}
-impl CexNotify for HNil {}
-impl TaskOperation for HNil {}
+impl Strategy for HNil { async fn execute(&mut self) {} }
+impl EventHandler for HNil {}
+impl CexEventHandler for HNil {}
+impl AltEventHandler for HNil {}
+impl CommandEmitter for HNil {
+    fn command_init(&mut self, _command_handle: CommandHandle) {}
+}
 
-impl<Head, Tail> Strategy for HCons<Head, Tail> where Head: Strategy, Tail: Strategy, {
-    async fn spawn_strategy_tasks(&self, _channels: Arc<Vec<BoardCastChannel>>) {
+
+impl<Head, Tail> Strategy for HCons<Head, Tail>
+where
+    Head: Strategy,
+    Tail: Strategy,
+{
+    fn execute(&mut self) -> impl Future<Output=()> + Send {
+        let fut_head = self.head.execute();
+        let fut_tail = self.tail.execute();
+        async move { fut_head.await; fut_tail.await; }
+    }
+
+    async fn spawn_strategy_tasks(&self, channels: Arc<Vec<BoardCastChannel>>) {
         let HCons { head, tail } = self;
-        let ch = _channels.clone();
+        let ch = channels.clone();
         let h = head.clone();
         info!("Try spawn task for {}", h.name());
 
         tokio::spawn(async move {
             info!("Spawn task for {}", h.name());
-            strategy_board_cast_loop(h, ch).await;
+            strategy_handler_loop(h, ch).await;
         });
 
-        tail.spawn_strategy_tasks(_channels).await;
+        tail.spawn_strategy_tasks(channels).await;
+    }
+}
+
+impl<Head, Tail> EventHandler for HCons<Head, Tail>
+where
+    Head: Strategy,
+    Tail: Strategy,
+{
+    fn event_init(&mut self, task_info: Arc<TaskInfo>) -> impl Future<Output=()> + Send {
+        let fut_head = self.head.event_init(task_info.clone());
+        let fut_tail = self.tail.event_init(task_info);
+        async move { fut_head.await; fut_tail.await; }
     }
 }
 
 
-impl<Head, Tail> AltNotify for HCons<Head, Tail> where Head: AltNotify, Tail: AltNotify, {
+impl<Head, Tail> AltEventHandler for HCons<Head, Tail>
+where
+    Head: AltEventHandler,
+    Tail: AltEventHandler,
+{
     fn on_timer(&mut self) -> impl Future<Output=()> + Send {
         let fut_head = self.head.on_timer();
         let fut_tail = self.tail.on_timer();
@@ -62,32 +96,37 @@ impl<Head, Tail> AltNotify for HCons<Head, Tail> where Head: AltNotify, Tail: Al
     }
 }
 
-impl<Head, Tail> CexNotify for HCons<Head, Tail> where Head: CexNotify, Tail: CexNotify, {
-    fn on_trade(&mut self, _msg: Arc<Vec<WsTrade>>) -> impl Future<Output=()> + Send {
-        let fut_head = self.head.on_trade(_msg.clone());
-        let fut_tail = self.tail.on_trade(_msg);
+impl<Head, Tail> CexEventHandler for HCons<Head, Tail>
+where
+    Head: CexEventHandler,
+    Tail: CexEventHandler,
+{
+    fn on_candle(&mut self, msg: Arc<Vec<WsCandle>>) -> impl Future<Output=()> + Send {
+        let fut_head = self.head.on_candle(msg.clone());
+        let fut_tail = self.tail.on_candle(msg);
+        async move { fut_head.await; fut_tail.await; }
+    }
+    fn on_trade(&mut self, msg: Arc<Vec<WsTrade>>) -> impl Future<Output=()> + Send {
+        let fut_head = self.head.on_trade(msg.clone());
+        let fut_tail = self.tail.on_trade(msg);
         async move { fut_head.await; fut_tail.await; }
     }
 
-    fn on_lob(&mut self, _msg: Arc<Vec<WsLob>>) -> impl Future<Output=()> + Send {
-        let fut_head = self.head.on_lob(_msg.clone());
-        let fut_tail = self.tail.on_lob(_msg);
+    fn on_lob(&mut self, msg: Arc<Vec<WsLob>>) -> impl Future<Output=()> + Send {
+        let fut_head = self.head.on_lob(msg.clone());
+        let fut_tail = self.tail.on_lob(msg);
         async move { fut_head.await; fut_tail.await; }
     }
 }
 
-impl<Head, Tail> TaskOperation for HCons<Head, Tail>
+impl<Head, Tail> CommandEmitter for HCons<Head, Tail>
 where
-    Head: TaskOperation,
-    Tail: TaskOperation,
+    Head: CommandEmitter,
+    Tail: CommandEmitter,
 {
-    fn on_ws_init(
-        &mut self,
-        _ws_task_handle: WsTaskHandle,
-    ) -> impl Future<Output=()> + Send {
-        let fut_head = self.head.on_ws_init(_ws_task_handle.clone());
-        let fut_tail = self.tail.on_ws_init(_ws_task_handle);
-        async move { fut_head.await; fut_tail.await; }
+    fn command_init(&mut self, command_handle: CommandHandle) {
+        self.head.command_init(command_handle.clone());
+        self.tail.command_init(command_handle);
     }
 }
 

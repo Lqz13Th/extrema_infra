@@ -1,14 +1,19 @@
 use std::future::ready;
 use std::sync::Arc;
 
-use crate::task_execution::ws_register::{SharedWsWrite, WsTaskHandle};
-use crate::strategy_base::event_notify::{
-    cex_notify::*,
-    alt_notify::*,
+use crate::strategy_base::{
+    command::command_core::CommandHandle,
+    handler::{
+        handler_core::BoardCastChannel,
+        cex_events::*,
+        alt_events::*,
+    }
 };
-use crate::strategy_base::event_notify::board_cast_channels::BoardCastChannel;
+use crate::task_execution::task_general::TaskInfo;
 
-pub trait Strategy: AltNotify + CexNotify + TaskOperation {
+pub trait Strategy: EventHandler + CommandEmitter {
+    fn execute(&mut self) -> impl Future<Output=()> + Send;
+
     fn name(&self) -> &'static str { "unnamed_strategy" }
     fn spawn_strategy_tasks(
         &self,
@@ -17,19 +22,27 @@ pub trait Strategy: AltNotify + CexNotify + TaskOperation {
 
 }
 
-pub trait AltNotify: Clone + Send + Sync + 'static {
-    fn on_timer(&mut self) -> impl Future<Output=()> + Send { ready(()) }
+pub trait EventHandler: CexEventHandler + AltEventHandler {
+    fn event_init(
+        &mut self,
+        _task_info: Arc<TaskInfo>,
+    ) -> impl Future<Output=()> + Send { ready(()) }
 }
 
-pub trait CexNotify: Clone + Send + Sync + 'static {
+pub trait CexEventHandler: Clone + Send + Sync + 'static {
+    fn on_candle(&mut self, _msg: Arc<Vec<WsCandle>>) -> impl Future<Output=()> + Send { ready(()) }
+
     fn on_trade(&mut self, _msg: Arc<Vec<WsTrade>>) -> impl Future<Output=()> + Send { ready(()) }
     fn on_lob(&mut self, _msg: Arc<Vec<WsLob>>) -> impl Future<Output=()> + Send { ready(()) }
 }
 
-pub trait TaskOperation: Clone + Send + Sync + 'static {
+pub trait AltEventHandler: Clone + Send + Sync + 'static {
+    fn on_timer(&mut self) -> impl Future<Output=()> + Send { ready(()) }
 
-    fn on_ws_init(
-        &mut self,
-        _ws_task_handle: WsTaskHandle,
-    ) -> impl Future<Output=()> + Send { ready(()) }
+}
+
+
+pub trait CommandEmitter: Clone + Send + Sync + 'static {
+
+    fn command_init(&mut self, _command_handle: CommandHandle);
 }

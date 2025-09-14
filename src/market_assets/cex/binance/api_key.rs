@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{from_str, Value};
 
 use crate::errors::*;
-use crate::market_assets::api_genral::*;
+use crate::market_assets::api_general::*;
 use crate::market_assets::cex::binance::config_assets::UM_FUTURES_BASE_URL;
 
 type HmacSha256 = Hmac<Sha256>;

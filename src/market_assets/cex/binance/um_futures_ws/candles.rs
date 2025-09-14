@@ -1,8 +1,8 @@
 use serde::Deserialize;
 
-use crate::market_assets::base_data::Market;
+use crate::market_assets::market_core::Market;
 use crate::market_assets::cex::binance::api_utils::binance_um_to_perp_symbol;
-use crate::strategy_base::event_notify::cex_notify::WsCandle;
+use crate::strategy_base::handler::cex_events::WsCandle;
 use crate::traits::conversion::IntoWsData;
 
 #[allow(non_snake_case)]

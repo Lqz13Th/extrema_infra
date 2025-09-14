@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::errors::*;
 use crate::market_assets::{
     account_data::*,
-    market_data::*,
+    price_data::*,
     rules_data::*,
 };
 

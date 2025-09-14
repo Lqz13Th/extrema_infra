@@ -6,13 +6,13 @@ use crate::infra_core::{
     env_mediator::EnvMediator,
 };
 use crate::strategy_base::{
-    event_notify::board_cast_channels::BoardCastChannel,
+    handler::handler_core::BoardCastChannel,
     hlist_core::{
-        HCons, 
+        HCons,
         HNil
     },
 };
-use crate::task_execution::general_register::TaskInfo;
+use crate::task_execution::task_general::TaskInfo;
 use crate::traits::strategy::Strategy;
 
 pub struct EnvBuilder<Strategies = HNil> {
@@ -66,8 +66,8 @@ where
     pub fn build(self) -> EnvMediator<Strategies> {
         EnvMediator {
             core: EnvCore {
-                strategies: self.strategies,
-                board_cast_channels: Arc::new(self.board_cast_channels),
+                strategy: self.strategies,
+                channel: Arc::new(self.board_cast_channels),
             },
             tasks: self.tasks,
         }

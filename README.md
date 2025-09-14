@@ -1,6 +1,7 @@
 # Extrema Infra
 
-**Extrema Infra** is a high-performance static trading infrastructure built with Rust.  
+A high-performance zero-cost abstractions quantitative trading infrastructure built with Rust.  
+
 It maximizes runtime efficiency through **static dispatch** and promotes scalability with **Heterogeneous Lists (HList)** for strategy registration.  
 
 At its core: **One unified framework for multiple exchanges, multiple strategies, zero runtime boxing.**
@@ -29,7 +30,6 @@ With **HList**:
 | **Dispatch**             | Dynamic (runtime `vtable`)       | Static (compile-time inlined) |
 | **Type Safety**          | Runtime only                    | Compile-time enforced       |
 | **Performance**          | Extra indirection, heap alloc    | Zero overhead, no heap alloc |
-| **Extensibility**        | Homogeneous strategies only      | Heterogeneous strategies    |
 | **Compile-time Checking**| Limited                         | Full (trait bounds enforced) |
 
 ---

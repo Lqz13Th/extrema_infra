@@ -1,4 +1,5 @@
 use crate::market_assets::base_data::*;
+use crate::market_assets::market_core::Market;
 
 #[derive(Debug, Clone)]
 pub struct WsTrade {

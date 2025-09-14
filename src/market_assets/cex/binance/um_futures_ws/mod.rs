@@ -1,2 +1,2 @@
 pub mod agg_trades;
-mod candles;
+pub mod candles;

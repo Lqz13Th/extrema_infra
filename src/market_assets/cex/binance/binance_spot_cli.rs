@@ -10,9 +10,9 @@ use crate::market_assets::{
         api_key::*
     },
     account_data::*,
-    market_data::*,
+    price_data::*,
     rules_data::*,
-    api_genral::*
+    api_general::*,
 };
 
 #[derive(Debug, Clone)]

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use crate::strategy_base::event_notify::{
-    board_cast_channels::*,
+use crate::strategy_base::{
+    handler::handler_core::BoardCastChannel,
 };
 
 #[derive(Clone, Debug)]
 pub(crate) struct EnvCore<S> {
-    pub(crate) strategies: S,
-    pub(crate) board_cast_channels: Arc<Vec<BoardCastChannel>>,
+    pub(crate) strategy: S,
+    pub(crate) channel: Arc<Vec<BoardCastChannel>>,
 }
