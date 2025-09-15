@@ -5,7 +5,7 @@ use tokio::{
     time::sleep,
     sync::{broadcast, mpsc}
 };
-
+use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{error, info, warn};
 
 use crate::errors::{InfraError, InfraResult};
@@ -32,24 +32,30 @@ pub(crate) struct AltTaskBuilder {
 
 impl AltTaskBuilder {
     async fn consume_command(&mut self) {
-        if let Some(cmd) = self.cmd_rx.recv().await {
-            match cmd {
-                TaskCommand::Connect { msg, ack } => {
-                    self.log(LogLevel::Info, &format!("Received Connect: {}", msg));
-                    ack.respond(Ok(()));
-                },
-                TaskCommand::Subscribe { msg, ack } |
-                TaskCommand::Unsubscribe { msg, ack } |
-                TaskCommand::Shutdown { msg, ack } => {
-                    self.log(LogLevel::Warn, &format!("Unexpected command: {:?}", msg));
-                    ack.respond(Ok(()));
-
-                },
-                _ => {
-                    self.log(LogLevel::Warn, &format!("Unexpected command: {:?}", cmd));
+        match self.cmd_rx.try_recv() {
+            Ok(cmd) => {
+                match cmd {
+                    TaskCommand::Connect { msg, ack } => {
+                        self.log(LogLevel::Info, &format!("Received Connect: {}", msg));
+                        ack.respond(Ok(()));
+                    },
+                    TaskCommand::Subscribe { msg, ack } |
+                    TaskCommand::Unsubscribe { msg, ack } |
+                    TaskCommand::Shutdown { msg, ack } => {
+                        self.log(LogLevel::Warn, &format!("Unexpected command: {:?}", msg));
+                        ack.respond(Ok(()));
+                    },
+                    _ => {
+                        self.log(LogLevel::Warn, &format!("Unexpected command: {:?}", cmd));
+                    }
                 }
-            }
-        } 
+            },
+            Err(TryRecvError::Empty) => {
+            },
+            Err(TryRecvError::Disconnected) => {
+                self.log(LogLevel::Error, "Command channel disconnected");
+            },
+        };
     }
 
     fn timer_based_state(&self) {

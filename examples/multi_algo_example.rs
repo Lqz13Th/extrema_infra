@@ -137,11 +137,11 @@ impl BinanceStrategy {
                 continue;
             }
             // sleep(Duration::from_secs(2)).await;
-            // self.send_subscribe(channel.clone()).await?;
 
             match rx.await {
                 Ok(Ok(())) => {
                     info!("[BinanceStrategy] Connected successfully");
+                    self.send_subscribe(channel.clone()).await?;
                 }
                 Ok(Err(e)) => error!("[BinanceStrategy] Connect ack failed: {:?}", e),
                 Err(_) => warn!("[BinanceStrategy] Connect ack dropped"),
