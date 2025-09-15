@@ -6,6 +6,6 @@ use crate::strategy_base::{
 
 #[derive(Clone, Debug)]
 pub(crate) struct EnvCore<S> {
-    pub(crate) strategy: S,
-    pub(crate) channel: Arc<Vec<BoardCastChannel>>,
+    pub strategy: S,
+    pub channel: Arc<Vec<BoardCastChannel>>,
 }

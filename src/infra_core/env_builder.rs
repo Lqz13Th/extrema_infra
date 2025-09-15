@@ -25,7 +25,7 @@ impl EnvBuilder<HNil> {
     pub fn new() -> Self {
         Self {
             strategies: HNil,
-            board_cast_channels: vec![],
+            board_cast_channels: Vec::new(),
             tasks: vec![],
         }
     }
@@ -33,7 +33,17 @@ impl EnvBuilder<HNil> {
 
 impl<HeadList> EnvBuilder<HeadList> {
     pub fn with_board_cast_channel(mut self, channel: BoardCastChannel) -> Self {
-        self.board_cast_channels.push(channel);
+        let channel_type_exists = self.board_cast_channels.iter().any(|ch| {
+            std::mem::discriminant(ch) == std::mem::discriminant(&channel)
+        });
+
+        if !channel_type_exists {
+            info!("Adding board cast channel: {:?}", channel);
+            self.board_cast_channels.push(channel);
+        } else {
+            info!("Skipped duplicate channel: {:?}", channel);
+        }
+
         self
     }
     
@@ -42,6 +52,7 @@ impl<HeadList> EnvBuilder<HeadList> {
     where
         S: Strategy + Clone,
     {
+        info!("Adding strategy: {}", strategy.strategy_name());
         EnvBuilder {
             strategies: HCons {
                 head: strategy,
@@ -61,7 +72,7 @@ impl<HeadList> EnvBuilder<HeadList> {
 
 impl<Strategies> EnvBuilder<Strategies>
 where
-    Strategies: Strategy + Clone,
+    Strategies: Strategy,
 {
     pub fn build(self) -> EnvMediator<Strategies> {
         EnvMediator {

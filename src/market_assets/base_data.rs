@@ -28,10 +28,10 @@ pub enum MarginMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OrderType {
-    Market,
-    Limit,
-    Trigger,
-    PostOnly,
+    MarketOrder,
+    LimitOrder,
+    TriggerOrder,
+    PostOnlyOrder,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

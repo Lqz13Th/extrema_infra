@@ -9,8 +9,8 @@ use crate::market_assets::market_core::Market;
 use crate::traits::conversion::IntoWsData;
 
 #[allow(non_snake_case)]
-#[derive(Debug, Clone, Deserialize)]
-pub struct WsAggTradeBinanceUM {
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(crate) struct WsAggTradeBinanceUM {
     pub e: String,      // Event type
     pub E: u64,         // Event time
     pub a: u64,         // Aggregate trade ID

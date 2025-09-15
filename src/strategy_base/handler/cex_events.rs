@@ -1,5 +1,8 @@
-use crate::market_assets::base_data::*;
-use crate::market_assets::market_core::Market;
+use crate::market_assets::{
+    market_core::Market,
+    base_data::*
+};
+use crate::task_execution::task_ws::CandleParam;
 
 #[derive(Debug, Clone)]
 pub struct WsTrade {
@@ -26,7 +29,7 @@ pub struct WsCandle {
     pub timestamp: u64,
     pub market: Market,
     pub symbol: String,
-    pub interval: String,
+    pub interval: CandleParam,
     pub open: f64,
     pub high: f64,
     pub low: f64,
@@ -34,3 +37,4 @@ pub struct WsCandle {
     pub volume: f64,
     pub confirm: bool,
 }
+

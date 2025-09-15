@@ -1,3 +1,6 @@
-pub mod ws_register;
 pub mod task_general;
-pub mod alt_register;
+pub mod task_alt;
+pub mod task_ws;
+
+pub mod register_alt;
+pub mod register_ws;

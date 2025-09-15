@@ -1,15 +1,17 @@
 use sha2::Sha256;
 use hmac::{Hmac, Mac};
-use serde::{Deserialize, Serialize};
 use data_encoding::HEXUPPER;
 
-use reqwest::{Client, Error};
-use serde::de::DeserializeOwned;
+use serde::{
+    de::DeserializeOwned,
+    Deserialize,
+    Serialize,
+};
 use serde_json::{from_str, Value};
+use reqwest::Client;
 
-use crate::errors::*;
+use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::api_general::*;
-use crate::market_assets::cex::binance::config_assets::UM_FUTURES_BASE_URL;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -38,7 +40,7 @@ impl BinanceKey {
             secret_key: secret_key.to_string(),
         }
     }
-    
+
     fn sign(
         &self,
         query_string: &str,
@@ -71,7 +73,7 @@ impl BinanceKey {
         signature: &Signature<u64>,
         query_string: Option<&Value>,
         url: &str,
-    ) -> Result<String, Error> {
+    ) -> InfraResult<String> {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
@@ -80,7 +82,7 @@ impl BinanceKey {
             .send()
             .await?;
 
-        res.text().await
+        Ok(res.text().await?)
     }
 
     pub(crate) async fn post_request(
@@ -89,7 +91,7 @@ impl BinanceKey {
         signature: &Signature<u64>,
         query_string: Option<&Value>,
         url: &str,
-    ) -> Result<String, Error> {
+    ) -> InfraResult<String> {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
@@ -98,7 +100,7 @@ impl BinanceKey {
             .send()
             .await?;
 
-        res.text().await
+        Ok(res.text().await?)
     }
 
     pub(crate) async fn get_request(
@@ -107,7 +109,7 @@ impl BinanceKey {
         signature: &Signature<u64>,
         query_string: Option<&Value>,
         url: &str,
-    ) -> Result<String, Error> {
+    ) -> InfraResult<String> {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
@@ -116,7 +118,7 @@ impl BinanceKey {
             .send()
             .await?;
 
-        res.text().await
+        Ok(res.text().await?)
     }
 
     pub(crate) async fn send_request<T>(

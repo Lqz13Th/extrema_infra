@@ -1,8 +1,9 @@
-use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::market_assets::market_core::Market;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Signature<T> {
     pub signature: String,

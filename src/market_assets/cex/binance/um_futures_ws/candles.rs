@@ -1,21 +1,24 @@
 use serde::Deserialize;
 
-use crate::market_assets::market_core::Market;
-use crate::market_assets::cex::binance::api_utils::binance_um_to_perp_symbol;
+use crate::market_assets::{
+    market_core::Market,
+    cex::binance::api_utils::binance_um_to_perp_symbol
+};
 use crate::strategy_base::handler::cex_events::WsCandle;
+use crate::task_execution::task_ws::CandleParam;
 use crate::traits::conversion::IntoWsData;
 
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize)]
-pub struct WsCandleBinanceUM {
-    pub ps: String,       // Pair
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(crate) struct WsCandleBinanceUM {
+    pub s: String,       // Pair
     pub k: KlineDetails,
 }
 
 
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize)]
-pub struct KlineDetails {
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(crate) struct KlineDetails {
     pub t: u64,           // Kline start time
     pub i: String,        // Interval
     pub o: String,        // Open price
@@ -32,8 +35,9 @@ impl IntoWsData for WsCandleBinanceUM {
         let candle = WsCandle {
             timestamp: self.k.t,
             market: Market::BinanceUmFutures,
-            symbol: binance_um_to_perp_symbol(&self.ps),
-            interval: self.k.i,
+            symbol: binance_um_to_perp_symbol(&self.s),
+            interval: CandleParam::from_str(&self.k.i)
+                .unwrap_or(CandleParam::OneMinute),
             open: self.k.o.parse().unwrap_or(0.0),
             high: self.k.h.parse().unwrap_or(0.0),
             low: self.k.l.parse().unwrap_or(0.0),

@@ -1,22 +1,29 @@
-use std::future::ready;
+use serde_json::{from_str, json};
 use reqwest::Client;
-use serde::de::DeserializeOwned;
-use serde_json::{from_str, json, Value};
+
 use tracing::info;
+
 use crate::errors::{InfraError, InfraResult};
-use crate::market_assets::account_data::{BalanceData, OrderData};
-use crate::market_assets::api_general::RequestMethod;
-use crate::market_assets::cex::binance::{
-    api_key::{read_binance_env_key, BinanceKey},
-    api_utils::*,
+
+use crate::market_assets::{
+    api_general::RequestMethod,
+    base_data::*,
+    account_data::*,
+    price_data::*
 };
-use crate::market_assets::cex::binance::um_futures_rest::exchange_info::RestExchangeInfoBinanceUM;
-use crate::market_assets::cex::binance::config_assets::*;
-use crate::market_assets::price_data::{CandleData, OrderBookData, TickerData};
-use crate::traits::market_cex::{CexPrivateRest, CexPublicRest, MarketCexApi};
-use crate::market_assets::base_data::*;
-use crate::task_execution::ws_register::*;
-use crate::traits::conversion::WsSubscribe;
+use crate::task_execution::task_ws::*;
+
+use crate::traits::{
+    conversion::WsSubscribe,
+    market_cex::{CexPrivateRest, CexPublicRest, MarketCexApi}
+};
+
+use super::{
+    api_key::BinanceKey,
+    api_utils::*,
+    config_assets::*,
+    um_futures_rest::exchange_info::RestExchangeInfoBinanceUM,
+};
 
 #[derive(Debug, Clone)]
 pub struct BinanceUM {
@@ -135,8 +142,8 @@ impl BinanceUM {
             &self.client,
             RequestMethod::Get,
             None,
-            UM_FUTURES_BASE_URL,
-            UM_FUTURES_EXCHANGE_INFO
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_EXCHANGE_INFO
         ).await?;
 
         let filtered = if assets.is_empty() {
@@ -163,7 +170,7 @@ impl BinanceUM {
     }
 
     async fn get_live_symbols(&self) -> InfraResult<Vec<String>> {
-        let url = [UM_FUTURES_BASE_URL, UM_FUTURES_EXCHANGE_INFO].concat();
+        let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO].concat();
 
         let response = self.client
             .get(url)
@@ -189,8 +196,8 @@ impl BinanceUM {
             &self.client,
             RequestMethod::Post,
             None,
-            UM_FUTURES_BASE_URL,
-            UM_FUTURES_EXCHANGE_INFO
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_EXCHANGE_INFO
         ).await?;
 
         Ok(listen_key)
@@ -203,8 +210,8 @@ impl BinanceUM {
             &self.client,
             RequestMethod::Put,
             None,
-            UM_FUTURES_BASE_URL,
-            UM_FUTURES_EXCHANGE_INFO
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_EXCHANGE_INFO
         ).await?;
 
         Ok(listen_key)
@@ -248,7 +255,7 @@ impl BinanceUM {
             _ => {
                 Ok(WsSubscription {
                     msg: None,
-                    url: UM_FUTURES_WS.to_string(),
+                    url: BINANCE_UM_FUTURES_WS.to_string(),
                 })
             },
         }
@@ -262,7 +269,7 @@ impl BinanceUM {
             Ok(listen_key) => {
                 Ok(WsSubscription {
                     msg: None,
-                    url: format!("{}/{}", UM_FUTURES_WS, listen_key.listenKey),
+                    url: format!("{}/{}", BINANCE_UM_FUTURES_WS, listen_key.listenKey),
                 })
             },
             Err(e) => Err(e)
@@ -275,22 +282,22 @@ impl BinanceUM {
         symbols: &[String],
     ) -> InfraResult<WsSubscription> {
         let channel = match candle_param {
-            Some(CandleParam::OneSecond) => FUTURE_CANDLE_SUBSCRIPTIONS[0],
-            Some(CandleParam::OneMinute) => FUTURE_CANDLE_SUBSCRIPTIONS[1],
-            Some(CandleParam::FiveMinutes) => FUTURE_CANDLE_SUBSCRIPTIONS[2],
-            Some(CandleParam::FifteenMinutes) => FUTURE_CANDLE_SUBSCRIPTIONS[3],
-            Some(CandleParam::OneHour) => FUTURE_CANDLE_SUBSCRIPTIONS[4],
-            Some(CandleParam::FourHours) => FUTURE_CANDLE_SUBSCRIPTIONS[5],
-            Some(CandleParam::OneDay) => FUTURE_CANDLE_SUBSCRIPTIONS[6],
-            Some(CandleParam::OneWeek) => FUTURE_CANDLE_SUBSCRIPTIONS[7],
-            None => FUTURE_CANDLE_SUBSCRIPTIONS[1],
+            Some(CandleParam::OneSecond) => BINANCE_CANDLE_SUBSCRIPTIONS[0],
+            Some(CandleParam::OneMinute) => BINANCE_CANDLE_SUBSCRIPTIONS[1],
+            Some(CandleParam::FiveMinutes) => BINANCE_CANDLE_SUBSCRIPTIONS[2],
+            Some(CandleParam::FifteenMinutes) => BINANCE_CANDLE_SUBSCRIPTIONS[3],
+            Some(CandleParam::OneHour) => BINANCE_CANDLE_SUBSCRIPTIONS[4],
+            Some(CandleParam::FourHours) => BINANCE_CANDLE_SUBSCRIPTIONS[5],
+            Some(CandleParam::OneDay) => BINANCE_CANDLE_SUBSCRIPTIONS[6],
+            Some(CandleParam::OneWeek) => BINANCE_CANDLE_SUBSCRIPTIONS[7],
+            None => BINANCE_CANDLE_SUBSCRIPTIONS[1],
         };
 
         let msg = self.generate_ws_subscription_msg(channel, symbols);
 
         Ok(WsSubscription {
             msg: Some(msg),
-            url: UM_FUTURES_WS.to_string(),
+            url: BINANCE_UM_FUTURES_WS.to_string(),
         })
     }
 
@@ -302,12 +309,12 @@ impl BinanceUM {
         let params: Vec<_> = symbols
             .iter()
             .map(|symbol| {
-                format!("{}_perpetual@{}", perp_to_lowercase(symbol), param)
+                format!("{}@{}", perp_to_lowercase(symbol), param)
             })
             .collect();
 
         let subscribe_msg = json!({
-            "method": SUBSCRIBE,
+            "method": "A",
             "params": params,
             "id": 1
         });

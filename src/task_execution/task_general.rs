@@ -1,13 +1,21 @@
 use std::sync::Arc;
 
-use crate::task_execution::alt_register::*;
-use crate::task_execution::ws_register::*;
+use super::{
+    task_alt::AltTaskInfo,
+    task_ws::WsTaskInfo,
+};
 
 #[derive(Clone, Debug)]
 pub enum TaskInfo {
-    WsTask(Arc<WsTaskInfo>),
     AltTask(Arc<AltTaskInfo>),
+    WsTask(Arc<WsTaskInfo>),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum LogLevel {
+    Info,
+    Warn,
+    Error,
+}
 
 

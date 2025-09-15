@@ -1,7 +1,7 @@
 use std::future::ready;
 
-use crate::errors::*;
-use crate::task_execution::ws_register::*;
+use crate::errors::{InfraError, InfraResult};
+use crate::task_execution::task_ws::{WsChannel, WsSubscription};
 
 pub trait IntoWsData {
     type Output;
