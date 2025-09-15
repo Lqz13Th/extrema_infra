@@ -22,6 +22,18 @@ pub enum TaskCommand {
     NNOutput(Arc<NeuralOutput>),
 }
 
+impl TaskCommand {
+    pub fn ack(self) -> Option<AckHandle> {
+        match self {
+            TaskCommand::Connect { ack, .. }
+            | TaskCommand::Subscribe { ack, .. }
+            | TaskCommand::Unsubscribe { ack, .. }
+            | TaskCommand::Shutdown { ack, .. } => Some(ack),
+            _ => None,
+        }
+    }
+}
+
 
 #[derive(Clone, Debug)]
 pub struct NeuralInput {

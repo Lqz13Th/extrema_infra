@@ -34,6 +34,7 @@ impl AltTaskBuilder {
     async fn consume_command(&mut self) {
         match self.cmd_rx.try_recv() {
             Ok(cmd) => {
+                println!("111111{:?}", cmd);
                 match cmd {
                     TaskCommand::Connect { msg, ack } => {
                         self.log(LogLevel::Info, &format!("Received Connect: {}", msg));
@@ -46,7 +47,7 @@ impl AltTaskBuilder {
                         ack.respond(Ok(()));
                     },
                     _ => {
-                        self.log(LogLevel::Warn, &format!("Unexpected command: {:?}", cmd));
+                        self.log(LogLevel::Warn, &format!("abs Unexpected command: {:?}", cmd));
                     }
                 }
             },
@@ -58,14 +59,38 @@ impl AltTaskBuilder {
         };
     }
 
-    fn timer_based_state(&self) {
-        println!("timer");
-        if let Some(tx) = find_timer(&self.board_cast_channel) {
-            let _ = tx.send(());
-        } else {
-            self.log(LogLevel::Warn, "No timer channel found, retrying...");
+    async fn timer_based_state(&mut self, n: u64) {
+        loop {
+            tokio::select! {
+                _ = sleep(Duration::from_millis(n)) => {
+                    println!("timer");
+                    if let Some(tx) = find_timer(&self.board_cast_channel) {
+                        let _ = tx.send(());
+                    } else {
+                        self.log(LogLevel::Warn, "No timer channel found, retrying...");
+                    }
+                },
+                result = self.cmd_rx.recv() => {
+                    match result {
+                        Some(cmd) => {
+                            self.log(
+                                    LogLevel::Warn,
+                                    &format!("Unexpected command, auto-ack: {:?}", cmd)
+                                );
+                            if let Some(ack) = cmd.ack() {
+                                ack.respond(Ok(()));
+                            }
+                        },
+                        None => {
+                            self.log(LogLevel::Error, "Command channel closed");
+                            break;
+                        },
+                    };
+                },
+            }
         }
     }
+
 
     fn neural_network(&self) {
         println!("neural network");
@@ -78,11 +103,7 @@ impl AltTaskBuilder {
                 self.log(LogLevel::Warn, &format!("Unimplemented NeuralNetwork({})", n));
             },
             AltTaskType::TimerBasedState(n) => {
-                loop {
-                    self.timer_based_state();
-                    self.consume_command().await;
-                    sleep(Duration::from_millis(n)).await;
-                }
+            self.timer_based_state(n).await;
             },
         };
     }
