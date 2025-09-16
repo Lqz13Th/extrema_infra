@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::future::{ready, Future};
 use std::sync::Arc;
 use serde_json::{from_str, json};
-use reqwest::Client;
+use reqwest::{Client, Url};
 
 use tracing::info;
 
@@ -15,6 +15,7 @@ use crate::market_assets::{
     price_data::*
 };
 use crate::market_assets::cex::binance::config_assets::{BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO};
+use crate::market_assets::cex::okx::rest::public_current_subpositions::RestSubPositionOkx;
 use crate::market_assets::cex::prelude::BinanceUmCli;
 use crate::task_execution::task_ws::*;
 
@@ -28,7 +29,7 @@ use super::{
     api_utils::*,
     config_assets::*,
     rest::{
-        account_balance::AccountBalInfo,
+        account_balance::RestAccountBalOkx,
     }
 };
 
@@ -51,7 +52,6 @@ impl CexPrivateRest for OkxCli {
     }
 }
 
-
 impl OkxCli {
     pub fn new() -> Self {
         Self {
@@ -70,7 +70,7 @@ impl OkxCli {
             "ccy": assets,
         }).to_string();
 
-        let all_balances: OkxRestRes<AccountBalInfo> = api_key
+        let all_balances: RestResOkx<RestAccountBalOkx> = api_key
             .send_signed_request(
                 &self.client,
                 RequestMethod::Get,
@@ -88,6 +88,46 @@ impl OkxCli {
             .collect();
 
         Ok(result)
+    }
+
+    pub async fn get_pub_current_subpositions(
+        &self,
+        unique_code: &str,
+        inst_type: Option<&str>,
+        limit: Option<u32>,
+        before: Option<&str>,
+        after: Option<&str>,
+    ) -> InfraResult<Vec<RestSubPositionOkx>> {
+        let inst_type = inst_type.unwrap_or("SWAP");
+
+        let mut url = format!(
+            "{}{}?uniqueCode={}&instType={}",
+            OKX_BASE_URL,
+            OKX_COPYTRADER_PUBLIC_SUBPOSITIONS,
+            unique_code,
+            inst_type
+        );
+
+        if let Some(l) = limit {
+            url.push_str(&format!("&limit={}", l));
+        }
+        if let Some(b) = before {
+            url.push_str(&format!("&before={}", b));
+        }
+        if let Some(a) = after {
+            url.push_str(&format!("&after={}", a));
+        }
+
+        let resp = self.client.get(&url).send().await?;
+        let text = resp.text().await?;
+        let result: RestResOkx<RestSubPositionOkx> = from_str(&text)?;
+
+        if result.code != "0" {
+            let msg = result.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", result.code, msg)));
+        }
+
+        Ok(result.data)
     }
 }
 

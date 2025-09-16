@@ -4,7 +4,6 @@ use tokio::sync::broadcast;
 use tracing::error;
 
 use crate::strategy_base::handler::{
-    alt_events::*,
     cex_events::*,
 };
 use crate::task_execution::{
@@ -71,15 +70,15 @@ pub(crate) async fn strategy_handler_loop<S>(
 where
     S: Strategy,
 {
-    let mut rx_alt_event = find_alt_event(&channels).map(|tx| tx.subscribe());
-    let mut rx_cex_event = find_cex_event(&channels).map(|tx| tx.subscribe());
-    let mut rx_dex_event = find_dex_event(&channels).map(|tx| tx.subscribe());
+    let mut rx_alt_event = find_alt_event(channels).map(|tx| tx.subscribe());
+    let mut rx_cex_event = find_cex_event(channels).map(|tx| tx.subscribe());
+    let mut rx_dex_event = find_dex_event(channels).map(|tx| tx.subscribe());
 
-    let mut rx_timer = find_timer(&channels).map(|tx| tx.subscribe());
+    let mut rx_timer = find_timer(channels).map(|tx| tx.subscribe());
 
-    let mut rx_trade = find_trade(&channels).map(|tx| tx.subscribe());
-    let mut rx_lob = find_lob(&channels).map(|tx| tx.subscribe());
-    let mut rx_candle = find_candle(&channels).map(|tx| tx.subscribe());
+    let mut rx_trade = find_trade(channels).map(|tx| tx.subscribe());
+    let mut rx_lob = find_lob(channels).map(|tx| tx.subscribe());
+    let mut rx_candle = find_candle(channels).map(|tx| tx.subscribe());
 
     loop {
         tokio::select! {
@@ -90,7 +89,7 @@ where
                     Ok(msg) => strategies.on_trade(msg).await,
                     Err(e) => {
                         error!("rx_trade err: {:?}, reconnecting...", e);
-                        rx_trade = find_trade(&channels).map(|tx| tx.subscribe());
+                        rx_trade = find_trade(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -99,7 +98,7 @@ where
                     Ok(msg) => strategies.on_lob(msg).await,
                     Err(e) => {
                         error!("rx_lob err: {:?}, reconnecting...", e);
-                        rx_lob = find_lob(&channels).map(|tx| tx.subscribe());
+                        rx_lob = find_lob(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -110,7 +109,7 @@ where
                     },
                     Err(e) => {
                         error!("rx_candle err: {:?}, reconnecting...", e);
-                        rx_candle = find_candle(&channels).map(|tx| tx.subscribe());
+                        rx_candle = find_candle(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -119,7 +118,7 @@ where
                     Ok(_msg) => strategies.on_timer().await,
                     Err(e) => {
                         error!("rx_timer err: {:?}, reconnecting...", e);
-                        rx_timer = find_timer(&channels).map(|tx| tx.subscribe());
+                        rx_timer = find_timer(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -128,7 +127,7 @@ where
                     Ok(msg) => {strategies.on_alt_event(msg).await},
                     Err(e) => {
                         error!("rx_alt_event err: {:?}, reconnecting...", e);
-                        rx_alt_event = find_alt_event(&channels).map(|tx| tx.subscribe());
+                        rx_alt_event = find_alt_event(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -139,7 +138,7 @@ where
                     },
                     Err(e) => {
                         error!("rx_cex_event err: {:?}, reconnecting...", e);
-                        rx_cex_event = find_cex_event(&channels).map(|tx| tx.subscribe());
+                        rx_cex_event = find_cex_event(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -148,7 +147,7 @@ where
                     Ok(msg) => strategies.on_dex_event(msg).await,
                     Err(e) => {
                         error!("rx_dex_event err: {:?}, reconnecting...", e);
-                        rx_dex_event = find_dex_event(&channels).map(|tx| tx.subscribe());
+                        rx_dex_event = find_dex_event(channels).map(|tx| tx.subscribe());
                     },
                 };
             },

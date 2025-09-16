@@ -31,6 +31,13 @@ impl EnvBuilder<HNil> {
     }
 }
 
+impl Default for EnvBuilder<HNil> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+
 impl<HeadList> EnvBuilder<HeadList> {
     pub fn with_board_cast_channel(mut self, channel: BoardCastChannel) -> Self {
         let channel_type_exists = self.board_cast_channels.iter().any(|ch| {

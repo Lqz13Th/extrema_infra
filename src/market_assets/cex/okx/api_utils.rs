@@ -2,9 +2,10 @@ use serde::Deserialize;
 use tracing::error;
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub struct OkxRestRes<T> {
+pub struct RestResOkx<T> {
     pub code: String,
     pub data: Vec<T>,
+    pub msg: Option<String>,
 }
 
 

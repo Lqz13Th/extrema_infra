@@ -7,6 +7,12 @@ edition = "2024"
 name = "extrema_infra"
 path = "src/lib.rs"
 
+[features]
+all = ["binance", "okx"]
+default = ["binance"]
+binance = []
+okx = []
+
 [dependencies]
 # Networking
 reqwest = { version = "0.12.23", features = ["json"] }

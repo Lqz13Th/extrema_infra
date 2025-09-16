@@ -1,9 +1,7 @@
 use std::sync::Arc;
-use tokio::sync::oneshot;
-use tracing::{error, info, warn};
+use tracing::info;
 
 use extrema_infra::prelude::*;
-use extrema_infra::market_assets::cex::prelude::*;
 
 #[derive(Clone)]
 struct EmptyStrategy;

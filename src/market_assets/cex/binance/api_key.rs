@@ -16,12 +16,12 @@ use crate::market_assets::api_general::*;
 #[allow(dead_code)]
 pub fn read_binance_env_key() -> InfraResult<BinanceKey> {
     let _ = dotenv::dotenv();
-    
+
     let api_key = std::env::var("BINANCE_API_KEY")
         .map_err(|_| InfraError::EnvVarMissing("BINANCE_API_KEY".to_string()))?;
     let secret_key = std::env::var("BINANCE_SECRET_KEY")
         .map_err(|_| InfraError::EnvVarMissing("BINANCE_SECRET_KEY".to_string()))?;
-    
+
     Ok(BinanceKey::new(&api_key, &secret_key))
 }
 
@@ -135,13 +135,13 @@ impl BinanceKey {
 
         let response = match method {
             RequestMethod::Get => {
-                self.get_request(&client, &signature, args, &url).await?
+                self.get_request(client, &signature, args, &url).await?
             },
             RequestMethod::Put => {
-                self.put_request(&client, &signature, args, &url).await?
+                self.put_request(client, &signature, args, &url).await?
             },
             RequestMethod::Post => {
-                self.post_request(&client, &signature, args, &url).await?
+                self.post_request(client, &signature, args, &url).await?
             },
         };
 
@@ -159,7 +159,7 @@ fn binance_build_full_url(
         Some(query) => format!(
             "{}?{}&timestamp={}&signature={}",
             url,
-            query.to_string(),
+            query,
             signature.timestamp,
             signature.signature
         ),

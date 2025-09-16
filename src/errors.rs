@@ -14,6 +14,9 @@ pub enum InfraError {
     #[error("JSON parse error: {0}")]
     Json(#[from] SerdeJsonError),
 
+    #[error("API returned error: {0}")]
+    ApiError(String),
+
     #[error("Failed to parse received data: {0}")]
     ParseData(String),
 

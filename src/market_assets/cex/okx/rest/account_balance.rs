@@ -4,7 +4,7 @@ use crate::market_assets::account_data::BalanceData;
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Default, Deserialize)]
-pub struct AccountBalInfo {
+pub struct RestAccountBalOkx {
     pub details: Vec<AccountBalDetails>
 }
 
