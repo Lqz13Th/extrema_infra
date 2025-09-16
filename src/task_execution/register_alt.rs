@@ -3,12 +3,10 @@ use std::time::Duration;
 
 use tokio::{
     time::sleep,
-    sync::{broadcast, mpsc}
+    sync::mpsc
 };
-use tokio::sync::mpsc::error::TryRecvError;
 use tracing::{error, info, warn};
 
-use crate::errors::{InfraError, InfraResult};
 use crate::strategy_base::{
     command::command_core::TaskCommand,
     handler::handler_core::{find_timer, BoardCastChannel}
@@ -24,46 +22,17 @@ use super::{
 #[derive(Debug)]
 pub(crate) struct AltTaskBuilder {
     #[warn(dead_code)]
-    pub(crate) cmd_rx: mpsc::Receiver<TaskCommand>,
-    pub(crate) board_cast_channel: Arc<Vec<BoardCastChannel>>,
-    pub(crate) alt_info: Arc<AltTaskInfo>,
+    pub cmd_rx: mpsc::Receiver<TaskCommand>,
+    pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
+    pub alt_info: Arc<AltTaskInfo>,
 }
 
 
 impl AltTaskBuilder {
-    async fn consume_command(&mut self) {
-        match self.cmd_rx.try_recv() {
-            Ok(cmd) => {
-                println!("111111{:?}", cmd);
-                match cmd {
-                    TaskCommand::Connect { msg, ack } => {
-                        self.log(LogLevel::Info, &format!("Received Connect: {}", msg));
-                        ack.respond(Ok(()));
-                    },
-                    TaskCommand::Subscribe { msg, ack } |
-                    TaskCommand::Unsubscribe { msg, ack } |
-                    TaskCommand::Shutdown { msg, ack } => {
-                        self.log(LogLevel::Warn, &format!("Unexpected command: {:?}", msg));
-                        ack.respond(Ok(()));
-                    },
-                    _ => {
-                        self.log(LogLevel::Warn, &format!("abs Unexpected command: {:?}", cmd));
-                    }
-                }
-            },
-            Err(TryRecvError::Empty) => {
-            },
-            Err(TryRecvError::Disconnected) => {
-                self.log(LogLevel::Error, "Command channel disconnected");
-            },
-        };
-    }
-
     async fn timer_based_state(&mut self, n: u64) {
         loop {
             tokio::select! {
-                _ = sleep(Duration::from_millis(n)) => {
-                    println!("timer");
+                _ = sleep(Duration::from_secs(n)) => {
                     if let Some(tx) = find_timer(&self.board_cast_channel) {
                         let _ = tx.send(());
                     } else {
@@ -111,7 +80,7 @@ impl AltTaskBuilder {
     pub(crate) async fn alt_mid_relay(
         &mut self,
     ) {
-        let sleep_interval = Duration::from_secs(1);
+        let sleep_interval = Duration::from_secs(5);
         self.log(LogLevel::Info, "Spawned alt task");
         loop {
             sleep(sleep_interval).await;

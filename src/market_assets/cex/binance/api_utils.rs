@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use tracing::error;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
@@ -6,24 +7,21 @@ pub struct BinanceListenKey {
     pub listenKey: String,
 }
 
-pub fn binance_um_to_perp_symbol(symbol: &str) -> String {
+pub fn binance_um_to_cli_perp(symbol: &str) -> String {
     let upper = symbol.to_uppercase();
-    let len = upper.len();
-
-    if len >= 4 {
-        let last4 = &upper[len - 4..];
-        if last4 == "USDT" || last4 == "USDC" {
-            let base = &upper[..len - 4];
-            return format!("{}_{}_PERP", base, last4);
+    if upper.ends_with("USDT") || upper.ends_with("USDC") {
+        let base = &upper[..upper.len() - 4];
+        if base.is_empty() {
+            error!("Invalid binance um symbol: {}", symbol);
+            return symbol.to_string();
         }
+        return format!("{}_{}_PERP", base, &upper[upper.len() - 4..]);
     }
-
     upper
 }
 
-pub fn perp_to_lowercase(symbol: &str) -> String {
-    let upper = symbol.to_uppercase();
-    let cleaned = upper.strip_suffix("_PERP").unwrap_or(&upper); 
+pub fn cli_perp_to_pure_lowercase(symbol: &str) -> String {
+    let cleaned = symbol.strip_suffix("_PERP").unwrap_or(&symbol);
     cleaned.replace("_", "").to_lowercase()
 }
 

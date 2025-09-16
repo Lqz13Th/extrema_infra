@@ -10,7 +10,6 @@ use crate::strategy_base::{
     }
 };
 use crate::task_execution::{
-    task_general::TaskInfo,
     task_alt::AltTaskInfo,
     task_ws::WsTaskInfo,
 };

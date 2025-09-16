@@ -1,5 +1,4 @@
-use sha2::Sha256;
-use hmac::{Hmac, Mac};
+use hmac::Mac;
 use data_encoding::HEXUPPER;
 
 use serde::{
@@ -13,21 +12,20 @@ use reqwest::Client;
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::api_general::*;
 
-type HmacSha256 = Hmac<Sha256>;
 
-pub fn read_binance_env_key() -> BinanceKey {
-    dotenv::dotenv().expect("Failed to read .env file");
-
+#[allow(dead_code)]
+pub fn read_binance_env_key() -> InfraResult<BinanceKey> {
+    let _ = dotenv::dotenv();
+    
     let api_key = std::env::var("BINANCE_API_KEY")
-        .expect("BINANCE_API_KEY not set");
-
+        .map_err(|_| InfraError::EnvVarMissing("BINANCE_API_KEY".to_string()))?;
     let secret_key = std::env::var("BINANCE_SECRET_KEY")
-        .expect("BINANCE_SECRET_KEY not set");
-
-    BinanceKey::new(&api_key, &secret_key)
+        .map_err(|_| InfraError::EnvVarMissing("BINANCE_SECRET_KEY".to_string()))?;
+    
+    Ok(BinanceKey::new(&api_key, &secret_key))
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BinanceKey {
     pub api_key: String,
     pub secret_key: String,
@@ -121,7 +119,7 @@ impl BinanceKey {
         Ok(res.text().await?)
     }
 
-    pub(crate) async fn send_request<T>(
+    pub(crate) async fn send_signed_request<T>(
         &self,
         client: &Client,
         method: RequestMethod,

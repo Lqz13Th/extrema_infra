@@ -9,7 +9,6 @@ use crate::market_assets::{
     api_general::RequestMethod,
     base_data::*,
     account_data::*,
-    price_data::*
 };
 use crate::task_execution::task_ws::*;
 
@@ -26,72 +25,31 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub struct BinanceUM {
+pub struct BinanceUmCli {
     pub client: Client,
     pub api_key: Option<BinanceKey>,
 }
 
-impl BinanceUM {
-    pub fn new() -> Self {
-        Self {
-            client: Client::new(),
-            api_key: None
-        }
-    }
-}
-
-impl MarketCexApi for BinanceUM {}
+impl MarketCexApi for BinanceUmCli {}
 
 
-impl CexPublicRest for BinanceUM {
-    async fn get_ticker(
-        &self,
-        symbols: Vec<String>,
-    ) -> InfraResult<Vec<TickerData>> {
-        self.get_spot_ticker(symbols).await
-    }
-
-    async fn get_orderbook(
-        &self,
-        symbols: Vec<String>,
-        depth: usize,
-    ) -> InfraResult<Vec<OrderBookData>> {
-        self.get_spot_orderbook(symbols, depth).await
-    }
-
-    async fn get_candles(
-        &self,
-        symbols: Vec<String>,
-        interval: &str,
-    ) -> InfraResult<Vec<CandleData>> {
-        self.get_spot_candles(symbols, interval).await
-    }
-
+impl CexPublicRest for BinanceUmCli {
     async fn get_live_symbols(&self) -> InfraResult<Vec<String>>{
         self.get_live_symbols().await
     }
 }
 
-impl CexPrivateRest for BinanceUM {
-    async fn place_order(
-        &self,
-        symbol: String,
-        side: String,
-        price: Option<f64>,
-        quantity: f64,
-    ) -> InfraResult<OrderData> {
-        self.place_spot_order(symbol, side, price, quantity).await
-    }
+impl CexPrivateRest for BinanceUmCli {
 
     async fn get_balance(
         &self,
         assets: Vec<String>,
     ) -> InfraResult<Vec<BalanceData>> {
-        self.get_spot_balance(assets).await
+        self.get_balance(assets).await
     }
 }
 
-impl WsSubscribe for BinanceUM {
+impl WsSubscribe for BinanceUmCli {
     async fn ws_cex_pub_subscription(
         &self,
         ws_channel: &WsChannel,
@@ -108,37 +66,21 @@ impl WsSubscribe for BinanceUM {
     }
 }
 
-impl BinanceUM {
-    async fn get_spot_ticker(&self, symbols: Vec<String>) -> InfraResult<Vec<TickerData>> {
-        // TODO: 调用 SPOT ticker endpoint
-        todo!()
+impl BinanceUmCli {
+    pub fn new() -> Self {
+        Self {
+            client: Client::new(),
+            api_key: None
+        }
     }
 
-    async fn get_spot_orderbook(
-        &self,
-        symbols: Vec<String>,
-        depth: usize
-    ) -> InfraResult<Vec<OrderBookData>> {
-        // TODO: 调用 SPOT orderbook endpoint
-        todo!()
-    }
-
-    async fn get_spot_candles(
-        &self,
-        symbols: Vec<String>,
-        interval: &str
-    ) -> InfraResult<Vec<CandleData>> {
-        // TODO: 调用 SPOT Kline endpoint
-        todo!()
-    }
-
-    async fn get_spot_balance(
+    async fn get_balance(
         &self,
         assets: Vec<String>,
     ) -> InfraResult<Vec<BalanceData>> {
         let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
 
-        let all_balances: Vec<BalanceData> = api_key.send_request(
+        let all_balances: Vec<BalanceData> = api_key.send_signed_request(
             &self.client,
             RequestMethod::Get,
             None,
@@ -158,17 +100,6 @@ impl BinanceUM {
         Ok(filtered)
     }
 
-    async fn place_spot_order(
-        &self,
-        symbol: String,
-        side: String,
-        price: Option<f64>,
-        quantity: f64,
-    ) -> InfraResult<OrderData> {
-        // TODO: 调用 SPOT 下单 endpoint
-        todo!()
-    }
-
     async fn get_live_symbols(&self) -> InfraResult<Vec<String>> {
         let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO].concat();
 
@@ -183,7 +114,7 @@ impl BinanceUM {
         let perp_symbols: Vec<String> = res.symbols
             .into_iter()
             .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
-            .map(|s| binance_um_to_perp_symbol(&s.symbol))
+            .map(|s| binance_um_to_cli_perp(&s.symbol))
             .collect();
 
         Ok(perp_symbols)
@@ -192,7 +123,7 @@ impl BinanceUM {
     pub async fn create_listen_key(&self) -> InfraResult<BinanceListenKey> {
         let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
 
-        let listen_key: BinanceListenKey = api_key.send_request(
+        let listen_key: BinanceListenKey = api_key.send_signed_request(
             &self.client,
             RequestMethod::Post,
             None,
@@ -206,7 +137,7 @@ impl BinanceUM {
     pub async fn renew_listen_key(&self) -> InfraResult<BinanceListenKey> {
         let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
 
-        let listen_key: BinanceListenKey = api_key.send_request(
+        let listen_key: BinanceListenKey = api_key.send_signed_request(
             &self.client,
             RequestMethod::Put,
             None,
@@ -224,22 +155,22 @@ impl BinanceUM {
     ) -> InfraResult<WsSubscription> {
         match ws_channel {
             WsChannel::Account => {
-                todo!()
+                Err(InfraError::Unimplemented)
             },
             WsChannel::Candle(channel) => {
                 self.ws_candle_subscription(channel, symbols)
             },
             WsChannel::Trades(_) => {
-                todo!()
+                Err(InfraError::Unimplemented)
             },
             WsChannel::Tick => {
-                todo!()
+                Err(InfraError::Unimplemented)
             },
             WsChannel::Lob => {
-                todo!()
+                Err(InfraError::Unimplemented)
             },
             WsChannel::Other(_) => {
-                todo!()
+                Err(InfraError::Unimplemented)
             },
         }
     }
@@ -309,12 +240,12 @@ impl BinanceUM {
         let params: Vec<_> = symbols
             .iter()
             .map(|symbol| {
-                format!("{}@{}", perp_to_lowercase(symbol), param)
+                format!("{}@{}", cli_perp_to_pure_lowercase(symbol), param)
             })
             .collect();
 
         let subscribe_msg = json!({
-            "method": "A",
+            "method": SUBSCRIBE,
             "params": params,
             "id": 1
         });

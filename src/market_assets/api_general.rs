@@ -2,6 +2,8 @@ use std::{
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},
 };
+use hmac::Hmac;
+use sha2::Sha256;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -9,6 +11,8 @@ pub struct Signature<T> {
     pub signature: String,
     pub timestamp: T,
 }
+
+pub type HmacSha256 = Hmac<Sha256>;
 
 pub enum RequestMethod {
     Get,

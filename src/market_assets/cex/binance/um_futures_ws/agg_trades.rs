@@ -3,11 +3,12 @@ use serde::Deserialize;
 use crate::strategy_base::handler::cex_events::*;
 use crate::market_assets::{
     base_data::*,
-    cex::binance::api_utils::binance_um_to_perp_symbol
+    cex::binance::api_utils::binance_um_to_cli_perp
 };
 use crate::market_assets::market_core::Market;
 use crate::traits::conversion::IntoWsData;
 
+#[allow(dead_code)]
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(crate) struct WsAggTradeBinanceUM {
@@ -30,7 +31,7 @@ impl IntoWsData for WsAggTradeBinanceUM {
         let trade = WsTrade {
             timestamp: self.T,
             market: Market::BinanceUmFutures,
-            symbol: binance_um_to_perp_symbol(&self.s),
+            symbol: binance_um_to_cli_perp(&self.s),
             price: self.p.parse().unwrap_or(0.0),
             size: self.q.parse().unwrap_or(0.0),
             side: if self.m { Side::SELL } else { Side::BUY },

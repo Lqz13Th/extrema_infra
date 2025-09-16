@@ -24,7 +24,6 @@ where
 {
     pub async fn execute(mut self) {
         let handles = self.register_tasks();
-        println!("handles: {:?}", handles);
         for handle in &handles {
             self.core.strategy.command_init(handle.clone());
         }

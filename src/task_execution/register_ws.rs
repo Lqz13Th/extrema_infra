@@ -81,9 +81,7 @@ impl WsTaskBuilder {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
                             debug!(text = %text, "Received message");
-                            warn!("Received message: {:?}", text);
                             if let Ok(parsed_raw) = from_slice::<WsData>(text.as_bytes()) {
-                                debug!("{:?}", parsed_raw);
                                 let parsed = parsed_raw.into_ws();
                                 let _ = tx.send(Arc::new(parsed));
 
@@ -118,7 +116,6 @@ impl WsTaskBuilder {
                 cmd = self.cmd_rx.recv() => {
                     match cmd {
                         Some(TaskCommand::Subscribe { msg, ack }) => {
-                            error!("msg: 123123123 {:?}", msg.clone());
                             if ws_write.send(Message::text(msg.clone())).await.is_err() {
                                 self.log(
                                     LogLevel::Error,
@@ -152,7 +149,7 @@ impl WsTaskBuilder {
         }
     }
 
-    pub(crate) async fn ws_channel_distribution(
+    async fn ws_channel_distribution(
         &mut self,
         ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
     ) {
@@ -199,31 +196,28 @@ impl WsTaskBuilder {
             },
         };
 
-        self.log(
-            LogLevel::Warn,
-            "Close"
-        );
-        println!("{:?}", self.ws_info);
+        self.ws_cex_event()
+    }
 
+    fn ws_cex_event(&self) {
         if let Some(tx) = find_cex_event(&self.board_cast_channel) {
-            match tx.send(self.ws_info.clone()) {
-                Ok(n) => println!("[BinanceStrategy] CEX send ok, {} subscribers", n),
-                Err(e) => println!("[BinanceStrategy] CEX send failed: {:?}", e),
+            if let Err(e) = tx.send(self.ws_info.clone()) {
+                self.log(LogLevel::Warn, &format!("CEX event send failed: {:?}", e));
             }
+        } else {
+            self.log(LogLevel::Warn, "No broadcast channel found for CEX event");
         }
     }
 
     pub(crate) async fn ws_mid_relay(&mut self) {
         let sleep_interval = Duration::from_secs(5 + 3 * self.task_numb);
-        self.log(LogLevel::Info, "Spawned ws task");
+        self.log(LogLevel::Info, "Spawned rest task");
 
         loop {
-            println!("hh");
             sleep(sleep_interval).await;
             self.log(LogLevel::Info, "Initiated");
 
             let initial_command = self.cmd_rx.recv().await;
-            error!("Initial command: {:?}", initial_command);
             let (url, ack) = match initial_command {
                 Some(TaskCommand::Connect { msg, ack }) => (msg, ack),
                 Some(cmd) => {
@@ -239,21 +233,17 @@ impl WsTaskBuilder {
                 },
             };
 
-
             let ws_stream = match self.connect_websocket(&url).await {
                 Ok(ws) => ws,
                 Err(e) => {
-                    self.log(LogLevel::Error, &format!("Failed to connect ws: {:?}", e));
+                    self.log(LogLevel::Error, &format!("Failed to connect rest: {:?}", e));
                     sleep(Duration::from_secs(5)).await;
                     continue;
                 }
             };
 
             ack.respond(Ok(()));
-            self.log(LogLevel::Error, &format!("Connected: {}", url));
-
             self.ws_channel_distribution(ws_stream).await;
-            // sleep(Duration::from_secs(5)).await;
         }
     }
 

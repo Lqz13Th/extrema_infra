@@ -50,6 +50,9 @@ pub enum InfraError {
     #[error("WebSocket disconnected, need reconnect")]
     WsDisconnected,
 
+    #[error("Environment variable missing: {0}")]
+    EnvVarMissing(String),
+
     #[error("Other error: {0}")]
     Other(String),
 }
