@@ -6,7 +6,7 @@ pub const BINANCE_SPOT_MY_TRADES: &str = "/api/v3/myTrades";
 pub const SPOT_USER_DATA_STREAM: &str = "/api/v3/userDataStream";
 
 /// # UmFutures API
-pub const BINANCE_UM_FUTURES_WS: &str = "wss://fstream.binance.com/rest";
+pub const BINANCE_UM_FUTURES_WS: &str = "wss://fstream.binance.com/ws";
 pub const BINANCE_UM_FUTURES_BASE_URL: &str = "https://fapi.binance.com";
 pub const BINANCE_UM_FUTURES_EXCHANGE_INFO: &str = "/fapi/v1/exchangeInfo";
 pub const BINANCE_UM_FUTURES_ACCOUNT_INFO: &str = "/fapi/v3/account";

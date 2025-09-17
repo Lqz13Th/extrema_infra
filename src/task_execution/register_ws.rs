@@ -4,11 +4,8 @@ use serde::de::DeserializeOwned;
 use futures_util::{SinkExt, StreamExt};
 use tokio::{
     sync::{broadcast, mpsc},
+    time::{sleep, Duration},
     net::TcpStream,
-    time::{
-        sleep,
-        Duration,
-    },
 };
 use tokio_tungstenite::{
     connect_async,
@@ -24,7 +21,7 @@ use crate::market_assets::{
     market_core::Market,
     cex::{
         binance::{
-            ws_msg_general::BinanceWsData,
+            binance_ws_msg::BinanceWsData,
             um_futures_ws::{
                 agg_trades::WsAggTradeBinanceUM,
                 candles::WsCandleBinanceUM,
@@ -61,7 +58,7 @@ impl WsTaskBuilder {
             .await
             .map_err(|e| {
                 error!("WebSocket connection failed: {:?}", e);
-                InfraError::WebSocket(e)
+                InfraError::WebSocket(Box::new(e))
             })?;
         Ok(ws_stream)
     }
@@ -195,8 +192,6 @@ impl WsTaskBuilder {
                 );
             },
         };
-
-        self.ws_cex_event()
     }
 
     fn ws_cex_event(&self) {
@@ -214,7 +209,9 @@ impl WsTaskBuilder {
         self.log(LogLevel::Info, "Spawned rest task");
 
         loop {
+            self.ws_cex_event();
             sleep(sleep_interval).await;
+
             self.log(LogLevel::Info, "Initiated");
 
             let initial_command = self.cmd_rx.recv().await;
@@ -236,7 +233,7 @@ impl WsTaskBuilder {
             let ws_stream = match self.connect_websocket(&url).await {
                 Ok(ws) => ws,
                 Err(e) => {
-                    self.log(LogLevel::Error, &format!("Failed to connect rest: {:?}", e));
+                    self.log(LogLevel::Error, &format!("Failed to connect ws: {:?}", e));
                     sleep(Duration::from_secs(5)).await;
                     continue;
                 }
@@ -244,6 +241,7 @@ impl WsTaskBuilder {
 
             ack.respond(Ok(()));
             self.ws_channel_distribution(ws_stream).await;
+
         }
     }
 

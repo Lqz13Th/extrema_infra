@@ -64,7 +64,7 @@ impl OkxKey {
         uri: &str,
         body: Option<&str>
     ) -> InfraResult<Signature<String>> {
-        let timestamp = get_timestamp();
+        let timestamp = get_mills_timestamp();
 
         let raw_sign = match body {
             Some(b) => format!("{}{}{}{}", timestamp, method, uri, b),
@@ -90,10 +90,9 @@ impl OkxKey {
             .header("Content-Type", "application/json")
             .body(body)
             .send()
-            .await
-            .map_err(|e| InfraError::RestApi(e))?;
+            .await?;
 
-        Ok(res.text().await.map_err(|e| InfraError::RestApi(e))?)
+        Ok(res.text().await?)
     }
 
     pub(crate) async fn get_request(
@@ -112,10 +111,9 @@ impl OkxKey {
             .header("Content-Type", "application/json")
             .body(body)
             .send()
-            .await
-            .map_err(|e| InfraError::RestApi(e))?;
+            .await?;
 
-        Ok(res.text().await.map_err(|e| InfraError::RestApi(e))?)
+        Ok(res.text().await?)
     }
 
     pub(crate) async fn put_request(
@@ -134,10 +132,9 @@ impl OkxKey {
             .header("Content-Type", "application/json")
             .body(body)
             .send()
-            .await
-            .map_err(|e| InfraError::RestApi(e))?;
+            .await?;
 
-        Ok(res.text().await.map_err(|e| InfraError::RestApi(e))?)
+        Ok(res.text().await?)
     }
 
     pub(crate) async fn send_signed_request<T>(
@@ -168,7 +165,7 @@ impl OkxKey {
             },
         };
 
-        let result: T = from_str(&response).map_err(|e| InfraError::Json(e))?;
+        let result: T = from_str(&response)?;
         Ok(result)
     }
 }

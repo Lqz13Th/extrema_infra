@@ -7,9 +7,13 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
+use crate::market_assets::api_general::get_micros_timestamp;
 use crate::strategy_base::{
     command::command_core::TaskCommand,
-    handler::handler_core::{find_timer, BoardCastChannel}
+    handler::{
+        alt_events::AltTimerEvent,
+        handler_core::{find_timer, BoardCastChannel}
+    }
 };
 use super::{
     task_general::LogLevel,
@@ -29,27 +33,32 @@ pub(crate) struct AltTaskBuilder {
 
 
 impl AltTaskBuilder {
+    fn handle_cmd(&self, cmd: TaskCommand) {
+        self.log(LogLevel::Warn, &format!("Unexpected command, auto-ack: {:?}", cmd));
+        if let Some(ack) = cmd.ack() {
+            ack.respond(Ok(()));
+        }
+    }
+
     async fn timer_based_state(&mut self, n: u64) {
+        let mut interval = tokio::time::interval(Duration::from_secs(n));
+
         loop {
             tokio::select! {
-                _ = sleep(Duration::from_secs(n)) => {
+                _ = interval.tick() => {
                     if let Some(tx) = find_timer(&self.board_cast_channel) {
-                        let _ = tx.send(());
+                        let timer_event = AltTimerEvent {
+                            timestamp: get_micros_timestamp(),
+                            interval_sec: n,
+                        };
+                        let _ = tx.send(Arc::new(timer_event));
                     } else {
                         self.log(LogLevel::Warn, "No timer channel found, retrying...");
                     }
                 },
                 result = self.cmd_rx.recv() => {
                     match result {
-                        Some(cmd) => {
-                            self.log(
-                                    LogLevel::Warn,
-                                    &format!("Unexpected command, auto-ack: {:?}", cmd)
-                                );
-                            if let Some(ack) = cmd.ack() {
-                                ack.respond(Ok(()));
-                            }
-                        },
+                        Some(cmd) => self.handle_cmd(cmd),
                         None => {
                             self.log(LogLevel::Error, "Command channel closed");
                             break;

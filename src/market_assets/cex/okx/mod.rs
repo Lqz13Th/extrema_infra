@@ -1,5 +1,9 @@
-mod okx_cli;
 mod api_key;
-mod config_assets;
-mod api_utils;
+pub mod api_utils;
+pub mod config_assets;
+pub mod okx_ws_msg;
+
+
+pub mod okx_cli;
 mod rest;
+mod ws;

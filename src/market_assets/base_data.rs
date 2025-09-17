@@ -1,4 +1,13 @@
-#[derive(Debug, Clone,PartialEq, Eq, Hash, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum InstrumentType {
+    Spot,
+    Perpetual,
+    Option,
+}
+
+#[derive(Clone, Debug, Default)]
 pub enum SymbolStatus {
     #[default]
     Live,
@@ -7,34 +16,43 @@ pub enum SymbolStatus {
     Closed,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Side {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OrderStatus {
+    Live,
+    PartiallyFilled,
+    Filled,
+    Canceled,
+    Rejected,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OrderSide {
     BUY,
     SELL,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PositionSide {
     Long,
     Short,
-    Both,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MarginMode {
     Cross,
     Isolated,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum OrderType {
-    MarketOrder,
-    LimitOrder,
-    TriggerOrder,
-    PostOnlyOrder,
+    Market,
+    Limit,
+    PostOnly,
+    Fok,
+    Ioc,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TimeInForce {
     GTC,
     IOC,

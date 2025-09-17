@@ -4,6 +4,7 @@ use tokio::sync::broadcast;
 use tracing::error;
 
 use crate::strategy_base::handler::{
+    alt_events::*,
     cex_events::*,
 };
 use crate::task_execution::{
@@ -17,10 +18,10 @@ pub enum BoardCastChannel {
     Alt(broadcast::Sender<Arc<AltTaskInfo>>),
     Cex(broadcast::Sender<Arc<WsTaskInfo>>),
     Dex(broadcast::Sender<Arc<WsTaskInfo>>),
-    Timer(broadcast::Sender<()>),
-    Candle(broadcast::Sender<Arc<Vec<WsCandle>>>),
+    Timer(broadcast::Sender<Arc<AltTimerEvent>>),
     Trade(broadcast::Sender<Arc<Vec<WsTrade>>>),
     Lob(broadcast::Sender<Arc<Vec<WsLob>>>),
+    Candle(broadcast::Sender<Arc<Vec<WsCandle>>>),
 }
 
 impl BoardCastChannel {
@@ -115,7 +116,7 @@ where
             },
             msg = recv_or_pending(&mut rx_timer) => {
                 match msg {
-                    Ok(_msg) => strategies.on_timer().await,
+                    Ok(msg) => strategies.on_timer(msg).await,
                     Err(e) => {
                         error!("rx_timer err: {:?}, reconnecting...", e);
                         rx_timer = find_timer(channels).map(|tx| tx.subscribe());
@@ -197,7 +198,7 @@ pub(crate) fn find_lob(
 
 pub(crate) fn find_timer(
     channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<()>> {
+) -> Option<broadcast::Sender<Arc<AltTimerEvent>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Timer(tx) = ch {
             Some(tx.clone())

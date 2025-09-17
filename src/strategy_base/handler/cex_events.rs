@@ -4,14 +4,14 @@ use crate::market_assets::{
 };
 use crate::task_execution::task_ws::CandleParam;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct WsTrade {
     pub timestamp: u64,
     pub market: Market,
     pub symbol: String,
     pub price: f64,
     pub size: f64,
-    pub side: Side,
+    pub side: OrderSide,
     pub trade_id: u64,
 }
 
@@ -37,4 +37,19 @@ pub struct WsCandle {
     pub volume: f64,
     pub confirm: bool,
 }
+
+#[derive(Clone, Debug)]
+pub struct WsAccountOrder {
+    pub timestamp: u64,
+    pub market: Market,
+    pub symbol: String,
+    pub price: f64,
+    pub size: f64,
+    pub filled_size: f64,
+    pub side: OrderSide,
+    pub status: OrderStatus,
+    pub order_type: OrderType,
+    pub client_id: Option<String>,
+}
+
 

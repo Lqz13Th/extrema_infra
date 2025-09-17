@@ -42,7 +42,7 @@ pub enum TradesParam {
 }
 
 impl CandleParam {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn from_candle_str(s: &str) -> Option<Self> {
         match s {
             "1s" => Some(CandleParam::OneSecond),
             "1m" => Some(CandleParam::OneMinute),

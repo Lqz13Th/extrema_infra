@@ -2,7 +2,8 @@ use serde::Deserialize;
 
 use crate::market_assets::{
     market_core::Market,
-    cex::binance::api_utils::binance_um_to_cli_perp
+    api_general::ts_to_micros,
+    cex::binance::api_utils::binance_um_to_cli_perp,
 };
 use crate::strategy_base::handler::cex_events::WsCandle;
 use crate::task_execution::task_ws::CandleParam;
@@ -30,13 +31,13 @@ pub(crate) struct KlineDetails {
 }
 
 impl IntoWsData for WsCandleBinanceUM {
-    type Output = Vec<WsCandle>;
-    fn into_ws(self) -> Vec<WsCandle> {
-        let candle = WsCandle {
-            timestamp: self.k.t,
+    type Output = WsCandle;
+    fn into_ws(self) -> WsCandle {
+        WsCandle {
+            timestamp: ts_to_micros(self.k.t),
             market: Market::BinanceUmFutures,
             symbol: binance_um_to_cli_perp(&self.s),
-            interval: CandleParam::from_str(&self.k.i)
+            interval: CandleParam::from_candle_str(&self.k.i)
                 .unwrap_or(CandleParam::OneMinute),
             open: self.k.o.parse().unwrap_or(0.0),
             high: self.k.h.parse().unwrap_or(0.0),
@@ -44,8 +45,6 @@ impl IntoWsData for WsCandleBinanceUM {
             close: self.k.c.parse().unwrap_or(0.0),
             volume: self.k.v.parse().unwrap_or(0.0),
             confirm: self.k.x,
-        };
-
-        vec![candle]
+        }
     }
 }

@@ -21,7 +21,7 @@ pub fn binance_um_to_cli_perp(symbol: &str) -> String {
 }
 
 pub fn cli_perp_to_pure_lowercase(symbol: &str) -> String {
-    let cleaned = symbol.strip_suffix("_PERP").unwrap_or(&symbol);
+    let cleaned = symbol.strip_suffix("_PERP").unwrap_or(symbol);
     cleaned.replace("_", "").to_lowercase()
 }
 

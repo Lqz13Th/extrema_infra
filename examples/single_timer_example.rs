@@ -13,8 +13,11 @@ impl Strategy for EmptyStrategy {
 }
 impl EventHandler for EmptyStrategy {}
 impl AltEventHandler for EmptyStrategy {
-    async fn on_timer(&mut self) {
-        println!("[EmptyStrategy] Timer")
+    async fn on_timer(
+        &mut self,
+        msg: Arc<AltTimerEvent>,
+    ) {
+        info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
     }
 }
 impl CexEventHandler for EmptyStrategy {}

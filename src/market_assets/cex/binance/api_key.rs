@@ -55,10 +55,10 @@ impl BinanceKey {
     }
 
     fn sign_now(&self, query_string: Option<&Value>) -> InfraResult<Signature<u64>> {
-        let timestamp = get_timestamp();
+        let timestamp = get_mills_timestamp();
 
         let query_with_timestamp = match query_string {
-            Some(query) => format!("{}&timestamp={}", query.to_string(), timestamp),
+            Some(query) => format!("{}&timestamp={}", query, timestamp),
             None => format!("timestamp={}", timestamp),
         };
 

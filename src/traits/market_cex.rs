@@ -5,7 +5,7 @@ use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
     account_data::*,
     price_data::*,
-    rules_data::*,
+    utils_data::*,
 };
 
 pub trait MarketCexApi: CexPublicRest + CexPrivateRest {}

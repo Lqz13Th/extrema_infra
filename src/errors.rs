@@ -1,7 +1,8 @@
 use thiserror::Error;
 use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
-use tungstenite::error::Error as WsError;
+use tungstenite::Error as WsError;
+
 
 #[derive(Error, Debug)]
 pub enum InfraError {
@@ -9,7 +10,7 @@ pub enum InfraError {
     RestApi(#[from] ReqwestError),
 
     #[error("WebSocket error: {0}")]
-    WebSocket(#[from] WsError),
+    WebSocket(#[from] Box<WsError>),
 
     #[error("JSON parse error: {0}")]
     Json(#[from] SerdeJsonError),

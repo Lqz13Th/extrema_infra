@@ -20,6 +20,7 @@ pub use crate::strategy_base::{
         command_core::*,
     },
     handler::{
+        alt_events::*,
         cex_events::*,
         handler_core::*,
     },

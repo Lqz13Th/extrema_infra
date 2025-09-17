@@ -66,6 +66,12 @@ impl WsSubscribe for BinanceUmCli {
     }
 }
 
+impl Default for BinanceUmCli {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BinanceUmCli {
     pub fn new() -> Self {
         Self {

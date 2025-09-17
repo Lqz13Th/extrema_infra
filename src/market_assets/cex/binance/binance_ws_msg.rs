@@ -7,8 +7,9 @@ use crate::traits::conversion::IntoWsData;
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum BinanceWsData<T> {
-    SubscriptionResult(BinanceWsRes),
-    ChannelData(T),
+    ChannelSingle(T),
+    ChannelBatch(Vec<T>),
+    Event(BinanceWsRes),
 }
 
 #[derive(Debug, Deserialize)]
@@ -26,16 +27,14 @@ pub struct BinanceWsError {
 impl<T> IntoWsData for BinanceWsData<T>
 where
     T: IntoWsData + for<'de> Deserialize<'de>,
-    T::Output: Default,
 {
-    type Output = T::Output;
+    type Output = Vec<T::Output>;
     fn into_ws(self) -> Self::Output {
 
         match self {
-            BinanceWsData::ChannelData(channel_data) => {
-                channel_data.into_ws()
-            },
-            BinanceWsData::SubscriptionResult(res) => {
+            BinanceWsData::ChannelSingle(c) => vec![c.into_ws()],
+            BinanceWsData::ChannelBatch(c) => c.into_iter().map(|d| d.into_ws()).collect(),
+            BinanceWsData::Event(res) => {
                 if let Some(result) = &res.result {
                     info!("Subscription method: {}. id = {}", result, res.id);
                 } else {
@@ -51,9 +50,8 @@ where
                     );
                 }
 
-                Default::default()
-            }
+                Vec::new()
+            },
         }
-
     }
 }

@@ -15,8 +15,11 @@ impl Strategy for EmptyStrategy {
 }
 impl EventHandler for EmptyStrategy {}
 impl AltEventHandler for EmptyStrategy {
-    async fn on_timer(&mut self) {
-        println!("[EmptyStrategy] Timer")
+    async fn on_timer(
+        &mut self,
+        msg: Arc<AltTimerEvent>,
+    ) {
+        info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
     }
 }
 impl CexEventHandler for EmptyStrategy {
@@ -57,10 +60,14 @@ impl Strategy for EmptyStrategyB {
 impl EventHandler for EmptyStrategyB {}
 
 impl AltEventHandler for EmptyStrategyB {
-    async fn on_timer(&mut self) {
-        println!("[EmptyStrategyB] Timer")
+    async fn on_timer(
+        &mut self,
+        msg: Arc<AltTimerEvent>,
+    ) {
+        info!("[EmptyStrategyB] AltEventHandler: {:?}", msg);
     }
 }
+
 impl CexEventHandler for EmptyStrategyB {
     async fn on_candle(&mut self, msg: Arc<Vec<WsCandle>>) {
         info!("[EmptyStrategyB] Candle event: {:?}", msg);
@@ -156,8 +163,11 @@ impl Strategy for BinanceStrategy {
 impl EventHandler for BinanceStrategy {}
 
 impl AltEventHandler for BinanceStrategy {
-    async fn on_timer(&mut self) {
-        println!("[BinanceStrategy] Timer event");
+    async fn on_timer(
+        &mut self,
+        msg: Arc<AltTimerEvent>,
+    ) {
+        info!("[BinanceStrategy] AltEventHandler: {:?}", msg);
     }
 }
 
@@ -198,7 +208,7 @@ async fn main() {
     let mediator = EnvBuilder::new()
         .with_board_cast_channel(BoardCastChannel::default_cex_event())
         .with_board_cast_channel(BoardCastChannel::default_candle())
-        .with_board_cast_channel(BoardCastChannel::default_candle())
+        .with_board_cast_channel(BoardCastChannel::default_candle()) // duplicated skip
         .with_board_cast_channel(BoardCastChannel::default_timer())
         .with_strategy(EmptyStrategy)
         .with_strategy(EmptyStrategyB::new())

@@ -5,6 +5,7 @@ use crate::strategy_base::{
     command::command_core::CommandHandle,
     handler::{
         handler_core::*,
+        alt_events::*,
         cex_events::*,
     }
 };
@@ -85,9 +86,9 @@ where
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn on_timer(&mut self){
-        let fut_head = self.head.on_timer();
-        let fut_tail = self.tail.on_timer();
+    async fn on_timer(&mut self, msg: Arc<AltTimerEvent>) {
+        let fut_head = self.head.on_timer(msg.clone());
+        let fut_tail = self.tail.on_timer(msg);
         tokio::join!(fut_head, fut_tail);
     }
 }
@@ -103,11 +104,6 @@ where
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn on_candle(&mut self, msg: Arc<Vec<WsCandle>>) {
-        let fut_head = self.head.on_candle(msg.clone());
-        let fut_tail = self.tail.on_candle(msg);
-        tokio::join!(fut_head, fut_tail);
-    }
     async fn on_trade(&mut self, msg: Arc<Vec<WsTrade>>) {
         let fut_head = self.head.on_trade(msg.clone());
         let fut_tail = self.tail.on_trade(msg);
@@ -117,6 +113,12 @@ where
     async fn on_lob(&mut self, msg: Arc<Vec<WsLob>>) {
         let fut_head = self.head.on_lob(msg.clone());
         let fut_tail = self.tail.on_lob(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_candle(&mut self, msg: Arc<Vec<WsCandle>>) {
+        let fut_head = self.head.on_candle(msg.clone());
+        let fut_tail = self.tail.on_candle(msg);
         tokio::join!(fut_head, fut_tail);
     }
 }

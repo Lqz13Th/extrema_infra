@@ -1,26 +1,17 @@
-use std::collections::HashSet;
-use std::future::{ready, Future};
-use std::sync::Arc;
 use serde_json::{from_str, json};
-use reqwest::{Client, Url};
+use reqwest::Client;
 
-use tracing::info;
 
 use crate::errors::{InfraError, InfraResult};
 
 use crate::market_assets::{
     api_general::RequestMethod,
-    base_data::*,
     account_data::*,
-    price_data::*
 };
-use crate::market_assets::cex::binance::config_assets::{BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO};
-use crate::market_assets::cex::okx::rest::public_current_subpositions::RestSubPositionOkx;
-use crate::market_assets::cex::prelude::BinanceUmCli;
-use crate::task_execution::task_ws::*;
-
+use crate::market_assets::{
+    utils_data::PubCopytraderSubpositions,
+};
 use crate::traits::{
-    conversion::WsSubscribe,
     market_cex::{CexPrivateRest, CexPublicRest, MarketCexApi}
 };
 
@@ -30,6 +21,7 @@ use super::{
     config_assets::*,
     rest::{
         account_balance::RestAccountBalOkx,
+        public_current_subpositions::RestSubPositionOkx,
     }
 };
 
@@ -52,6 +44,12 @@ impl CexPrivateRest for OkxCli {
     }
 }
 
+impl Default for OkxCli {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OkxCli {
     pub fn new() -> Self {
         Self {
@@ -64,13 +62,13 @@ impl OkxCli {
         &self,
         assets: Vec<String>,
     ) -> InfraResult<Vec<BalanceData>> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
-
         let body = json!({
             "ccy": assets,
         }).to_string();
 
-        let all_balances: RestResOkx<RestAccountBalOkx> = api_key
+        let bal_res: RestResOkx<RestAccountBalOkx> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiNotInitialized)?
             .send_signed_request(
                 &self.client,
                 RequestMethod::Get,
@@ -80,7 +78,12 @@ impl OkxCli {
             )
             .await?;
 
-        let result: Vec<BalanceData> = all_balances
+        if bal_res.code != "0" {
+            let msg = bal_res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", bal_res.code, msg)));
+        }
+
+        let result: Vec<BalanceData> = bal_res
             .data
             .into_iter()
             .flat_map(|account| account.details)
@@ -97,7 +100,7 @@ impl OkxCli {
         limit: Option<u32>,
         before: Option<&str>,
         after: Option<&str>,
-    ) -> InfraResult<Vec<RestSubPositionOkx>> {
+    ) -> InfraResult<Vec<PubCopytraderSubpositions>> {
         let inst_type = inst_type.unwrap_or("SWAP");
 
         let mut url = format!(
@@ -118,16 +121,25 @@ impl OkxCli {
             url.push_str(&format!("&after={}", a));
         }
 
-        let resp = self.client.get(&url).send().await?;
-        let text = resp.text().await?;
-        let result: RestResOkx<RestSubPositionOkx> = from_str(&text)?;
+        let text = self.client
+            .get(&url)
+            .send().await?
+            .text().await?;
 
-        if result.code != "0" {
-            let msg = result.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", result.code, msg)));
+        let sub_pos_res: RestResOkx<RestSubPositionOkx> = from_str(&text)?;
+
+        if sub_pos_res.code != "0" {
+            let msg = sub_pos_res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", sub_pos_res.code, msg)));
         }
 
-        Ok(result.data)
+        let result: Vec<PubCopytraderSubpositions> = sub_pos_res
+            .data
+            .into_iter()
+            .map(PubCopytraderSubpositions::from)
+            .collect();
+
+        Ok(result)
     }
 }
 

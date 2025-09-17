@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
 
+#[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
 pub(crate) struct RestExchangeInfoBinanceUM {
     pub symbols: Vec<SymbolInfo>,
 }
 
-#[allow(dead_code)]
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct SymbolInfo {
@@ -18,7 +18,6 @@ pub(crate) struct SymbolInfo {
     pub filters: Vec<Filter>
 }
 
-#[allow(dead_code)]
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) enum Filter {
@@ -31,7 +30,6 @@ pub(crate) enum Filter {
     // PERCENT_PRICE,
 }
 
-#[allow(dead_code)]
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct PriceFilter {
@@ -40,7 +38,6 @@ pub(crate) struct PriceFilter {
     pub maxPrice: String,
 }
 
-#[allow(dead_code)]
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct LotSizeFilter {

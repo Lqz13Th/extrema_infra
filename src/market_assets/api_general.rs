@@ -1,12 +1,9 @@
-use std::{
-    collections::HashMap,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 use hmac::Hmac;
 use sha2::Sha256;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature<T> {
     pub signature: String,
     pub timestamp: T,
@@ -20,16 +17,24 @@ pub enum RequestMethod {
     Post,
 }
 
-pub fn get_timestamp() -> u64 {
-    let now = SystemTime::now();
-    let duration_since_epoch = now
+pub fn get_mills_timestamp() -> u64 {
+    SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    duration_since_epoch.as_secs() * 1000 + duration_since_epoch.subsec_millis() as u64
+        .expect("Time went backwards")
+        .as_millis() as u64
 }
 
-pub fn build_query_string(args: HashMap<&str, &str>) -> String {
-    form_urlencoded::Serializer::new(String::new())
-        .extend_pairs(args)
-        .finish()
+pub fn get_micros_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_micros() as u64
+}
+
+pub fn ts_to_micros(ts: u64) -> u64 {
+    match ts {
+        0..=999_999_999 => ts * 1_000_000,
+        1_000_000_000..=999_999_999_999 => ts * 1_000,
+        _ => ts,
+    }
 }

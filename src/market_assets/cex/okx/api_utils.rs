@@ -10,7 +10,7 @@ pub struct RestResOkx<T> {
 
 
 pub fn cli_perp_to_okx_swap(symbol: &str) -> String {
-    let cleaned = symbol.strip_suffix("_PERP").unwrap_or(&symbol);
+    let cleaned = symbol.strip_suffix("_PERP").unwrap_or(symbol);
     format!("{}-SWAP", cleaned.replace("_", "-"))
 }
 
