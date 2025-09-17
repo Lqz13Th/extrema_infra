@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 use crate::market_assets::{
     api_general::{get_micros_timestamp, ts_to_micros},
     base_data::{InstrumentType, MarginMode, PositionSide},
-    utils_data::PubCopytraderSubpositions,
+    utils_data::LeadtraderSubpositions,
+    cex::okx::api_utils::okx_swap_to_cli,
 };
 
 #[allow(non_snake_case)]
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RestSubPositionOkx {
     pub instId: String,
     pub subPosId: String,
@@ -26,7 +27,7 @@ pub struct RestSubPositionOkx {
     pub ccy: String,
 }
 
-impl From<RestSubPositionOkx> for PubCopytraderSubpositions {
+impl From<RestSubPositionOkx> for LeadtraderSubpositions {
     fn from(d: RestSubPositionOkx) -> Self {
         let size_val = d.subPos.parse::<f64>().unwrap_or(0.0);
 
@@ -54,10 +55,10 @@ impl From<RestSubPositionOkx> for PubCopytraderSubpositions {
             _ => InstrumentType::Spot,
         };
 
-        PubCopytraderSubpositions {
+        LeadtraderSubpositions {
             timestamp: get_micros_timestamp(),
             copytrader_id: d.uniqueCode,
-            symbol: d.instId,
+            symbol: okx_swap_to_cli(&d.instId),
             subpos_id: d.subPosId,
             pos_side,
             margin_mode,

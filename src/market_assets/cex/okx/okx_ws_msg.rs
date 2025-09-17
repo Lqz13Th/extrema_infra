@@ -56,7 +56,7 @@ where
                         },
                         _ => {
                             info!(
-                                "Other: {}, code: {:?}, msg: {:?}, arg: {:?}, connCount: {:?}",
+                                "Other: {}, code: {:?}, msg: {:?}, arg: {:?}, count: {:?}",
                                 event, res.code, res.msg, res.arg, res.connCount
                             );
                         }

@@ -11,7 +11,7 @@ pub struct MarketInfoData {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PubCopytraderSubpositions {
+pub struct LeadtraderSubpositions {
     pub timestamp: u64,
     pub copytrader_id: String,
     pub symbol: String,
@@ -24,4 +24,24 @@ pub struct PubCopytraderSubpositions {
     pub size: f64,
     pub ins_type: InstrumentType,
     pub margin: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CurrentLeadtrader {
+    pub timestamp: u64,
+    pub copytrader_id: String,
+    pub nick_name: String,
+    pub margin: f64,
+    pub copy_pnl: f64,
+    pub copy_amount: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PubLeadtrader {
+    pub timestamp: u64,
+    pub copytrader_id: String,
+    pub nick_name: String,
+    pub margin: f64,
+    pub copy_pnl: f64,
+    pub copy_amount: f64,
 }

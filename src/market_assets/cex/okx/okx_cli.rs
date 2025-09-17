@@ -1,26 +1,26 @@
 use serde_json::{from_str, json};
 use reqwest::Client;
-
+use tracing::error;
 
 use crate::errors::{InfraError, InfraResult};
-
 use crate::market_assets::{
     api_general::RequestMethod,
+    base_data::InstrumentType,
     account_data::*,
+    utils_data::*,
 };
-use crate::market_assets::{
-    utils_data::PubCopytraderSubpositions,
-};
+use crate::market_assets::cex::okx::rest::public_lead_traders::RestPubLeadTradersOkx;
 use crate::traits::{
     market_cex::{CexPrivateRest, CexPublicRest, MarketCexApi}
 };
 
 use super::{
-    api_key::OkxKey,
+    api_key::{OkxKey, read_okx_env_key},
     api_utils::*,
     config_assets::*,
     rest::{
         account_balance::RestAccountBalOkx,
+        current_lead_traders::RestLeadtraderOkx,
         public_current_subpositions::RestSubPositionOkx,
     }
 };
@@ -36,6 +36,17 @@ impl CexPublicRest for OkxCli {
 }
 
 impl CexPrivateRest for OkxCli {
+    fn init_api_key(&mut self) {
+        match read_okx_env_key() {
+            Ok(okx_key) => {
+                self.api_key = Some(okx_key);
+            },
+            Err(e) => {
+                error!("Failed to read OKX env key: {:?}", e);
+            }
+        }
+    }
+
     async fn get_balance(
         &self,
         assets: Vec<String>,
@@ -83,32 +94,107 @@ impl OkxCli {
             return Err(InfraError::ApiError(format!("code {}: {}", bal_res.code, msg)));
         }
 
-        let result: Vec<BalanceData> = bal_res
+        let all_balances: Vec<BalanceData> = bal_res
             .data
             .into_iter()
             .flat_map(|account| account.details)
             .map(BalanceData::from)
             .collect();
 
+        let filtered = if assets.is_empty() {
+            all_balances
+        } else {
+            all_balances
+                .into_iter()
+                .filter(|b| assets.contains(&b.asset))
+                .collect()
+        };
+
+        Ok(filtered)
+    }
+
+    pub async fn get_lead_traders(
+        &self,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<CurrentLeadtrader>> {
+        let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Option => "OPTION",
+        };
+
+        let body = json!({
+            "instType": inst_type_str,
+        }).to_string();
+
+        let res: RestResOkx<RestLeadtraderOkx> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_CURRENT_LEADTRADERS,
+            )
+            .await?;
+
+        if res.code != "0" {
+            let msg = res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
+        }
+
+        let result: Vec<CurrentLeadtrader> = res
+            .data
+            .into_iter()
+            .map(CurrentLeadtrader::from)
+            .collect();
+
         Ok(result)
     }
 
-    pub async fn get_pub_current_subpositions(
+    pub async fn get_public_lead_traders(
+        &self,
+
+    )  {
+
+        let mut url = format!(
+            "{}{}",
+            OKX_BASE_URL,
+            OKX_PUBLIC_LEADTRADERS,
+        );
+
+
+        let text = self.client
+            .get(&url)
+            .send().await.unwrap()
+            .text().await.unwrap();
+
+        println!("{}", text);
+
+
+    }
+
+    pub async fn get_lead_trader_subpositions(
         &self,
         unique_code: &str,
-        inst_type: Option<&str>,
+        inst_type: Option<InstrumentType>,
         limit: Option<u32>,
         before: Option<&str>,
         after: Option<&str>,
-    ) -> InfraResult<Vec<PubCopytraderSubpositions>> {
-        let inst_type = inst_type.unwrap_or("SWAP");
+    ) -> InfraResult<Vec<LeadtraderSubpositions>> {
+        // let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+        //     InstrumentType::Spot => "SPOT",
+        //     InstrumentType::Perpetual => "SWAP",
+        //     InstrumentType::Option => "OPTION",
+        // };
 
         let mut url = format!(
             "{}{}?uniqueCode={}&instType={}",
             OKX_BASE_URL,
-            OKX_COPYTRADER_PUBLIC_SUBPOSITIONS,
+            OKX_LEADTRADER_SUBPOSITIONS,
             unique_code,
-            inst_type
+            "SWAP",
         );
 
         if let Some(l) = limit {
@@ -126,17 +212,18 @@ impl OkxCli {
             .send().await?
             .text().await?;
 
-        let sub_pos_res: RestResOkx<RestSubPositionOkx> = from_str(&text)?;
+        println!("text: {}", text);
+        let res: RestResOkx<RestSubPositionOkx> = from_str(&text)?;
 
-        if sub_pos_res.code != "0" {
-            let msg = sub_pos_res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", sub_pos_res.code, msg)));
+        if res.code != "0" {
+            let msg = res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         }
 
-        let result: Vec<PubCopytraderSubpositions> = sub_pos_res
+        let result: Vec<LeadtraderSubpositions> = res
             .data
             .into_iter()
-            .map(PubCopytraderSubpositions::from)
+            .map(LeadtraderSubpositions::from)
             .collect();
 
         Ok(result)

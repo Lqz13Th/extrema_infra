@@ -8,12 +8,12 @@ use serde::{
 };
 use serde_json::from_str;
 use reqwest::Client;
-
+use tracing::info;
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::api_general::*;
 
+use super::api_utils::get_okx_timestamp;
 
-#[allow(dead_code)]
 pub fn read_okx_env_key() -> InfraResult<OkxKey> {
     let _ = dotenv::dotenv();
 
@@ -46,7 +46,7 @@ impl OkxKey {
     fn sign(
         &self,
         raw_sign: String,
-        timestamp: u64,
+        timestamp: String,
     ) -> InfraResult<Signature<String>> {
         let mut mac = HmacSha256::new_from_slice(self.secret_key.as_bytes())
             .map_err(|_| InfraError::SecretKeyLength)?;
@@ -54,7 +54,7 @@ impl OkxKey {
 
         Ok(Signature {
             signature: BASE64.encode(&mac.finalize().into_bytes()),
-            timestamp: timestamp.to_string(),
+            timestamp,
         })
     }
 
@@ -64,7 +64,7 @@ impl OkxKey {
         uri: &str,
         body: Option<&str>
     ) -> InfraResult<Signature<String>> {
-        let timestamp = get_mills_timestamp();
+        let timestamp = get_okx_timestamp();
 
         let raw_sign = match body {
             Some(b) => format!("{}{}{}{}", timestamp, method, uri, b),
@@ -164,6 +164,7 @@ impl OkxKey {
                 self.put_request(client, &signature, body, &url).await?
             },
         };
+        info!("{}", response);
 
         let result: T = from_str(&response)?;
         Ok(result)

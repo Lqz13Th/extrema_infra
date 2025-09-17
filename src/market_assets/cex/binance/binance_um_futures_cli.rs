@@ -1,7 +1,7 @@
 use serde_json::{from_str, json};
 use reqwest::Client;
 
-use tracing::info;
+use tracing::{error, info};
 
 use crate::errors::{InfraError, InfraResult};
 
@@ -18,7 +18,7 @@ use crate::traits::{
 };
 
 use super::{
-    api_key::BinanceKey,
+    api_key::{BinanceKey, read_binance_env_key},
     api_utils::*,
     config_assets::*,
     um_futures_rest::exchange_info::RestExchangeInfoBinanceUM,
@@ -40,6 +40,16 @@ impl CexPublicRest for BinanceUmCli {
 }
 
 impl CexPrivateRest for BinanceUmCli {
+    fn init_api_key(&mut self) {
+        match read_binance_env_key() {
+            Ok(binance_key) => {
+                self.api_key = Some(binance_key);
+            },
+            Err(e) => {
+                error!("Failed to read BINANCE env key: {:?}", e);
+            }
+        }
+    }
 
     async fn get_balance(
         &self,

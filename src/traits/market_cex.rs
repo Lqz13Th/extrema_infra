@@ -47,6 +47,8 @@ pub trait CexPublicRest: Send + Sync {
 }
 
 pub trait CexPrivateRest: Send + Sync {
+    fn init_api_key(&mut self);
+
     fn place_order(
         &self,
         _symbol: String,

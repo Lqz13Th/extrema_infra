@@ -9,8 +9,11 @@ pub const OKX_INSTRUMENTS: &str = "/api/v5/public/instruments";
 pub const OKX_TICKER: &str = "/api/v5/market/ticker";
 pub const OKX_CANDLE: &str = "/api/v5/market/candles";
 pub const OKX_ORDER_BOOK: &str = "/api/v5/market/books";
-pub const OKX_COPYTRADER_PUBLIC_SUBPOSITIONS: &str = "/api/v5/copytrading/public-current-subpositions";
-pub const OKX_COPYTRADER_HISTORY: &str = "/api/v5/copytrading/public-subpositions-history";
+pub const OKX_PUBLIC_LEADTRADERS: &str = "/api/v5/copytrading/public-lead-traders";
+
+pub const OKX_CURRENT_LEADTRADERS: &str = "/api/v5/copytrading/current-lead-traders";
+pub const OKX_LEADTRADER_SUBPOSITIONS: &str = "/api/v5/copytrading/public-current-subpositions";
+pub const OKX_LEADTRADER_SUBPOSITIONS_HISTORY: &str = "/api/v5/copytrading/public-subpositions-history";
 
 /// WebSocket channels
 pub const OKX_WS_SUBSCRIPTIONS: [&str; 10] = [
