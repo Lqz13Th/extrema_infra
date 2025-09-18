@@ -25,7 +25,7 @@ impl From<RestLeadtraderOkx> for CurrentLeadtrader {
     fn from(d: RestLeadtraderOkx) -> Self {
         CurrentLeadtrader {
             timestamp: get_micros_timestamp(),
-            copytrader_id: d.uniqueCode,
+            unique_code: d.uniqueCode,
             nick_name: d.nickName,
             margin: d.margin.parse::<f64>().unwrap_or(0.0),
             copy_pnl: d.copyTotalPnl.parse::<f64>().unwrap_or(0.0),

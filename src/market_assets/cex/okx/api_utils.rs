@@ -1,7 +1,9 @@
 use serde::Deserialize;
 use tracing::error;
 
-#[derive(Clone, Debug, Default, Deserialize)]
+use crate::market_assets::base_data::InstrumentType;
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct RestResOkx<T> {
     pub code: String,
     pub data: Vec<T>,
@@ -35,5 +37,33 @@ pub fn okx_swap_to_cli(symbol: &str) -> String {
             symbol.to_string()
         }
     }
+}
+
+/// Query parameters for retrieving public lead traders from OKX.
+/// All fields are optional and can be used to filter or paginate results.
+#[derive(Default)]
+pub struct PubLeadTraderQuery {
+    /// Instrument type: Spot / Perpetual / Option
+    pub inst_type: Option<InstrumentType>,
+    /// Sorting type: "overview" / "pnl" / "aum" / "win_ratio" / "pnl_ratio" / "current_copy_trader_pnl".
+    pub sort_type: Option<String>,
+    /// Trader state: 0 = all, 1 = has vacancies
+    pub state: Option<u32>,
+    /// Minimum leading days (1 = 7 days, 2 = 30 days, 3 = 90 days, 4 = 180 days, etc.)
+    pub min_lead_days: Option<u32>,
+    /// Minimum assets under management
+    pub min_assets: Option<u64>,
+    /// Maximum assets under management
+    pub max_assets: Option<u64>,
+    /// Minimum AUM (Assets Under Management)
+    pub min_aum: Option<u64>,
+    /// Maximum AUM
+    pub max_aum: Option<u64>,
+    /// Data version, e.g., timestamp string "20250918140000"
+    pub data_ver: Option<String>,
+    /// Page number for pagination
+    pub page: Option<u32>,
+    /// Number of records per page
+    pub limit: Option<u32>,
 }
 

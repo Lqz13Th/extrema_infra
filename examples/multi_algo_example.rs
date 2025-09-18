@@ -3,7 +3,6 @@ use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
 use extrema_infra::prelude::*;
-use extrema_infra::market_assets::cex::prelude::*;
 
 #[derive(Clone)]
 struct EmptyStrategy;
@@ -97,7 +96,7 @@ impl BinanceStrategy {
     fn new() -> Self {
         Self {
             command_handles: Vec::new(),
-            binance_um_cli: BinanceUmCli::new(),
+            binance_um_cli: BinanceUmCli::default(),
         }
     }
 
@@ -136,11 +135,12 @@ impl BinanceStrategy {
             match rx.await {
                 Ok(Ok(())) => {
                     self.send_subscribe(channel.clone()).await?;
-                }
+                },
                 Ok(Err(e)) => error!("[BinanceStrategy] Connect ack failed: {:?}", e),
                 Err(_) => warn!("[BinanceStrategy] Connect ack dropped"),
             }
         }
+
         Ok(())
     }
 
@@ -156,8 +156,6 @@ impl BinanceStrategy {
 impl Strategy for BinanceStrategy {
     async fn execute(&mut self) {
         info!("[BinanceStrategy] Starting strategy");
-        let channel = WsChannel::Candle(Some(CandleParam::OneMinute));
-        self.send_connect(channel).await.expect("connect failed");
     }
 }
 impl EventHandler for BinanceStrategy {}
@@ -173,7 +171,7 @@ impl AltEventHandler for BinanceStrategy {
 
 impl CexEventHandler for BinanceStrategy {
     async fn on_cex_event(&mut self, _msg: Arc<WsTaskInfo>)  {
-        info!("[BinanceStrategy] Triggering connect for channel: {:?}", _msg);
+        info!("[BinanceStrategy] Triggering connect for channel: {:?}", _msg.ws_channel);
         self.send_connect(_msg.ws_channel.clone()).await.expect("connect failed");
     }
 

@@ -209,8 +209,8 @@ impl WsTaskBuilder {
         self.log(LogLevel::Info, "Spawned rest task");
 
         loop {
-            self.ws_cex_event();
             sleep(sleep_interval).await;
+            self.ws_cex_event();
 
             self.log(LogLevel::Info, "Initiated");
 

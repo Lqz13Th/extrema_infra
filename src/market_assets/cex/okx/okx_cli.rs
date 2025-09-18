@@ -1,3 +1,7 @@
+use std::{
+    sync::Arc,
+    collections::HashMap,
+};
 use serde_json::{from_str, json};
 use reqwest::Client;
 use tracing::error;
@@ -9,7 +13,6 @@ use crate::market_assets::{
     account_data::*,
     utils_data::*,
 };
-use crate::market_assets::cex::okx::rest::public_lead_traders::RestPubLeadTradersOkx;
 use crate::traits::{
     market_cex::{CexPrivateRest, CexPublicRest, MarketCexApi}
 };
@@ -21,12 +24,29 @@ use super::{
     rest::{
         account_balance::RestAccountBalOkx,
         current_lead_traders::RestLeadtraderOkx,
+        public_lead_traders::RestPubLeadTradersOkx,
         public_current_subpositions::RestSubPositionOkx,
     }
 };
 
+fn create_okx_cli_with_key(
+    keys: HashMap<String, OkxKey>,
+    shared_client: Arc<Client>,
+) -> HashMap<String, OkxCli> {
+    keys.into_iter()
+        .map(|(id, key)| {
+            let cli = OkxCli {
+                client: shared_client.clone(),
+                api_key: Some(key),
+            };
+            (id, cli)
+        })
+        .collect()
+}
+
+#[derive(Clone, Debug)]
 pub struct OkxCli {
-    pub client: Client,
+    pub client: Arc<Client>,
     pub api_key: Option<OkxKey>,
 }
 
@@ -43,8 +63,8 @@ impl CexPrivateRest for OkxCli {
             },
             Err(e) => {
                 error!("Failed to read OKX env key: {:?}", e);
-            }
-        }
+            },
+        };
     }
 
     async fn get_balance(
@@ -57,14 +77,14 @@ impl CexPrivateRest for OkxCli {
 
 impl Default for OkxCli {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(Client::new()))
     }
 }
 
 impl OkxCli {
-    pub fn new() -> Self {
+    pub fn new(shared_client: Arc<Client>) -> Self {
         Self {
-            client: Client::new(),
+            client: shared_client,
             api_key: None
         }
     }
@@ -113,18 +133,18 @@ impl OkxCli {
         Ok(filtered)
     }
 
-    pub async fn get_lead_traders(
+    pub async fn get_current_lead_traders(
         &self,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<CurrentLeadtrader>> {
-        let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+        let _inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Option => "OPTION",
         };
 
         let body = json!({
-            "instType": inst_type_str,
+            "instType": _inst_type_str,
         }).to_string();
 
         let res: RestResOkx<RestLeadtraderOkx> = self.api_key
@@ -155,24 +175,66 @@ impl OkxCli {
 
     pub async fn get_public_lead_traders(
         &self,
+        query: PubLeadTraderQuery,
+    ) -> InfraResult<PubLeadtraderInfo> {
+        let inst_type_str = match query.inst_type.unwrap_or(InstrumentType::Perpetual) {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Option => "OPTION",
+        };
 
-    )  {
+        let mut url = format!("{}{}?instType={}", OKX_BASE_URL, OKX_PUBLIC_LEADTRADERS, inst_type_str);
 
-        let mut url = format!(
-            "{}{}",
-            OKX_BASE_URL,
-            OKX_PUBLIC_LEADTRADERS,
-        );
-
+        if let Some(sort) = query.sort_type {
+            url.push_str(&format!("&sortType={}", sort));
+        }
+        if let Some(state) = query.state {
+            url.push_str(&format!("&state={}", state));
+        }
+        if let Some(days) = query.min_lead_days {
+            url.push_str(&format!("&minLeadDays={}", days));
+        }
+        if let Some(min_assets) = query.min_assets {
+            url.push_str(&format!("&minAssets={}", min_assets));
+        }
+        if let Some(max_assets) = query.max_assets {
+            url.push_str(&format!("&maxAssets={}", max_assets));
+        }
+        if let Some(min_aum) = query.min_aum {
+            url.push_str(&format!("&minAum={}", min_aum));
+        }
+        if let Some(max_aum) = query.max_aum {
+            url.push_str(&format!("&maxAum={}", max_aum));
+        }
+        if let Some(data_ver) = query.data_ver {
+            url.push_str(&format!("&dataVer={}", data_ver));
+        }
+        if let Some(page) = query.page {
+            url.push_str(&format!("&page={}", page));
+        }
+        if let Some(limit) = query.limit {
+            url.push_str(&format!("&limit={}", limit));
+        }
 
         let text = self.client
             .get(&url)
-            .send().await.unwrap()
-            .text().await.unwrap();
+            .send().await?
+            .text().await?;
 
-        println!("{}", text);
+        let res: RestResOkx<RestPubLeadTradersOkx> = from_str(&text)?;
 
+        if res.code != "0" {
+            let msg = res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
+        };
 
+        let first_data = res
+            .data
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiError("No data returned".into()))?;
+
+        Ok(PubLeadtraderInfo::from(first_data))
     }
 
     pub async fn get_lead_trader_subpositions(
@@ -183,18 +245,18 @@ impl OkxCli {
         before: Option<&str>,
         after: Option<&str>,
     ) -> InfraResult<Vec<LeadtraderSubpositions>> {
-        // let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
-        //     InstrumentType::Spot => "SPOT",
-        //     InstrumentType::Perpetual => "SWAP",
-        //     InstrumentType::Option => "OPTION",
-        // };
+        let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Option => "OPTION",
+        };
 
         let mut url = format!(
             "{}{}?uniqueCode={}&instType={}",
             OKX_BASE_URL,
             OKX_LEADTRADER_SUBPOSITIONS,
             unique_code,
-            "SWAP",
+            inst_type_str,
         );
 
         if let Some(l) = limit {
@@ -212,7 +274,6 @@ impl OkxCli {
             .send().await?
             .text().await?;
 
-        println!("text: {}", text);
         let res: RestResOkx<RestSubPositionOkx> = from_str(&text)?;
 
         if res.code != "0" {

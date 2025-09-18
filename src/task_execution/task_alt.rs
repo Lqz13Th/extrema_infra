@@ -1,9 +1,9 @@
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct AltTaskInfo {
     pub alt_task_type: AltTaskType,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum AltTaskType {
     NeuralNetwork(u64),
     TimerBasedState(u64),

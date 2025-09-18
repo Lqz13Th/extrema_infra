@@ -13,7 +13,7 @@ pub struct MarketInfoData {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LeadtraderSubpositions {
     pub timestamp: u64,
-    pub copytrader_id: String,
+    pub unique_code: String,
     pub symbol: String,
     pub subpos_id: String,
     pub pos_side: PositionSide,
@@ -29,19 +29,31 @@ pub struct LeadtraderSubpositions {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CurrentLeadtrader {
     pub timestamp: u64,
-    pub copytrader_id: String,
+    pub unique_code: String,
     pub nick_name: String,
     pub margin: f64,
     pub copy_pnl: f64,
     pub copy_amount: f64,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PubLeadtraderInfo {
+    pub data_version: u64,
+    pub total_page: u64,
+    pub pub_leadtraders: Vec<PubLeadtrader>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PubLeadtrader {
-    pub timestamp: u64,
-    pub copytrader_id: String,
+    pub unique_code: String,
     pub nick_name: String,
-    pub margin: f64,
-    pub copy_pnl: f64,
-    pub copy_amount: f64,
+    pub aum: f64,
+    pub copy_state: u64,
+    pub copy_trader_num: u64,
+    pub max_copy_trader_num: u64,
+    pub accum_copy_trader_num: u64,
+    pub lead_days: u64,
+    pub win_ratio: f64,
+    pub pnl_ratio: f64,
+    pub pnl: f64,
 }

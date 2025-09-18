@@ -1,19 +1,18 @@
 use thiserror::Error;
-use reqwest::Error as ReqwestError;
-use serde_json::Error as SerdeJsonError;
-use tungstenite::Error as WsError;
-
 
 #[derive(Error, Debug)]
 pub enum InfraError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    
     #[error("REST API error: {0}")]
-    RestApi(#[from] ReqwestError),
+    RestApi(#[from] reqwest::Error),
 
     #[error("WebSocket error: {0}")]
-    WebSocket(#[from] Box<WsError>),
+    WebSocket(#[from] Box<tungstenite::Error>),
 
     #[error("JSON parse error: {0}")]
-    Json(#[from] SerdeJsonError),
+    Json(#[from] serde_json::Error),
 
     #[error("API returned error: {0}")]
     ApiError(String),

@@ -57,7 +57,7 @@ impl From<RestSubPositionOkx> for LeadtraderSubpositions {
 
         LeadtraderSubpositions {
             timestamp: get_micros_timestamp(),
-            copytrader_id: d.uniqueCode,
+            unique_code: d.uniqueCode,
             symbol: okx_swap_to_cli(&d.instId),
             subpos_id: d.subPosId,
             pos_side,

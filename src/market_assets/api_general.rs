@@ -1,7 +1,16 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    fs::File,
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use hmac::Hmac;
 use sha2::Sha256;
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::DeserializeOwned,
+    Deserialize, Serialize
+};
+
+use crate::errors::InfraResult;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature<T> {
@@ -15,6 +24,12 @@ pub enum RequestMethod {
     Get,
     Put,
     Post,
+}
+
+pub fn read_keys_from_json<T: DeserializeOwned>(path: &str) -> InfraResult<HashMap<String, T>> {
+    let file = File::open(path)?;
+    let keys: HashMap<String, T> = serde_json::from_reader(file)?;
+    Ok(keys)
 }
 
 pub fn get_mills_timestamp() -> u64 {

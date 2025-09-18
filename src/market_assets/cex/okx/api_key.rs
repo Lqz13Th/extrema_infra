@@ -27,7 +27,7 @@ pub fn read_okx_env_key() -> InfraResult<OkxKey> {
     Ok(OkxKey::new(&api_key, &secret_key, &passphrase))
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OkxKey {
     pub api_key: String,
     pub secret_key: String,

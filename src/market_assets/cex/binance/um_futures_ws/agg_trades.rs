@@ -10,7 +10,7 @@ use crate::strategy_base::handler::cex_events::WsTrade;
 use crate::traits::conversion::IntoWsData;
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct WsAggTradeBinanceUM {
     pub e: String,      // Event type
     pub E: u64,         // Event time

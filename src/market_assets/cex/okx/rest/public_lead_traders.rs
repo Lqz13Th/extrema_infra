@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::market_assets::{
-    api_general::{get_micros_timestamp, ts_to_micros},
-    base_data::{InstrumentType, MarginMode, PositionSide},
-    utils_data::PubLeadtrader,
-    cex::okx::api_utils::okx_swap_to_cli,
+    utils_data::{PubLeadtraderInfo, PubLeadtrader},
 };
 
 #[allow(non_snake_case)]
@@ -18,49 +15,43 @@ pub struct RestPubLeadTradersOkx {
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RankInfo {
-    pub aum: String,                 // 带单规模，单位 USDT
-    pub copyState: String,           // 当前跟单状态 0: 没在跟单, 1: 在跟单
-    pub maxCopyTraderNum: String,    // 最大跟单人数
-    pub copyTraderNum: String,       // 跟单人数
-    pub accCopyTraderNum: String,    // 累计跟单人数
-    pub portLink: String,            // 头像链接
-    pub nickName: String,            // 昵称
-    pub ccy: String,                 // 保证金币种
-    pub uniqueCode: String,          // 交易员唯一标识码
-    pub winRatio: String,            // 胜率，0.1 = 10%
-    pub leadDays: String,            // 带单天数
-    pub traderInsts: Vec<String>,    // 带单的合约列表
-    pub pnl: String,                 // 近90日收益 USDT
-    pub pnlRatio: String,            // 近90日收益率
-    pub pnlRatios: Vec<PnlRatioData>,// 每日收益率数据
+    pub aum: String,                 // Assets under management (AUM), unit: USDT
+    pub copyState: String,           // Current copy-trading state: 0 = not copying, 1 = copying
+    pub maxCopyTraderNum: String,    // Maximum number of copy traders allowed
+    pub copyTraderNum: String,       // Current number of copy traders
+    pub accCopyTraderNum: String,    // Accumulated number of copy traders
+    pub portLink: String,            // Profile image link
+    pub nickName: String,            // Trader's nickname
+    pub ccy: String,                 // Margin currency
+    pub uniqueCode: String,          // Unique identifier of the trader
+    pub winRatio: String,            // Win ratio, e.g., 0.1 = 10%
+    pub leadDays: String,            // Number of lead-trading days
+    pub pnl: String,                 // Profit and loss in the past 90 days (unit: USDT)
+    pub pnlRatio: String,            // Profit and loss ratio in the past 90 days
 }
 
-#[allow(non_snake_case)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct PnlRatioData {
-    pub beginTs: String,             // 当天收益率开始时间
-    pub pnlRatio: String,            // 当天收益率
-}
-
-impl From<RestPubLeadTradersOkx> for Vec<PubLeadtrader> {
+impl From<RestPubLeadTradersOkx> for PubLeadtraderInfo {
     fn from(d: RestPubLeadTradersOkx) -> Self {
-        d.ranks.into_iter().map(|rank| {
-            let latest_pnl_ratio = rank.pnlRatios.last()
-                .map(|p| p.pnlRatio.parse::<f64>().unwrap_or(0.0))
-                .unwrap_or(0.0);
-
-            let timestamp = rank.pnlRatios.last()
-                .map(|p| p.beginTs.parse::<u64>().unwrap_or(0))
-                .unwrap_or(0);
-
+        let traders = d.ranks.into_iter().map(|r| {
             PubLeadtrader {
-                timestamp,
-                copytrader_id: rank.uniqueCode,
-                nick_name: rank.nickName,
-                margin: rank.aum.parse::<f64>().unwrap_or(0.0),
-                copy_pnl: rank.pnl.parse::<f64>().unwrap_or(0.0),
-                copy_amount: latest_pnl_ratio,
+                unique_code: r.uniqueCode,
+                nick_name: r.nickName,
+                aum: r.aum.parse::<f64>().unwrap_or(0.0),
+                copy_state: r.copyState.parse::<u64>().unwrap_or(0),
+                copy_trader_num: r.copyTraderNum.parse::<u64>().unwrap_or(0),
+                max_copy_trader_num: r.maxCopyTraderNum.parse::<u64>().unwrap_or(0),
+                accum_copy_trader_num: r.accCopyTraderNum.parse::<u64>().unwrap_or(0),
+                lead_days: r.leadDays.parse::<u64>().unwrap_or(0),
+                win_ratio: r.winRatio.parse::<f64>().unwrap_or(0.0),
+                pnl_ratio: r.pnlRatio.parse::<f64>().unwrap_or(0.0),
+                pnl: r.pnl.parse::<f64>().unwrap_or(0.0),
             }
-        }).collect()
+        }).collect();
+
+        PubLeadtraderInfo {
+            data_version: d.dataVer.parse::<u64>().unwrap_or(0),
+            total_page: d.totalPage.parse::<u64>().unwrap_or(0),
+            pub_leadtraders: traders,
+        }
     }
 }

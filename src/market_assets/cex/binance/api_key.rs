@@ -25,7 +25,7 @@ pub fn read_binance_env_key() -> InfraResult<BinanceKey> {
     Ok(BinanceKey::new(&api_key, &secret_key))
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BinanceKey {
     pub api_key: String,
     pub secret_key: String,

@@ -5,13 +5,9 @@ pub use crate::infra_core::{
     env_mediator::EnvMediator,
 };
 
-pub use crate::market_assets::market_core::Market;
-
-
-pub use crate::traits::{
-    conversion::*,
-    market_cex::*,
-    strategy::*,
+pub use crate::market_assets::{
+    market_core::Market,
+    cex::prelude::*,
 };
 
 pub use crate::strategy_base::{
@@ -30,5 +26,11 @@ pub use crate::task_execution::{
     task_alt::*,
     task_ws::*,
     task_general::TaskInfo,
+};
+
+pub use crate::traits::{
+    conversion::*,
+    market_cex::*,
+    strategy::*,
 };
 

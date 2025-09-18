@@ -10,7 +10,7 @@ use crate::task_execution::task_ws::CandleParam;
 use crate::traits::conversion::IntoWsData;
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct WsCandleBinanceUM {
     pub s: String,       // Pair
     pub k: KlineDetails,
@@ -18,7 +18,7 @@ pub(crate) struct WsCandleBinanceUM {
 
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct KlineDetails {
     pub t: u64,           // Kline start time
     pub i: String,        // Interval

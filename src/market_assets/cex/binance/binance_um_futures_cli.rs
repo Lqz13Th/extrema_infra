@@ -1,3 +1,7 @@
+use std::{
+    sync::Arc,
+    collections::HashMap,
+};
 use serde_json::{from_str, json};
 use reqwest::Client;
 
@@ -24,9 +28,24 @@ use super::{
     um_futures_rest::exchange_info::RestExchangeInfoBinanceUM,
 };
 
-#[derive(Debug, Clone)]
+fn create_binance_cli_with_key(
+    keys: HashMap<String, BinanceKey>,
+    shared_client: Arc<Client>,
+) -> HashMap<String, BinanceUmCli> {
+    keys.into_iter()
+        .map(|(id, key)| {
+            let cli = BinanceUmCli {
+                client: shared_client.clone(),
+                api_key: Some(key),
+            };
+            (id, cli)
+        })
+        .collect()
+}
+
+#[derive(Clone, Debug)]
 pub struct BinanceUmCli {
-    pub client: Client,
+    pub client: Arc<Client>,
     pub api_key: Option<BinanceKey>,
 }
 
@@ -78,14 +97,14 @@ impl WsSubscribe for BinanceUmCli {
 
 impl Default for BinanceUmCli {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(Client::new()))
     }
 }
 
 impl BinanceUmCli {
-    pub fn new() -> Self {
+    pub fn new(shared_client: Arc<Client>) -> Self {
         Self {
-            client: Client::new(),
+            client: shared_client,
             api_key: None
         }
     }
