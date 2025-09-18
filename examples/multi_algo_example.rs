@@ -101,11 +101,12 @@ impl BinanceStrategy {
     }
 
     async fn send_subscribe(&self, channel: WsChannel) -> InfraResult<()> {
-        let ws_subs = self.generate_ws_subs_msg(channel.clone()).await?;
+        let ws_msg = self.generate_ws_subs_msg(channel.clone()).await?;
         for (idx, handle) in self.command_handles.iter().enumerate() {
-            info!("[BinanceStrategy] Sending send_subscribe via handle {}, {:?}", idx, handle);
+            info!("[BinanceStrategy] Sending subscribe via handle {}, {:?}", idx, handle);
+
             let cmd = TaskCommand::Subscribe {
-                msg: ws_subs.msg.clone().unwrap(),
+                msg: ws_msg.clone(),
                 ack: AckHandle::none(),
             };
 
@@ -118,12 +119,13 @@ impl BinanceStrategy {
     }
 
     async fn send_connect(&self, channel: WsChannel) -> InfraResult<()> {
-        let ws_subs = self.generate_ws_subs_msg(channel.clone()).await?;
+        let ws_url = self.binance_um_cli.get_public_connect_msg(&channel).await?;
         for (idx, handle) in self.command_handles.iter().enumerate() {
             info!("[BinanceStrategy] Sending connect via handle {}, {:?}", idx, handle);
+
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::Connect {
-                msg: ws_subs.url.clone(),
+                msg: ws_url.clone(),
                 ack: AckHandle::new(tx),
             };
 
@@ -133,20 +135,22 @@ impl BinanceStrategy {
             }
 
             match rx.await {
-                Ok(Ok(())) => {
+                Ok(Ok(AckStatus::Connect)) => {
                     self.send_subscribe(channel.clone()).await?;
                 },
-                Ok(Err(e)) => error!("[BinanceStrategy] Connect ack failed: {:?}", e),
-                Err(_) => warn!("[BinanceStrategy] Connect ack dropped"),
-            }
+                Ok(Ok(AckStatus::Subscribe)) => {
+                    info!("[BinanceStrategy] Subscribe complete");
+                },
+                _ => error!("[BinanceStrategy] Received unexpected response from server"),
+            };
         }
 
         Ok(())
     }
 
-    async fn generate_ws_subs_msg(&self, channel: WsChannel) -> InfraResult<WsSubscription> {
+    async fn generate_ws_subs_msg(&self, channel: WsChannel) -> InfraResult<String> {
         let ws_sub = self.binance_um_cli
-            .ws_cex_pub_subscription(&channel, &["BTC_USDT_PERP".to_string()])
+            .get_public_sub_msg(&channel, Some(&["BTC_USDT_PERP".to_string()]))
             .await?;
 
         Ok(ws_sub)

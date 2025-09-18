@@ -9,6 +9,7 @@ venv/
 ENV/
 .env.*
 
+infra_logs/
 saved_models/
 resampled_data/
 merged_alt_data/

@@ -13,8 +13,9 @@ use crate::market_assets::{
     account_data::*,
     utils_data::*,
 };
+use crate::task_execution::task_ws::*;
 use crate::traits::{
-    market_cex::{CexPrivateRest, CexPublicRest, MarketCexApi}
+    market_cex::{CexWebsocket, CexPrivateRest, CexPublicRest, MarketCexApi}
 };
 
 use super::{
@@ -50,6 +51,13 @@ pub struct OkxCli {
     pub api_key: Option<OkxKey>,
 }
 
+impl Default for OkxCli {
+    fn default() -> Self {
+        Self::new(Arc::new(Client::new()))
+    }
+}
+
+
 impl MarketCexApi for OkxCli {}
 
 impl CexPublicRest for OkxCli {
@@ -71,13 +79,70 @@ impl CexPrivateRest for OkxCli {
         &self,
         assets: Vec<String>,
     ) -> InfraResult<Vec<BalanceData>> {
-        self.get_balance(assets).await
+        self._get_balance(assets).await
     }
 }
 
-impl Default for OkxCli {
-    fn default() -> Self {
-        Self::new(Arc::new(Client::new()))
+
+
+impl CexWebsocket for OkxCli {
+    async fn get_public_sub_msg(
+        &self,
+        channel: &WsChannel,
+        insts: Option<&[String]>
+    ) -> InfraResult<String> {
+        self._get_public_sub_msg(channel, insts)
+    }
+
+    async fn get_private_sub_msg(
+        &self,
+        channel: &WsChannel
+    ) -> InfraResult<String> {
+        let args = match channel {
+            WsChannel::AccountOrder => {
+                vec![json!({ "channel": "orders" })]
+            },
+            WsChannel::AccountPosition => {
+                vec![json!({
+                    "channel": "positions",
+                    "instType": "ANY",
+                })]
+            },
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        let msg = json!({
+            "op": "subscribe",
+            "args": args
+        });
+
+        Ok(msg.to_string())
+    }
+
+    async fn get_public_connect_msg(
+        &self,
+        channel: &WsChannel,
+    ) -> InfraResult<String> {
+        let url = match channel {
+            WsChannel::Candle(_)
+            | WsChannel::Trades(_)
+            | WsChannel::Tick
+            | WsChannel::Lob => OKX_WS_PUB,
+
+            WsChannel::Other(s) if s == "instruments"
+                || s == "funding-rate" => OKX_WS_BUS,
+
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        Ok(url.to_string())
+    }
+
+    async fn get_private_connect_msg(
+        &self,
+        _channel: &WsChannel
+    ) -> InfraResult<String> {
+        Ok(OKX_WS_PRI.to_string())
     }
 }
 
@@ -89,48 +154,24 @@ impl OkxCli {
         }
     }
 
-    async fn get_balance(
-        &self,
-        assets: Vec<String>,
-    ) -> InfraResult<Vec<BalanceData>> {
-        let body = json!({
-            "ccy": assets,
-        }).to_string();
+    pub fn ws_login_msg(&self) -> InfraResult<String> {
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
 
-        let bal_res: RestResOkx<RestAccountBalOkx> = self.api_key
-            .as_ref()
-            .ok_or(InfraError::ApiNotInitialized)?
-            .send_signed_request(
-                &self.client,
-                RequestMethod::Get,
-                body,
-                OKX_BASE_URL,
-                OKX_ACCOUNT_BALANCE,
-            )
-            .await?;
+        let timestamp = get_okx_timestamp();
+        let raw_sign = format!("{}{}", timestamp, OKX_WS_LOGIN);
+        let signature = api_key.sign(raw_sign, timestamp.clone())?;
 
-        if bal_res.code != "0" {
-            let msg = bal_res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", bal_res.code, msg)));
-        }
+        let msg = json!({
+            "op": "login",
+            "args": [{
+                "apiKey": api_key.api_key,
+                "passphrase": api_key.passphrase,
+                "timestamp": timestamp,
+                "sign": signature.signature
+            }]
+        });
 
-        let all_balances: Vec<BalanceData> = bal_res
-            .data
-            .into_iter()
-            .flat_map(|account| account.details)
-            .map(BalanceData::from)
-            .collect();
-
-        let filtered = if assets.is_empty() {
-            all_balances
-        } else {
-            all_balances
-                .into_iter()
-                .filter(|b| assets.contains(&b.asset))
-                .collect()
-        };
-
-        Ok(filtered)
+        Ok(msg.to_string())
     }
 
     pub async fn get_current_lead_traders(
@@ -288,6 +329,89 @@ impl OkxCli {
             .collect();
 
         Ok(result)
+    }
+
+    async fn _get_balance(
+        &self,
+        assets: Vec<String>,
+    ) -> InfraResult<Vec<BalanceData>> {
+        let body = json!({
+            "ccy": assets,
+        }).to_string();
+
+        let bal_res: RestResOkx<RestAccountBalOkx> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_ACCOUNT_BALANCE,
+            )
+            .await?;
+
+        if bal_res.code != "0" {
+            let msg = bal_res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", bal_res.code, msg)));
+        }
+
+        let all_balances: Vec<BalanceData> = bal_res
+            .data
+            .into_iter()
+            .flat_map(|account| account.details)
+            .map(BalanceData::from)
+            .collect();
+
+        let filtered = if assets.is_empty() {
+            all_balances
+        } else {
+            all_balances
+                .into_iter()
+                .filter(|b| assets.contains(&b.asset))
+                .collect()
+        };
+
+        Ok(filtered)
+    }
+
+    fn _get_public_sub_msg(
+        &self,
+        ws_channel: &WsChannel,
+        insts: Option<&[String]>
+    ) -> InfraResult<String> {
+        match ws_channel {
+            WsChannel::Candle(channel) => {
+                self._ws_subscribe_candle(channel, insts)
+            },
+            WsChannel::Trades(_) => {
+                Err(InfraError::Unimplemented)
+            },
+            WsChannel::Tick => {
+                Err(InfraError::Unimplemented)
+            },
+            WsChannel::Lob => {
+                Err(InfraError::Unimplemented)
+            },
+            _ => {
+                Err(InfraError::Unimplemented)
+            },
+        }
+    }
+
+    fn _ws_subscribe_candle(
+        &self,
+        candle_param: &Option<CandleParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        let interval = candle_param
+            .as_ref()
+            .map(|p| p.as_str())
+            .unwrap_or("1m");
+
+        let channel = format!("candle{}", interval);
+
+        Ok(ws_subscribe_msg_okx(&channel, insts))
     }
 }
 

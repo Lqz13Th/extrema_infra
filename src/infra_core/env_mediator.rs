@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use futures::future::pending;
 
 use crate::infra_core::env_core::EnvCore;
 use crate::strategy_base::command::command_core::{CommandHandle, TaskCommand};
@@ -30,7 +31,7 @@ where
 
         self.core.strategy.spawn_strategy_tasks(&self.core.channel).await;
         self.core.strategy.execute().await;
-        futures::future::pending::<()>().await;
+        pending::<()>().await;
     }
 
     fn register_tasks(&self) -> Vec<Arc<CommandHandle>> {

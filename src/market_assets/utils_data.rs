@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::base_data::{InstrumentType, MarginMode, PositionSide};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MarketInfoData {
-    pub symbol: String,
+    pub inst: String,
     pub min_order_size: f64,
     pub max_order_size: f64,
     pub price_precision: u32,
@@ -14,7 +14,7 @@ pub struct MarketInfoData {
 pub struct LeadtraderSubpositions {
     pub timestamp: u64,
     pub unique_code: String,
-    pub symbol: String,
+    pub inst: String,
     pub subpos_id: String,
     pub pos_side: PositionSide,
     pub margin_mode: MarginMode,

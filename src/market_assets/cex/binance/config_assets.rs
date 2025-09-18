@@ -16,15 +16,3 @@ pub const BINANCE_UM_FUTURES_LISTEN_KEY: &str = "/fapi/v1/listenKey";
 /// # CmFutures API
 pub const BINANCE_CM_FUTURES_BASE_URL: &str = "https://dapi.binance.com";
 
-
-/// # Websocket subscription
-pub const BINANCE_CANDLE_SUBSCRIPTIONS: [&str; 8] = [
-    "kline_1s",
-    "kline_1m",
-    "Kline_5m",
-    "Kline_15m",
-    "Kline_1h",
-    "Kline_4h",
-    "Kline_1d",
-    "Kline_1w",
-];

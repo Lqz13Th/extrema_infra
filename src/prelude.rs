@@ -12,7 +12,10 @@ pub use crate::market_assets::{
 
 pub use crate::strategy_base::{
     command::{
-        ack_handle::AckHandle,
+        ack_handle::{
+            AckHandle,
+            AckStatus,
+        },
         command_core::*,
     },
     handler::{

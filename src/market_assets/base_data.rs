@@ -8,7 +8,7 @@ pub enum InstrumentType {
 }
 
 #[derive(Clone, Debug, Default)]
-pub enum SymbolStatus {
+pub enum InstrumentStatus {
     #[default]
     Live,
     Suspend,
@@ -63,3 +63,4 @@ pub enum TimeInForce {
 pub const PERPETUAL: &str = "PERPETUAL";
 pub const TRADING: &str = "TRADING";
 pub const SUBSCRIBE: &str = "SUBSCRIBE";
+pub const SUBSCRIBE_LOWER: &str = "subscribe";

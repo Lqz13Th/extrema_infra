@@ -1,26 +1,57 @@
 use std::future::{ready, Future};
 
-
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
     account_data::*,
     price_data::*,
     utils_data::*,
 };
+use crate::task_execution::task_ws::WsChannel;
+
+pub trait CexWebsocket: Send + Sync {
+    fn get_public_sub_msg(
+        &self,
+        _channel: &WsChannel,
+        _insts: Option<&[String]>,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    fn get_private_sub_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    fn get_public_connect_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    fn get_private_connect_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+}
 
 pub trait MarketCexApi: CexPublicRest + CexPrivateRest {}
 
 pub trait CexPublicRest: Send + Sync {
     fn get_ticker(
         &self,
-        _symbols: Vec<String>,
+        _insts: Vec<String>,
     ) -> impl Future<Output = InfraResult<Vec<TickerData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
     fn get_orderbook(
         &self,
-        _symbols: Vec<String>,
+        _insts: Vec<String>,
         _depth: usize
     ) -> impl Future<Output = InfraResult<Vec<OrderBookData>>> + Send {
         ready(Err(InfraError::Unimplemented))
@@ -28,7 +59,7 @@ pub trait CexPublicRest: Send + Sync {
 
     fn get_candles(
         &self,
-        _symbols: Vec<String>,
+        _insts: Vec<String>,
         _interval: &str
     ) -> impl Future<Output = InfraResult<Vec<CandleData>>> + Send {
         ready(Err(InfraError::Unimplemented))
@@ -36,12 +67,12 @@ pub trait CexPublicRest: Send + Sync {
 
     fn get_market_info(
         &self,
-        _symbols: Vec<String>,
+        _insts: Vec<String>,
     ) -> impl Future<Output = InfraResult<Vec<MarketInfoData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
-    fn get_live_symbols(&self) -> impl Future<Output = InfraResult<Vec<String>>> + Send {
+    fn get_live_instruments(&self) -> impl Future<Output = InfraResult<Vec<String>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 }
@@ -51,7 +82,7 @@ pub trait CexPrivateRest: Send + Sync {
 
     fn place_order(
         &self,
-        _symbol: String,
+        _inst: String,
         _side: String,
         _price: Option<f64>,
         _quantity: f64,
@@ -61,21 +92,21 @@ pub trait CexPrivateRest: Send + Sync {
 
     fn cancel_orders(
         &self,
-        _symbols: Vec<String>,
+        _insts: Vec<String>,
     ) -> impl Future<Output = InfraResult<OrderData>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
     fn get_balance(
         &self,
-        _assets: Vec<String>,
+        _insts: Vec<String>,
     ) -> impl Future<Output = InfraResult<Vec<BalanceData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
     fn get_position(
         &self,
-        _symbols: Vec<String>,
+        _insts: Vec<String>,
     ) -> impl Future<Output = InfraResult<Vec<PositionData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }

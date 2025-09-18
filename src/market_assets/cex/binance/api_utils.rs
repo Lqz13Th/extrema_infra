@@ -1,10 +1,34 @@
 use serde::Deserialize;
+use serde_json::json;
 use tracing::error;
+
+use crate::market_assets::base_data::SUBSCRIBE;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
 pub struct BinanceListenKey {
     pub listenKey: String,
+}
+
+pub fn ws_subscribe_msg_binance(
+    param: &str,
+    insts: Option<&[String]>
+) -> String {
+    let params: Vec<String> = match insts {
+        Some(list) => list
+            .iter()
+            .map(|symbol| format!("{}@{}", cli_perp_to_pure_lowercase(symbol), param))
+            .collect(),
+        None => vec![param.to_string()],
+    };
+
+    let subscribe_msg = json!({
+        "method": SUBSCRIBE,
+        "params": params,
+        "id": 1
+    });
+
+    subscribe_msg.to_string()
 }
 
 pub fn binance_um_to_cli_perp(symbol: &str) -> String {

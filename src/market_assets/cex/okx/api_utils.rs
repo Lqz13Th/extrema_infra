@@ -1,13 +1,42 @@
 use serde::Deserialize;
+use serde_json::json;
 use tracing::error;
 
-use crate::market_assets::base_data::InstrumentType;
+use crate::market_assets::base_data::{
+    InstrumentType,
+    SUBSCRIBE_LOWER
+};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestResOkx<T> {
     pub code: String,
     pub data: Vec<T>,
     pub msg: Option<String>,
+}
+
+pub fn ws_subscribe_msg_okx(
+    channel: &str,
+    insts: Option<&[String]>
+) -> String {
+    let args: Vec<_> = match insts {
+        Some(list) => list
+            .iter()
+            .map(|inst| {
+                json!({
+                    "channel": channel,
+                    "instId": inst
+                })
+            })
+            .collect(),
+        None => vec![json!({ "channel": channel })],
+    };
+
+    let subscribe_msg = json!({
+        "op": SUBSCRIBE_LOWER,
+        "args": args
+    });
+
+    subscribe_msg.to_string()
 }
 
 pub fn get_okx_timestamp() -> String {

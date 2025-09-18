@@ -9,7 +9,10 @@ use tracing::{error, info, warn};
 
 use crate::market_assets::api_general::get_micros_timestamp;
 use crate::strategy_base::{
-    command::command_core::TaskCommand,
+    command::{
+        ack_handle::AckStatus,
+        command_core::TaskCommand
+    },
     handler::{
         alt_events::AltTimerEvent,
         handler_core::{find_timer, BoardCastChannel}
@@ -36,7 +39,7 @@ impl AltTaskBuilder {
     fn handle_cmd(&self, cmd: TaskCommand) {
         self.log(LogLevel::Warn, &format!("Unexpected command, auto-ack: {:?}", cmd));
         if let Some(ack) = cmd.ack() {
-            ack.respond(Ok(()));
+            ack.respond(Ok(AckStatus::AltTask));
         }
     }
 

@@ -12,7 +12,7 @@ pub struct BalanceData {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PositionData {
     pub timestamp: u64,
-    pub symbol: String,
+    pub inst: String,
     pub side: String, // "LONG" / "SHORT"
     pub size: f64,
     pub entry_price: f64,
@@ -23,7 +23,7 @@ pub struct PositionData {
 pub struct OrderData {
     pub timestamp: u64,
     pub order_id: String,
-    pub symbol: String,
+    pub inst: String,
     pub side: String,
     pub price: f64,
     pub quantity: f64,

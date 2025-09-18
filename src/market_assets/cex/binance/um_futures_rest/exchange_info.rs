@@ -4,13 +4,13 @@ use serde::Deserialize;
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
 pub(crate) struct RestExchangeInfoBinanceUM {
-    pub symbols: Vec<SymbolInfo>,
+    pub insts: Vec<InstrumentInfo>,
 }
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct SymbolInfo {
-    pub symbol: String,
+pub(crate) struct InstrumentInfo {
+    pub inst: String,
     pub contractType: String,
     pub status: String,
     pub pricePrecision: i32,

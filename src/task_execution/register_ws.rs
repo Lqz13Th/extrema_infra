@@ -15,7 +15,6 @@ use tokio_tungstenite::{
 };
 
 use tracing::{info, warn, error, debug};
-
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
     market_core::Market,
@@ -30,7 +29,10 @@ use crate::market_assets::{
     }
 };
 use crate::strategy_base::{
-    command::command_core::TaskCommand,
+    command::{
+        ack_handle::AckStatus,
+        command_core::TaskCommand
+    },
     handler::handler_core::*,
 };
 use crate::traits::conversion::IntoWsData;
@@ -112,6 +114,17 @@ impl WsTaskBuilder {
                 },
                 cmd = self.cmd_rx.recv() => {
                     match cmd {
+                        Some(TaskCommand::Login { msg, ack }) => {
+                            if ws_write.send(Message::text(msg.clone())).await.is_err() {
+                                self.log(
+                                    LogLevel::Error,
+                                    &format!("Failed to send login: {}", msg)
+                                );
+                            } else {
+                                self.log(LogLevel::Info,&format!("Login: {}", msg));
+                            }
+                            ack.respond(Ok(AckStatus::Login));
+                        },
                         Some(TaskCommand::Subscribe { msg, ack }) => {
                             if ws_write.send(Message::text(msg.clone())).await.is_err() {
                                 self.log(
@@ -121,7 +134,7 @@ impl WsTaskBuilder {
                             } else {
                                 self.log(LogLevel::Info,&format!("Subscribed: {}", msg));
                             }
-                            ack.respond(Ok(()));
+                            ack.respond(Ok(AckStatus::Subscribe));
                         },
                         Some(TaskCommand::Unsubscribe { msg, ack }) => {
                             if ws_write.send(Message::text(msg.clone())).await.is_err() {
@@ -132,11 +145,11 @@ impl WsTaskBuilder {
                             } else {
                                 self.log(LogLevel::Info, &format!("Unsubscribed: {}", msg));
                             }
-                            ack.respond(Ok(()));
+                            ack.respond(Ok(AckStatus::Unsubscribe));
                         },
                         Some(TaskCommand::Shutdown { msg, ack }) => {
                             self.log(LogLevel::Warn, &format!("Shutting down: {}", msg));
-                            ack.respond(Ok(()));
+                            ack.respond(Ok(AckStatus::Shutdown));
                             break;
                         },
                         _ => self.log(LogLevel::Warn, "Unexpected command"),
@@ -239,7 +252,7 @@ impl WsTaskBuilder {
                 }
             };
 
-            ack.respond(Ok(()));
+            ack.respond(Ok(AckStatus::Connect));
             self.ws_channel_distribution(ws_stream).await;
 
         }

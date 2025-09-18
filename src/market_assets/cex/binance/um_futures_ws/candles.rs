@@ -36,7 +36,7 @@ impl IntoWsData for WsCandleBinanceUM {
         WsCandle {
             timestamp: ts_to_micros(self.k.t),
             market: Market::BinanceUmFutures,
-            symbol: binance_um_to_cli_perp(&self.s),
+            inst: binance_um_to_cli_perp(&self.s),
             interval: CandleParam::from_candle_str(&self.k.i)
                 .unwrap_or(CandleParam::OneMinute),
             open: self.k.o.parse().unwrap_or(0.0),

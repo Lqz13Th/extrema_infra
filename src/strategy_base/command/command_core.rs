@@ -16,6 +16,7 @@ pub enum TaskCommand {
     Subscribe { msg: String, ack: AckHandle },
     Unsubscribe { msg: String, ack: AckHandle },
     Shutdown { msg: String, ack: AckHandle },
+    Login { msg: String, ack: AckHandle }, 
 
     NNInput(Arc<NeuralInput>),
     NNOutput(Arc<NeuralOutput>),

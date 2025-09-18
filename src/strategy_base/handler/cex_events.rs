@@ -8,7 +8,7 @@ use crate::task_execution::task_ws::CandleParam;
 pub struct WsTrade {
     pub timestamp: u64,
     pub market: Market,
-    pub symbol: String,
+    pub inst: String,
     pub price: f64,
     pub size: f64,
     pub side: OrderSide,
@@ -19,7 +19,7 @@ pub struct WsTrade {
 pub struct WsLob {
     pub timestamp: u64,
     pub market: Market,
-    pub symbol: String,
+    pub inst: String,
     pub bids: Vec<(f64, f64)>, // (price, size)
     pub asks: Vec<(f64, f64)>, // (price, size)
 }
@@ -28,7 +28,7 @@ pub struct WsLob {
 pub struct WsCandle {
     pub timestamp: u64,
     pub market: Market,
-    pub symbol: String,
+    pub inst: String,
     pub interval: CandleParam,
     pub open: f64,
     pub high: f64,
@@ -42,7 +42,7 @@ pub struct WsCandle {
 pub struct WsAccountOrder {
     pub timestamp: u64,
     pub market: Market,
-    pub symbol: String,
+    pub inst: String,
     pub price: f64,
     pub size: f64,
     pub filled_size: f64,

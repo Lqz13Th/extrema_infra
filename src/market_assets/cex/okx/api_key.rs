@@ -43,7 +43,7 @@ impl OkxKey {
         }
     }
 
-    fn sign(
+    pub fn sign(
         &self,
         raw_sign: String,
         timestamp: String,
@@ -58,7 +58,7 @@ impl OkxKey {
         })
     }
 
-    fn sign_now(
+    pub fn sign_now(
         &self,
         method: &str,
         uri: &str,

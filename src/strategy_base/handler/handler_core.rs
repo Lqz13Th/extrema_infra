@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::broadcast;
-
+use futures::future::pending;
 use tracing::error;
 
 use crate::strategy_base::handler::{
@@ -60,7 +60,7 @@ async fn recv_or_pending<T: Clone>(
 ) -> Result<T, broadcast::error::RecvError> {
     match rx {
         Some(rx) => rx.recv().await,
-        None => futures::future::pending().await,
+        None => pending().await,
     }
 }
 

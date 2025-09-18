@@ -8,14 +8,9 @@ pub struct WsTaskInfo {
 }
 
 #[derive(Clone, Debug)]
-pub struct WsSubscription {
-    pub msg: Option<String>,
-    pub url: String,
-}
-
-#[derive(Clone, Debug)]
 pub enum WsChannel {
-    Account,
+    AccountOrder,
+    AccountPosition,
     Candle(Option<CandleParam>),
     Trades(Option<TradesParam>),
     Tick,
@@ -33,6 +28,7 @@ pub enum CandleParam {
     FourHours,
     OneDay,
     OneWeek,
+    Custom(String)
 }
 
 #[derive(Clone, Debug)]
@@ -40,6 +36,8 @@ pub enum TradesParam {
     AggTrades,
     Trades,
 }
+
+
 
 impl CandleParam {
     pub fn from_candle_str(s: &str) -> Option<Self> {
@@ -53,6 +51,20 @@ impl CandleParam {
             "1d" => Some(CandleParam::OneDay),
             "1w" => Some(CandleParam::OneWeek),
             _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            CandleParam::OneSecond => "1s",
+            CandleParam::OneMinute => "1m",
+            CandleParam::FiveMinutes => "5m",
+            CandleParam::FifteenMinutes => "15m",
+            CandleParam::OneHour => "1h",
+            CandleParam::FourHours => "4h",
+            CandleParam::OneDay => "1d",
+            CandleParam::OneWeek => "1w",
+            CandleParam::Custom(s) => s.as_str(),
         }
     }
 }
