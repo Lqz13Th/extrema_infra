@@ -1,6 +1,6 @@
 # Extrema Infra
 
-A high-performance zero-cost abstractions quantitative trading infrastructure built with Rust  
+A high-performance zero-cost abstractions quantitative trading infrastructure built with Rust.
 
 It maximizes runtime efficiency through **static dispatch** and promotes scalability with **Heterogeneous Lists (HList)** for strategy registration.  
 
