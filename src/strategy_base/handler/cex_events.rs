@@ -39,17 +39,18 @@ pub struct WsCandle {
 }
 
 #[derive(Clone, Debug)]
-pub struct WsAccountOrder {
+pub struct WsAccOrder {
     pub timestamp: u64,
     pub market: Market,
     pub inst: String,
+    pub inst_type: InstrumentType,
     pub price: f64,
     pub size: f64,
     pub filled_size: f64,
     pub side: OrderSide,
     pub status: OrderStatus,
     pub order_type: OrderType,
-    pub client_id: Option<String>,
+    pub client_order_id: Option<String>,
 }
 
 

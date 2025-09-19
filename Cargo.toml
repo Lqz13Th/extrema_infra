@@ -7,12 +7,6 @@ edition = "2024"
 name = "extrema_infra"
 path = "src/lib.rs"
 
-[features]
-all = ["binance", "okx"]
-default = ["binance"]
-binance = []
-okx = []
-
 [dependencies]
 # Networking
 reqwest = { version = "0.12.23", features = ["json"] }
@@ -26,6 +20,7 @@ zeromq = "0.4.1"
 # Parsing
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.142"
+simd-json = "0.16.0"
 
 # Encryption
 hmac = "0.12.1"

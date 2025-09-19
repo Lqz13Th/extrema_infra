@@ -4,7 +4,7 @@ use crate::market_assets::market_core::Market;
 pub struct WsTaskInfo {
     pub market: Market,
     pub ws_channel: WsChannel,
-    pub chunk: usize,
+    pub chunk: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

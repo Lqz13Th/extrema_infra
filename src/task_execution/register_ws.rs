@@ -1,20 +1,34 @@
 use std::sync::Arc;
-use serde_json::from_slice;
 use serde::de::DeserializeOwned;
-use futures_util::{SinkExt, StreamExt};
+use simd_json::from_slice;
+use futures_util::{
+    SinkExt,
+    StreamExt,
+    stream::SplitSink,
+};
 use tokio::{
     sync::{broadcast, mpsc},
-    time::{sleep, Duration},
+    time::{
+        sleep,
+        timeout,
+        Duration,
+        error::Elapsed,
+    },
     net::TcpStream,
+};
+use tungstenite::{
+    Error,
+    Bytes,
+    protocol::Message,
 };
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::protocol::Message,
     MaybeTlsStream,
     WebSocketStream,
+
 };
 
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, error};
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
@@ -26,13 +40,18 @@ use crate::market_assets::{
                 agg_trades::WsAggTradeBinanceUM,
                 candles::WsCandleBinanceUM,
             }
-        }
-    }
+        },
+        okx::{
+            okx_ws_msg::OkxWsData,
+            ws::account_order_update::WsAccountOrderOkx,
+        },
+    },
 };
+use crate::prelude::AckHandle;
 use crate::strategy_base::{
     command::{
         ack_handle::AckStatus,
-        command_core::TaskCommand
+        command_core::TaskCommand,
     },
     handler::handler_core::*,
 };
@@ -43,6 +62,9 @@ use super::{
     task_ws::{WsTaskInfo, WsChannel}
 };
 
+type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
+type WsWrite = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
+static PING: Bytes = Bytes::from_static(b"ping");
 
 #[derive(Debug)]
 pub(crate) struct WsTaskBuilder{
@@ -56,7 +78,7 @@ impl WsTaskBuilder {
     async fn connect_websocket(
         &self,
         url: &str,
-    ) -> InfraResult<WebSocketStream<MaybeTlsStream<TcpStream>>> {
+    ) -> InfraResult<WsStream> {
         let (ws_stream, _) = connect_async(url)
             .await
             .map_err(|e| {
@@ -65,104 +87,148 @@ impl WsTaskBuilder {
             })?;
         Ok(ws_stream)
     }
+    async fn handle_ws_msg<WsData>(
+        &mut self,
+        msg: Result<Option<Result<Message, Error>>, Elapsed>,
+        ws_write: &mut WsWrite,
+        tx: &broadcast::Sender<InfraMsg<WsData::Output>>,
+    ) where
+        WsData: DeserializeOwned + IntoWsData + Send + 'static,
+        WsData::Output: Send + Sync + 'static,
+    {
+        match msg {
+            Ok(Some(Ok(Message::Text(text)))) => {
+                let buf: Bytes = text.into();
+                match from_slice::<WsData>(&mut buf.to_vec()) {
+                    Ok(parsed_raw) => {
+                        let _ = tx.send(InfraMsg {
+                            task_numb: self.task_numb,
+                            data: Arc::new(parsed_raw.into_ws()),
+                        });
+                    },
+                    Err(e) => {
+                        self.log(
+                            LogLevel::Warn,
+                            &format!("Failed to deserialize WS text: {}", e)
+                        );
+                    },
+                };
+            },
+            Ok(Some(Ok(Message::Binary(bytes)))) => {
+                match from_slice::<WsData>(&mut bytes.to_vec()) {
+                    Ok(parsed_raw) => {
+                        let _ = tx.send(InfraMsg {
+                            task_numb: self.task_numb,
+                            data: Arc::new(parsed_raw.into_ws()),
+                        });
+                    },
+                    Err(e) => {
+                        self.log(
+                            LogLevel::Warn,
+                            &format!("Failed to deserialize WS binary: {:?}", e)
+                        );
+                    },
+                };
+            },
+            Ok(Some(Ok(Message::Ping(payload)))) => {
+                let _ = ws_write.send(Message::Pong(payload)).await;
+            },
+            Ok(Some(Ok(Message::Close(frame)))) => {
+                self.log(LogLevel::Error, &format!("WebSocket closed: {:?}", frame));
+            },
+            Ok(Some(Err(e))) => {
+                self.log(LogLevel::Error, &format!("Error receiving WS message: {:?}", e));
+            },
+            Ok(None) => {
+                self.log(LogLevel::Error, "WebSocket stream ended");
+            },
+            Err(_) => {
+                if let Err(e) = ws_write.send(Message::Ping(PING.clone())).await {
+                    self.log(LogLevel::Error, &format!("Failed to send ping: {:?}", e));
+                }
+            },
+            _ => {},
+        };
+    }
+
+    async fn handle_command(
+        &mut self,
+        cmd: Option<TaskCommand>,
+        ws_write: &mut WsWrite,
+    ) -> bool {
+        if let Some(cmd) = cmd {
+            match cmd {
+                TaskCommand::Login { msg, ack } => {
+                    self.send_cmd(ws_write, msg, ack, AckStatus::Login).await
+                },
+                TaskCommand::Subscribe { msg, ack } => {
+                    self.send_cmd(ws_write, msg, ack, AckStatus::Subscribe).await
+                },
+                TaskCommand::Unsubscribe { msg, ack } => {
+                    self.send_cmd(ws_write, msg, ack, AckStatus::Unsubscribe).await
+                },
+                TaskCommand::Shutdown { msg, ack } => {
+                    self.send_cmd(ws_write, msg, ack, AckStatus::Shutdown).await;
+                    return true;
+                },
+                _ => self.log(LogLevel::Warn, "Unexpected command"),
+            };
+        }
+
+        false
+    }
+
+    async fn send_cmd(
+        &mut self,
+        ws_write: &mut WsWrite,
+        msg: String,
+        ack_handle: AckHandle,
+        ack_status: AckStatus,
+    ) {
+        if ws_write.send(Message::text(msg.clone())).await.is_err() {
+            self.log(
+                LogLevel::Error,
+                &format!("Failed to send {:?}: {}", ack_status, msg)
+            );
+        } else {
+            self.log(LogLevel::Info,
+                &format!("{:?}: {}", ack_status, msg)
+            );
+        }
+
+        ack_handle.respond(ack_status);
+    }
+
 
     async fn ws_loop<WsData>(
         &mut self,
-        tx: broadcast::Sender<Arc<WsData::Output>>,
-        ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    ) where
-        WsData: DeserializeOwned + IntoWsData + Send + 'static + std::fmt::Debug,
+        tx: broadcast::Sender<InfraMsg<WsData::Output>>,
+        ws_stream: WsStream,
+    )
+    where
+        WsData: DeserializeOwned + IntoWsData + Send + 'static,
         WsData::Output: Send + Sync + 'static,
     {
         let (mut ws_write, mut ws_read) = ws_stream.split();
+        let timeout_sec = Duration::from_secs(13);
+
         loop {
             tokio::select! {
-                msg = ws_read.next() => {
-                    match msg {
-                        Some(Ok(Message::Text(text))) => {
-                            debug!(text = %text, "Received message");
-                            if let Ok(parsed_raw) = from_slice::<WsData>(text.as_bytes()) {
-                                let parsed = parsed_raw.into_ws();
-                                let _ = tx.send(Arc::new(parsed));
-
-                            } else {
-                                self.log(
-                                    LogLevel::Warn,
-                                    &format!("Failed to deserialize WS message: {}", text)
-                                );
-                            }
-                        },
-                        Some(Ok(Message::Ping(payload))) => {
-                            let _ = ws_write.send(Message::Pong(payload)).await;
-                        },
-                        Some(Ok(Message::Close(frame))) => {
-                            self.log(LogLevel::Error, &format!("WebSocket closed: {:?}", frame));
-                            break;
-                        },
-                        Some(Err(e)) => {
-                            self.log(
-                                LogLevel::Error,
-                                &format!("Error receiving WS message: {:?}", e)
-                            );
-                            break;
-                        },
-                        None => {
-                            self.log(LogLevel::Error, "WebSocket stream ended");
-                            break;
-                        },
-                        _ => {},
-                    };
+                msg = timeout(timeout_sec, ws_read.next()) => {
+                    self.handle_ws_msg::<WsData>(msg, &mut ws_write, &tx).await;
                 },
                 cmd = self.cmd_rx.recv() => {
-                    match cmd {
-                        Some(TaskCommand::Login { msg, ack }) => {
-                            if ws_write.send(Message::text(msg.clone())).await.is_err() {
-                                self.log(
-                                    LogLevel::Error,
-                                    &format!("Failed to send login: {}", msg)
-                                );
-                            } else {
-                                self.log(LogLevel::Info,&format!("Login: {}", msg));
-                            }
-                            ack.respond(Ok(AckStatus::Login));
-                        },
-                        Some(TaskCommand::Subscribe { msg, ack }) => {
-                            if ws_write.send(Message::text(msg.clone())).await.is_err() {
-                                self.log(
-                                    LogLevel::Error,
-                                    &format!("Failed to send subscribe: {}", msg)
-                                );
-                            } else {
-                                self.log(LogLevel::Info,&format!("Subscribed: {}", msg));
-                            }
-                            ack.respond(Ok(AckStatus::Subscribe));
-                        },
-                        Some(TaskCommand::Unsubscribe { msg, ack }) => {
-                            if ws_write.send(Message::text(msg.clone())).await.is_err() {
-                                self.log(
-                                    LogLevel::Error,
-                                    &format!("Failed to send unsubscribe: {}", msg)
-                                );
-                            } else {
-                                self.log(LogLevel::Info, &format!("Unsubscribed: {}", msg));
-                            }
-                            ack.respond(Ok(AckStatus::Unsubscribe));
-                        },
-                        Some(TaskCommand::Shutdown { msg, ack }) => {
-                            self.log(LogLevel::Warn, &format!("Shutting down: {}", msg));
-                            ack.respond(Ok(AckStatus::Shutdown));
-                            break;
-                        },
-                        _ => self.log(LogLevel::Warn, "Unexpected command"),
-                    };
-                }
+                    if self.handle_command(cmd, &mut ws_write).await {
+                        break;
+                    }
+                },
             }
         }
     }
 
     async fn ws_channel_distribution(
         &mut self,
-        ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
+        ws_stream: WsStream,
     ) {
         match (&self.ws_info.market, &self.ws_info.ws_channel) {
             (Market::BinanceUmFutures, WsChannel::Trades(..)) => {
@@ -191,6 +257,19 @@ impl WsTaskBuilder {
                     );
                 }
             },
+            (Market::Okx, WsChannel::AccountOrder) => {
+                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<WsAccountOrderOkx>>(
+                        tx,
+                        ws_stream
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for OKX Acc Order"
+                    );
+                }
+            },
             (Market::SolPumpFun, WsChannel::Other(..)) => {
 
             },
@@ -205,7 +284,12 @@ impl WsTaskBuilder {
 
     fn ws_cex_event(&self) {
         if let Some(tx) = find_cex_event(&self.board_cast_channel) {
-            if let Err(e) = tx.send(self.ws_info.clone()) {
+            let msg = InfraMsg {
+                task_numb: self.task_numb,
+                data: self.ws_info.clone(),
+            };
+
+            if let Err(e) = tx.send(msg) {
                 self.log(LogLevel::Warn, &format!("CEX event send failed: {:?}", e));
             }
         } else {
@@ -215,7 +299,7 @@ impl WsTaskBuilder {
 
     pub(crate) async fn ws_mid_relay(&mut self) {
         let sleep_interval = Duration::from_secs(5 + 3 * self.task_numb);
-        self.log(LogLevel::Info, "Spawned rest task");
+        self.log(LogLevel::Info, "Spawned ws task");
 
         loop {
             sleep(sleep_interval).await;
@@ -248,7 +332,7 @@ impl WsTaskBuilder {
                 }
             };
 
-            ack.respond(Ok(AckStatus::Connect));
+            ack.respond(AckStatus::Connect);
             self.ws_channel_distribution(ws_stream).await;
 
         }

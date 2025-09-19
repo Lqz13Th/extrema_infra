@@ -4,7 +4,7 @@ pub enum Market {
     BinanceUmFutures,
     BinanceSpot,
     Coinbase,
-    OkxSwap,
+    Okx,
     SolPumpFun,
 }
 

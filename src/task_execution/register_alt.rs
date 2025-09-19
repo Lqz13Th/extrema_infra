@@ -15,7 +15,7 @@ use crate::strategy_base::{
     },
     handler::{
         alt_events::AltTimerEvent,
-        handler_core::{find_timer, BoardCastChannel}
+        handler_core::{find_timer, BoardCastChannel, InfraMsg}
     }
 };
 use super::{
@@ -24,22 +24,21 @@ use super::{
 };
 
 
-
-
 #[derive(Debug)]
 pub(crate) struct AltTaskBuilder {
     #[warn(dead_code)]
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
     pub alt_info: Arc<AltTaskInfo>,
+    pub task_numb: u64,
 }
 
 
 impl AltTaskBuilder {
     fn handle_cmd(&self, cmd: TaskCommand) {
         self.log(LogLevel::Warn, &format!("Unexpected command, auto-ack: {:?}", cmd));
-        if let Some(ack) = cmd.ack() {
-            ack.respond(Ok(AckStatus::AltTask));
+        if let Some(ack_handle) = cmd.get_ack() {
+            ack_handle.respond(AckStatus::AltTask);
         }
     }
 
@@ -50,11 +49,15 @@ impl AltTaskBuilder {
             tokio::select! {
                 _ = interval.tick() => {
                     if let Some(tx) = find_timer(&self.board_cast_channel) {
-                        let timer_event = AltTimerEvent {
-                            timestamp: get_micros_timestamp(),
-                            interval_sec: n,
-                        };
-                        let _ = tx.send(Arc::new(timer_event));
+                        let _ = tx.send(
+                            InfraMsg {
+                                task_numb: self.task_numb,
+                                data: Arc::new(AltTimerEvent {
+                                    timestamp: get_micros_timestamp(),
+                                    interval_sec: n,
+                                }),
+                            }
+                        );
                     } else {
                         self.log(LogLevel::Warn, "No timer channel found, retrying...");
                     }

@@ -1,14 +1,48 @@
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use tokio::sync::{
+    oneshot,
+    mpsc,
+};
 
-use crate::strategy_base::command::ack_handle::AckHandle;
+use crate::errors::{InfraError, InfraResult};
+use crate::strategy_base::command::ack_handle::{AckHandle, AckStatus};
 use crate::task_execution::task_general::TaskInfo;
 
 #[derive(Clone, Debug)]
 pub struct CommandHandle {
-    pub task_info: TaskInfo,
     pub cmd_tx: mpsc::Sender<TaskCommand>,
+    pub task_info: TaskInfo,
+    pub task_numb: u64,
 }
+
+impl CommandHandle {
+    pub async fn send_command(
+        &self,
+        cmd: TaskCommand,
+        expected_ack: Option<(AckStatus, oneshot::Receiver<AckStatus>)>,
+    ) -> InfraResult<()> {
+        self.cmd_tx
+            .send(cmd)
+            .await
+            .map_err(|e| InfraError::Other(format!("Failed to send Command: {}", e).into()))?;
+
+        if let Some((expected, rx)) = expected_ack {
+            let ack = rx.await.map_err(|_| InfraError::Other("Ack channel closed".into()))?;
+            if ack == expected {
+                Ok(())
+            } else {
+                Err(InfraError::Other(format!(
+                    "Unexpected ack: {:?}, expected: {:?}",
+                    ack, expected
+                ).into()))
+            }
+        } else {
+            Ok(())
+        }
+    }
+
+}
+
 
 #[derive(Debug)]
 pub enum TaskCommand {
@@ -23,7 +57,7 @@ pub enum TaskCommand {
 }
 
 impl TaskCommand {
-    pub fn ack(self) -> Option<AckHandle> {
+    pub fn get_ack(self) -> Option<AckHandle> {
         match self {
             TaskCommand::Connect { ack, .. }
             | TaskCommand::Subscribe { ack, .. }

@@ -100,8 +100,10 @@ impl CexWebsocket for OkxCli {
     ) -> InfraResult<String> {
         let args = match channel {
             WsChannel::AccountOrder => {
-                vec![json!({ "channel": "orders" })]
-            },
+                vec![json!({
+                    "channel": "orders",
+                    "instType": "ANY",
+                })]            },
             WsChannel::AccountPosition => {
                 vec![json!({
                     "channel": "positions",
@@ -178,14 +180,15 @@ impl OkxCli {
         &self,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<CurrentLeadtrader>> {
-        let _inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+        let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Option => "OPTION",
+            InstrumentType::Unknown => "SPOT",
         };
 
         let body = json!({
-            "instType": _inst_type_str,
+            "instType": inst_type_str,
         }).to_string();
 
         let res: RestResOkx<RestLeadtraderOkx> = self.api_key
@@ -222,6 +225,7 @@ impl OkxCli {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Option => "OPTION",
+            InstrumentType::Unknown => "SPOT",
         };
 
         let mut url = format!("{}{}?instType={}", OKX_BASE_URL, OKX_PUBLIC_LEADTRADERS, inst_type_str);
@@ -290,6 +294,7 @@ impl OkxCli {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Option => "OPTION",
+            InstrumentType::Unknown => "SPOT",
         };
 
         let mut url = format!(

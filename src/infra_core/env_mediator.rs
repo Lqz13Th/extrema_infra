@@ -24,13 +24,13 @@ where
     S: Strategy,
 {
     pub async fn execute(mut self) {
+        self.core.strategy.initialize().await;
         let handles = self.register_tasks();
         for handle in &handles {
             self.core.strategy.command_init(handle.clone());
         }
 
-        self.core.strategy.spawn_strategy_tasks(&self.core.channel).await;
-        self.core.strategy.execute().await;
+        self.core.strategy._spawn_strategy_tasks(&self.core.channel).await;
         pending::<()>().await;
     }
 
@@ -45,19 +45,20 @@ where
     }
 
     fn spawn_ws_tasks(&self, ws_task_info: &Arc<WsTaskInfo>) -> Vec<Arc<CommandHandle>> {
-        (0..ws_task_info.chunk)
+        (1..ws_task_info.chunk + 1)
             .map(|chunk_numb| {
                 let (cmd_tx, cmd_rx) = mpsc::channel::<TaskCommand>(2048);
                 let handle = Arc::new(CommandHandle {
-                    task_info: TaskInfo::WsTask(ws_task_info.clone()),
                     cmd_tx,
+                    task_info: TaskInfo::WsTask(ws_task_info.clone()),
+                    task_numb: chunk_numb,
                 });
 
                 let mut ws_task = WsTaskBuilder {
                     cmd_rx,
                     board_cast_channel: self.core.channel.clone(),
                     ws_info: ws_task_info.clone(),
-                    task_numb: chunk_numb as u64,
+                    task_numb: chunk_numb,
                 };
 
                 tokio::spawn(async move { ws_task.ws_mid_relay().await });
@@ -68,21 +69,27 @@ where
     }
 
     fn spawn_alt_tasks(&self, alt_task_info: &Arc<AltTaskInfo>) -> Vec<Arc<CommandHandle>> {
-        let (cmd_tx, cmd_rx) = mpsc::channel::<TaskCommand>(2048);
-        let handle = Arc::new(CommandHandle {
-            task_info: TaskInfo::AltTask(alt_task_info.clone()),
-            cmd_tx,
-        });
+        (1..alt_task_info.chunk + 1)
+            .map(|chunk_numb| {
+                let (cmd_tx, cmd_rx) = mpsc::channel::<TaskCommand>(2048);
+                let handle = Arc::new(CommandHandle {
+                    cmd_tx,
+                    task_info: TaskInfo::AltTask(alt_task_info.clone()),
+                    task_numb: chunk_numb,
+                });
 
-        let mut alt_task = AltTaskBuilder {
-            cmd_rx,
-            board_cast_channel: self.core.channel.clone(),
-            alt_info: alt_task_info.clone(),
-        };
+                let mut alt_task = AltTaskBuilder {
+                    cmd_rx,
+                    board_cast_channel: self.core.channel.clone(),
+                    alt_info: alt_task_info.clone(),
+                    task_numb: chunk_numb,
+                };
 
-        tokio::spawn(async move { alt_task.alt_mid_relay().await });
+                tokio::spawn(async move { alt_task.alt_mid_relay().await });
 
-        vec![handle]
+                handle
+            })
+            .collect()
     }
 }
 

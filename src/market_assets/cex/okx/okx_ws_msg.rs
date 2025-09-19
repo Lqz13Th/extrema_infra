@@ -6,8 +6,8 @@ use crate::traits::conversion::IntoWsData;
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum OkxWsData<T> {
+    ChannelBatch(OkxWsChannel<T>),
     Event(OkxWsEvent),
-    ChannelBatch(OkxWsChannel<T>)
 }
 
 #[allow(non_snake_case)]

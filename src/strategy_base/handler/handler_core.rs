@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use futures::future::pending;
+use futures::future;
 use tracing::error;
 
 use crate::strategy_base::handler::{
@@ -14,53 +14,64 @@ use crate::task_execution::{
 use crate::traits::strategy::Strategy;
 
 #[derive(Clone, Debug)]
+pub struct InfraMsg<T> {
+    pub task_numb: u64,
+    pub data: Arc<T>,
+}
+
+#[derive(Clone, Debug)]
 pub enum BoardCastChannel {
-    Alt(broadcast::Sender<Arc<AltTaskInfo>>),
-    Cex(broadcast::Sender<Arc<WsTaskInfo>>),
-    Dex(broadcast::Sender<Arc<WsTaskInfo>>),
-    Timer(broadcast::Sender<Arc<AltTimerEvent>>),
-    Trade(broadcast::Sender<Arc<Vec<WsTrade>>>),
-    Lob(broadcast::Sender<Arc<Vec<WsLob>>>),
-    Candle(broadcast::Sender<Arc<Vec<WsCandle>>>),
+    Alt(broadcast::Sender<InfraMsg<AltTaskInfo>>),
+    Cex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
+    Dex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
+    Timer(broadcast::Sender<InfraMsg<AltTimerEvent>>),
+    Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
+    Lob(broadcast::Sender<InfraMsg<Vec<WsLob>>>),
+    Candle(broadcast::Sender<InfraMsg<Vec<WsCandle>>>),
+    AccOrder(broadcast::Sender<InfraMsg<Vec<WsAccOrder>>>),
 }
 
 impl BoardCastChannel {
     pub fn default_alt_event() -> Self {
-        BoardCastChannel::Alt(broadcast::channel(1024).0)
+        BoardCastChannel::Alt(broadcast::channel(2048).0)
     }
 
     pub fn default_cex_event() -> Self {
-        BoardCastChannel::Cex(broadcast::channel(1024).0)
+        BoardCastChannel::Cex(broadcast::channel(2048).0)
     }
 
     pub fn default_dex_event() -> Self {
-        BoardCastChannel::Dex(broadcast::channel(1024).0)
+        BoardCastChannel::Dex(broadcast::channel(2048).0)
     }
 
     pub fn default_timer() -> Self {
-        BoardCastChannel::Timer(broadcast::channel(1024).0)
+        BoardCastChannel::Timer(broadcast::channel(2048).0)
     }
 
     pub fn default_trade() -> Self {
-        BoardCastChannel::Trade(broadcast::channel(1024).0)
+        BoardCastChannel::Trade(broadcast::channel(2048).0)
     }
 
     pub fn default_lob() -> Self {
-        BoardCastChannel::Lob(broadcast::channel(1024).0)
+        BoardCastChannel::Lob(broadcast::channel(2048).0)
     }
 
     pub fn default_candle() -> Self {
-        BoardCastChannel::Candle(broadcast::channel(1024).0)
+        BoardCastChannel::Candle(broadcast::channel(2048).0)
     }
-}
 
+    pub fn default_account_order() -> Self {
+        BoardCastChannel::AccOrder(broadcast::channel(2048).0)
+    }
+
+}
 
 async fn recv_or_pending<T: Clone>(
     rx: &mut Option<broadcast::Receiver<T>>,
 ) -> Result<T, broadcast::error::RecvError> {
     match rx {
         Some(rx) => rx.recv().await,
-        None => pending().await,
+        None => future::pending().await,
     }
 }
 
@@ -80,6 +91,8 @@ where
     let mut rx_trade = find_trade(channels).map(|tx| tx.subscribe());
     let mut rx_lob = find_lob(channels).map(|tx| tx.subscribe());
     let mut rx_candle = find_candle(channels).map(|tx| tx.subscribe());
+    
+    let mut rx_acc_order = find_acc_order(channels).map(|tx| tx.subscribe());
 
     loop {
         tokio::select! {
@@ -111,6 +124,15 @@ where
                     Err(e) => {
                         error!("rx_candle err: {:?}, reconnecting...", e);
                         rx_candle = find_candle(channels).map(|tx| tx.subscribe());
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_acc_order) => {
+                match msg {
+                    Ok(msg) => strategies.on_acc_order(msg).await,
+                    Err(e) => {
+                        error!("rx_acc_order err: {:?}, reconnecting...", e);
+                        rx_acc_order = find_acc_order(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -156,61 +178,9 @@ where
     }
 }
 
-
-
-pub(crate) fn find_candle(
-    channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<Arc<Vec<WsCandle>>>> {
-    channels.iter().find_map(|ch| {
-        if let BoardCastChannel::Candle(tx) = ch {
-            Some(tx.clone())
-        } else {
-            None
-        }
-    })
-}
-
-pub(crate) fn find_trade(
-    channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<Arc<Vec<WsTrade>>>> {
-    channels.iter().find_map(|ch| {
-        if let BoardCastChannel::Trade(tx) = ch {
-            Some(tx.clone())
-        } else {
-            None
-        }
-    })
-}
-
-
-pub(crate) fn find_lob(
-    channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<Arc<Vec<WsLob>>>> {
-
-    channels.iter().find_map(|ch| {
-        if let BoardCastChannel::Lob(tx) = ch {
-            Some(tx.clone())
-        } else {
-            None
-        }
-    })
-}
-
-pub(crate) fn find_timer(
-    channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<Arc<AltTimerEvent>>> {
-    channels.iter().find_map(|ch| {
-        if let BoardCastChannel::Timer(tx) = ch {
-            Some(tx.clone())
-        } else {
-            None
-        }
-    })
-}
-
 pub(crate) fn find_alt_event(
     channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<Arc<AltTaskInfo>>> {
+) -> Option<broadcast::Sender<InfraMsg<AltTaskInfo>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Alt(tx) = ch {
             Some(tx.clone())
@@ -222,7 +192,7 @@ pub(crate) fn find_alt_event(
 
 pub(crate) fn find_cex_event(
     channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<Arc<WsTaskInfo>>> {
+) -> Option<broadcast::Sender<InfraMsg<WsTaskInfo>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Cex(tx) = ch {
             Some(tx.clone())
@@ -234,9 +204,70 @@ pub(crate) fn find_cex_event(
 
 pub(crate) fn find_dex_event(
     channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<Arc<WsTaskInfo>>> {
+) -> Option<broadcast::Sender<InfraMsg<WsTaskInfo>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Dex(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_timer(
+    channels: &Arc<Vec<BoardCastChannel>>
+) -> Option<broadcast::Sender<InfraMsg<AltTimerEvent>>> {
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::Timer(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_trade(
+    channels: &Arc<Vec<BoardCastChannel>>
+) -> Option<broadcast::Sender<InfraMsg<Vec<WsTrade>>>> {
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::Trade(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_lob(
+    channels: &Arc<Vec<BoardCastChannel>>
+) -> Option<broadcast::Sender<InfraMsg<Vec<WsLob>>>> {
+
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::Lob(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_candle(
+    channels: &Arc<Vec<BoardCastChannel>>
+) -> Option<broadcast::Sender<InfraMsg<Vec<WsCandle>>>> {
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::Candle(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_acc_order(
+    channels: &Arc<Vec<BoardCastChannel>>
+) -> Option<broadcast::Sender<InfraMsg<Vec<WsAccOrder>>>> {
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::AccOrder(tx) = ch {
             Some(tx.clone())
         } else {
             None

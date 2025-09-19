@@ -37,13 +37,14 @@ pub struct HCons<Head, Tail> {
 }
 
 
-impl Strategy for HNil { async fn execute(&mut self) {} }
+impl Strategy for HNil { async fn initialize(&mut self) {} }
 impl EventHandler for HNil {}
 impl AltEventHandler for HNil {}
 impl DexEventHandler for HNil {}
 impl CexEventHandler for HNil {}
 impl CommandEmitter for HNil {
     fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {}
+    fn command_registry(&self) -> Vec<Arc<CommandHandle>> { Vec::new() }
 }
 
 
@@ -52,13 +53,13 @@ where
     Head: Strategy + Send + Sync + Clone + 'static,
     Tail: Strategy + Send + Sync + Clone + 'static
 {
-    async fn execute(&mut self) {
-        let fut_head = self.head.execute();
-        let fut_tail = self.tail.execute();
+    async fn initialize(&mut self) {
+        let fut_head = self.head.initialize();
+        let fut_tail = self.tail.initialize();
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn spawn_strategy_tasks(&self, channels: &Arc<Vec<BoardCastChannel>>) {
+    async fn _spawn_strategy_tasks(&self, channels: &Arc<Vec<BoardCastChannel>>) {
         let HCons { head, tail } = self;
         let ch = channels.clone();
         let h = head.clone();
@@ -68,7 +69,7 @@ where
             strategy_handler_loop(h, &ch).await;
         });
 
-        tail.spawn_strategy_tasks(channels).await;
+        tail._spawn_strategy_tasks(channels).await;
     }
 }
 
@@ -80,13 +81,13 @@ where
     Head: AltEventHandler,
     Tail: AltEventHandler,
 {
-    async fn on_alt_event(&mut self, task_info: Arc<AltTaskInfo>) {
+    async fn on_alt_event(&mut self, task_info: InfraMsg<AltTaskInfo>) {
         let fut_head = self.head.on_alt_event(task_info.clone());
         let fut_tail = self.tail.on_alt_event(task_info);
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn on_timer(&mut self, msg: Arc<AltTimerEvent>) {
+    async fn on_timer(&mut self, msg: InfraMsg<AltTimerEvent>) {
         let fut_head = self.head.on_timer(msg.clone());
         let fut_tail = self.tail.on_timer(msg);
         tokio::join!(fut_head, fut_tail);
@@ -98,27 +99,33 @@ where
     Head: CexEventHandler,
     Tail: CexEventHandler,
 {
-    async fn on_cex_event(&mut self, task_info: Arc<WsTaskInfo>) {
+    async fn on_cex_event(&mut self, task_info: InfraMsg<WsTaskInfo>) {
         let fut_head = self.head.on_cex_event(task_info.clone());
         let fut_tail = self.tail.on_cex_event(task_info);
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn on_trade(&mut self, msg: Arc<Vec<WsTrade>>) {
+    async fn on_trade(&mut self, msg: InfraMsg<Vec<WsTrade>>) {
         let fut_head = self.head.on_trade(msg.clone());
         let fut_tail = self.tail.on_trade(msg);
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn on_lob(&mut self, msg: Arc<Vec<WsLob>>) {
+    async fn on_lob(&mut self, msg: InfraMsg<Vec<WsLob>>) {
         let fut_head = self.head.on_lob(msg.clone());
         let fut_tail = self.tail.on_lob(msg);
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn on_candle(&mut self, msg: Arc<Vec<WsCandle>>) {
+    async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
         let fut_head = self.head.on_candle(msg.clone());
         let fut_tail = self.tail.on_candle(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_acc_order(&mut self, msg: InfraMsg<Vec<WsAccOrder>>) {
+        let fut_head = self.head.on_acc_order(msg.clone());
+        let fut_tail = self.tail.on_acc_order(msg);
         tokio::join!(fut_head, fut_tail);
     }
 }
@@ -134,6 +141,13 @@ where
     fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
         self.head.command_init(command_handle.clone());
         self.tail.command_init(command_handle);
+    }
+
+    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
+        let mut all = Vec::new();
+        all.extend(self.head.command_registry());
+        all.extend(self.tail.command_registry());
+        all
     }
 }
 

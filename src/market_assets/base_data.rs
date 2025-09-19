@@ -5,6 +5,7 @@ pub enum InstrumentType {
     Spot,
     Perpetual,
     Option,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -14,6 +15,7 @@ pub enum InstrumentStatus {
     Suspend,
     PreOpen,
     Closed,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,24 +25,28 @@ pub enum OrderStatus {
     Filled,
     Canceled,
     Rejected,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum OrderSide {
     BUY,
     SELL,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PositionSide {
     Long,
     Short,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MarginMode {
     Cross,
     Isolated,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -50,6 +56,7 @@ pub enum OrderType {
     PostOnly,
     Fok,
     Ioc,
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -58,6 +65,7 @@ pub enum TimeInForce {
     IOC,
     FOK,
     GTD,
+    Unknown,
 }
 
 pub const PERPETUAL: &str = "PERPETUAL";

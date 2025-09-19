@@ -113,12 +113,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# Enable only the exchange APIs you need
-extrema_infra = { path = "../extrema_infra", features = ["all"] }
-
+# Infra
+extrema_infra = { path = "../extrema_infra" }
 # Tokio async runtime
 tokio = { version = "1.47.1", features = ["full"] }
-
 # Logging
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
@@ -142,7 +140,7 @@ impl EventHandler for EmptyStrategy {}
 impl DexEventHandler for EmptyStrategy {}
 
 impl Strategy for EmptyStrategy {
-  async fn execute(&mut self) {
+  async fn initialize(&mut self) {
     info!("[EmptyStrategy] Executing init strategy...");
   }
 
@@ -152,13 +150,13 @@ impl Strategy for EmptyStrategy {
 impl AltEventHandler for EmptyStrategy {
   async fn on_timer(
     &mut self,
-    msg: Arc<AltTimerEvent>,
+    msg: InfraMsg<AltTimerEvent>,
   ) {
     info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
   }
 }
 impl CexEventHandler for EmptyStrategy {
-  async fn on_candle(&mut self, msg: Arc<Vec<WsCandle>>) {
+  async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
     info!("[EmptyStrategy] Candle event: {:?}", msg);
   }
 }
@@ -166,6 +164,10 @@ impl CexEventHandler for EmptyStrategy {
 impl CommandEmitter for EmptyStrategy {
   fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {
     info!("[EmptyStrategy] Command channel registered: {:?}", _command_handle);
+  }
+
+  fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
+    Vec::new()
   }
 }
 
@@ -185,75 +187,34 @@ impl BinanceStrategy {
     }
   }
 
-  async fn send_subscribe(&self, channel: WsChannel) -> InfraResult<()> {
-    let ws_msg = self.binance_um_cli
-            .get_public_sub_msg(&channel, Some(&["BTC_USDT_PERP".to_string()]))
-            .await?;
-
-    if let Some(handle) = self.find_handle_by_channel(&channel) {
-      info!("[BinanceStrategy] Sending subscribe to {:?}", handle);
-
-      let cmd = TaskCommand::Subscribe {
-        msg: ws_msg,
-        ack: AckHandle::none(),
-      };
-
-      if let Err(e) = handle.cmd_tx.send(cmd).await {
-        warn!("[BinanceStrategy] Failed to send subscribe cmd: {:?}", e);
-      }
-    } else {
-      warn!("[BinanceStrategy] No handle found for channel {:?}", channel);
-    }
-
-    Ok(())
-  }
-
-  async fn send_connect(&self, channel: WsChannel) -> InfraResult<()> {
-    let ws_url = self.binance_um_cli.get_public_connect_msg(&channel).await?;
-
-    if let Some(handle) = self.find_handle_by_channel(&channel) {
+  async fn connect_channel(&self, channel: &WsChannel) -> InfraResult<()> {
+    if let Some(handle) = self.find_ws_handle(&channel, 1) {
       info!("[BinanceStrategy] Sending connect to {:?}", handle);
 
+      // connect websocket channel
+      let ws_url = self.binance_um_cli.get_public_connect_msg(&channel).await?;
       let (tx, rx) = oneshot::channel();
       let cmd = TaskCommand::Connect {
         msg: ws_url,
         ack: AckHandle::new(tx),
       };
+      handle.send_command(cmd, Some((AckStatus::Connect, rx))).await?;
 
-      if let Err(e) = handle.cmd_tx.send(cmd).await {
-        warn!("[BinanceStrategy] Failed to send connect cmd: {:?}", e);
-        return Ok(());
-      }
+      // send subscribe message
+      let ws_msg = self.binance_um_cli
+              .get_public_sub_msg(&channel, Some(&["BTC_USDT_PERP".to_string()]))
+              .await?;
 
-      match rx.await {
-        Ok(Ok(AckStatus::Connect)) => {
-          self.send_subscribe(channel.clone()).await?;
-        }
-        Ok(Ok(AckStatus::Subscribe)) => {
-          info!("[BinanceStrategy] Subscribe complete");
-        }
-        _ => error!("[BinanceStrategy] Received unexpected response from server"),
-      }
+      let cmd = TaskCommand::Subscribe {
+        msg: ws_msg,
+        ack: AckHandle::none(),
+      };
+      handle.send_command(cmd, None).await?;
     } else {
       warn!("[BinanceStrategy] No handle found for channel {:?}", channel);
     }
 
     Ok(())
-  }
-
-  fn find_handle_by_channel(&self, channel: &WsChannel) -> Option<Arc<CommandHandle>> {
-    self.command_handles.iter().find_map(|handle| {
-      match &handle.task_info {
-        TaskInfo::WsTask(ws_task) => {
-          if ws_task.ws_channel == *channel {
-            Some(handle.clone())
-          } else {
-            None
-          }
-        },
-        _ => None,
-      }
-    })
   }
 }
 
@@ -261,7 +222,7 @@ impl EventHandler for BinanceStrategy {}
 impl DexEventHandler for BinanceStrategy {}
 
 impl Strategy for BinanceStrategy {
-  async fn execute(&mut self) {
+  async fn initialize(&mut self) {
     info!("[BinanceStrategy] Starting strategy");
   }
 }
@@ -269,21 +230,21 @@ impl Strategy for BinanceStrategy {
 impl AltEventHandler for BinanceStrategy {
   async fn on_timer(
     &mut self,
-    msg: Arc<AltTimerEvent>,
+    msg: InfraMsg<AltTimerEvent>,
   ) {
     info!("[BinanceStrategy] AltEventHandler: {:?}", msg);
   }
 }
 
 impl CexEventHandler for BinanceStrategy {
-  async fn on_cex_event(&mut self, _msg: Arc<WsTaskInfo>)  {
-    info!("[BinanceStrategy] Triggering connect for channel: {:?}", _msg.ws_channel);
-    if let Err(e) = self.send_connect(_msg.ws_channel.clone()).await {
+  async fn on_cex_event(&mut self, msg: InfraMsg<WsTaskInfo>)  {
+    info!("[BinanceStrategy] Triggering connect for channel: {:?}", msg.data.ws_channel);
+    if let Err(e) = self.connect_channel(&msg.data.ws_channel).await {
       error!("[BinanceStrategy] connect failed: {:?}", e);
     }
   }
 
-  async fn on_candle(&mut self, msg: Arc<Vec<WsCandle>>) {
+  async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
     info!("[BinanceStrategy] Candle event: {:?}", msg);
   }
 }
@@ -292,6 +253,10 @@ impl CommandEmitter for BinanceStrategy {
   fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
     info!("[BinanceStrategy] Command channel registered: {:?}", command_handle);
     self.command_handles.push(command_handle);
+  }
+
+  fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
+    self.command_handles.clone()
   }
 }
 
@@ -308,6 +273,7 @@ async fn main() {
 
   let alt_task = AltTaskInfo {
     alt_task_type: AltTaskType::TimerBasedState(5),
+    chunk: 1,
   };
 
   let mediator = EnvBuilder::new()

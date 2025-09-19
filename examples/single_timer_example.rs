@@ -6,7 +6,7 @@ use extrema_infra::prelude::*;
 #[derive(Clone)]
 struct EmptyStrategy;
 impl Strategy for EmptyStrategy {
-    async fn execute(&mut self) {
+    async fn initialize(&mut self) {
         info!("[EmptyStrategy] Executing...");
     }
     fn strategy_name(&self) -> &'static str { "EmptyStrategy" }
@@ -15,7 +15,7 @@ impl EventHandler for EmptyStrategy {}
 impl AltEventHandler for EmptyStrategy {
     async fn on_timer(
         &mut self,
-        msg: Arc<AltTimerEvent>,
+        msg: InfraMsg<AltTimerEvent>,
     ) {
         info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
     }
@@ -25,6 +25,10 @@ impl DexEventHandler for EmptyStrategy {}
 impl CommandEmitter for EmptyStrategy {
     fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {
         info!("[EmptyStrategy] Command channel initialized");
+    }
+
+    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
+        Vec::new()
     }
 }
 
@@ -36,6 +40,7 @@ async fn main() {
 
     let alt_task = AltTaskInfo {
         alt_task_type: AltTaskType::TimerBasedState(5),
+        chunk: 1,
     };
 
     let mediator = EnvBuilder::new()
