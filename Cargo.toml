@@ -32,7 +32,7 @@ hmac = "0.12.1"
 sha2 = "0.10.9"
 data-encoding = "2.9.0"
 
-# Log
+# Logging
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
 

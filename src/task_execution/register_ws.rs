@@ -15,6 +15,7 @@ use tokio_tungstenite::{
 };
 
 use tracing::{info, warn, error, debug};
+
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
     market_core::Market,
@@ -189,11 +190,6 @@ impl WsTaskBuilder {
                         "No broadcast channel found for Binance UmFutures Candles"
                     );
                 }
-                // if let Some(tx) = find_lob(&self.core.board_cast_channels) {
-                //     self.ws_loop::<WsLobBinance>(tx, ws_stream).await;
-                // } else {
-                //     warn!("No broadcast channel found for Binance Futures LOB");
-                // }
             },
             (Market::SolPumpFun, WsChannel::Other(..)) => {
 

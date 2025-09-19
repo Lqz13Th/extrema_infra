@@ -11,7 +11,6 @@ use serde::{
 };
 
 use crate::errors::InfraResult;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature<T> {
     pub signature: String,
@@ -48,8 +47,8 @@ pub fn get_micros_timestamp() -> u64 {
 
 pub fn ts_to_micros(ts: u64) -> u64 {
     match ts {
-        0..=999_999_999 => ts * 1_000_000,
-        1_000_000_000..=999_999_999_999 => ts * 1_000,
+        0..=9_999_999_999 => ts * 1_000_000,
+        10_000_000_000..=9_999_999_999_999 => ts * 1_000,
         _ => ts,
     }
 }
