@@ -14,6 +14,9 @@ pub enum InfraError {
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
 
+    #[error("JSON parse error (simd): {0}")]
+    SimdJson(#[from] simd_json::Error),
+
     #[error("API returned error: {0}")]
     ApiError(String),
 

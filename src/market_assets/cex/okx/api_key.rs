@@ -1,14 +1,13 @@
 use hmac::Mac;
 use data_encoding::BASE64;
-
 use serde::{
     de::DeserializeOwned,
     Deserialize,
     Serialize,
 };
-use serde_json::from_str;
+use simd_json::from_slice;
 use reqwest::Client;
-use tracing::info;
+
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::api_general::*;
 
@@ -80,7 +79,7 @@ impl OkxKey {
         signature: &Signature<String>,
         body: String,
         url: &str,
-    ) -> InfraResult<String> {
+    ) -> InfraResult<Vec<u8>> {
         let res = client
             .post(url)
             .header("OK-ACCESS-KEY", &self.api_key)
@@ -92,7 +91,7 @@ impl OkxKey {
             .send()
             .await?;
 
-        Ok(res.text().await?)
+        Ok(res.bytes().await?.to_vec())
     }
 
     pub(crate) async fn get_request(
@@ -101,7 +100,7 @@ impl OkxKey {
         signature: &Signature<String>,
         body: String,
         url: &str,
-    ) -> InfraResult<String> {
+    ) -> InfraResult<Vec<u8>> {
         let res = client
             .get(url)
             .header("OK-ACCESS-KEY", &self.api_key)
@@ -113,7 +112,7 @@ impl OkxKey {
             .send()
             .await?;
 
-        Ok(res.text().await?)
+        Ok(res.bytes().await?.to_vec())
     }
 
     pub(crate) async fn put_request(
@@ -122,7 +121,7 @@ impl OkxKey {
         signature: &Signature<String>,
         body: String,
         url: &str,
-    ) -> InfraResult<String> {
+    ) -> InfraResult<Vec<u8>> {
         let res = client
             .put(url)
             .header("OK-ACCESS-KEY", &self.api_key)
@@ -134,7 +133,7 @@ impl OkxKey {
             .send()
             .await?;
 
-        Ok(res.text().await?)
+        Ok(res.bytes().await?.to_vec())
     }
 
     pub(crate) async fn send_signed_request<T>(
@@ -150,7 +149,7 @@ impl OkxKey {
     {
         let url = [base_url, endpoint].concat();
 
-        let response = match method {
+        let mut response = match method {
             RequestMethod::Get => {
                 let signature = self.sign_now("GET", endpoint, Some(&body))?;
                 self.get_request(client, &signature, body, &url).await?
@@ -164,9 +163,8 @@ impl OkxKey {
                 self.put_request(client, &signature, body, &url).await?
             },
         };
-        info!("{}", response);
 
-        let result: T = from_str(&response)?;
+        let result: T = from_slice(&mut response)?;
         Ok(result)
     }
 }

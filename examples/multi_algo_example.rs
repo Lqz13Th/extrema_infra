@@ -75,7 +75,7 @@ impl BinanceStrategy {
 
             // send subscribe message
             let ws_msg = self.binance_um_cli
-                .get_public_sub_msg(&channel, Some(&["BTC_USDT_PERP".to_string()]))
+                .get_public_sub_msg(&channel, Some(&["ZRX_USDT_PERP".to_string()]))
                 .await?;
 
             let cmd = TaskCommand::Subscribe {

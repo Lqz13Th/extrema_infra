@@ -8,30 +8,30 @@ name = "extrema_infra"
 path = "src/lib.rs"
 
 [dependencies]
-# Networking
-reqwest = { version = "0.12.23", features = ["json"] }
+# Networking & async
 tokio = { version = "1.47.1", features = ["full"] }
+reqwest = { version = "0.12.23", features = ["json"] }
 tokio-tungstenite = { version = "0.27.0", features = ["native-tls"] }
 tungstenite = "0.27.0"
-futures-util = "0.3.31"
 futures = "0.3.31"
-zeromq = "0.4.1"
+futures-util = "0.3.31"
+#zeromq = "0.4.1"
 
-# Parsing
+# Parsing & Serialization
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.142"
 simd-json = "0.16.0"
 
-# Encryption
+# Cryptography & Encoding
 hmac = "0.12.1"
 sha2 = "0.10.9"
 data-encoding = "2.9.0"
 
-# Logging
+# Logging & Tracing
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
 
-# Utils
+# Environment & Error handling
 dotenv = "0.15.0"
 thiserror = "2.0.14"
 

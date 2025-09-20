@@ -2,7 +2,8 @@ use std::{
     sync::Arc,
     collections::HashMap,
 };
-use serde_json::{from_str, json};
+use simd_json::from_slice;
+use serde_json::json;
 use reqwest::Client;
 use tracing::error;
 
@@ -261,25 +262,22 @@ impl OkxCli {
             url.push_str(&format!("&limit={}", limit));
         }
 
-        let text = self.client
-            .get(&url)
-            .send().await?
-            .text().await?;
-
-        let res: RestResOkx<RestPubLeadTradersOkx> = from_str(&text)?;
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestPubLeadTradersOkx> = from_slice(&mut res_bytes)?;
 
         if res.code != "0" {
             let msg = res.msg.unwrap_or_default();
             return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         };
 
-        let first_data = res
+        let data = res
             .data
             .into_iter()
             .next()
             .ok_or(InfraError::ApiError("No data returned".into()))?;
 
-        Ok(PubLeadtraderInfo::from(first_data))
+        Ok(PubLeadtraderInfo::from(data))
     }
 
     pub async fn get_lead_trader_subpositions(
@@ -315,25 +313,22 @@ impl OkxCli {
             url.push_str(&format!("&after={}", a));
         }
 
-        let text = self.client
-            .get(&url)
-            .send().await?
-            .text().await?;
-
-        let res: RestResOkx<RestSubPositionOkx> = from_str(&text)?;
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestSubPositionOkx> = from_slice(&mut res_bytes)?;
 
         if res.code != "0" {
             let msg = res.msg.unwrap_or_default();
             return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         }
 
-        let result: Vec<LeadtraderSubpositions> = res
+        let data: Vec<LeadtraderSubpositions> = res
             .data
             .into_iter()
             .map(LeadtraderSubpositions::from)
             .collect();
 
-        Ok(result)
+        Ok(data)
     }
 
     async fn _get_balance(

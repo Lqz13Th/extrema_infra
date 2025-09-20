@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use serde::de::DeserializeOwned;
-use simd_json::from_slice;
+use serde_json::from_slice;
 use futures_util::{
     SinkExt,
     StreamExt,
@@ -92,14 +92,14 @@ impl WsTaskBuilder {
         msg: Result<Option<Result<Message, Error>>, Elapsed>,
         ws_write: &mut WsWrite,
         tx: &broadcast::Sender<InfraMsg<WsData::Output>>,
-    ) where
+    ) -> bool
+    where
         WsData: DeserializeOwned + IntoWsData + Send + 'static,
-        WsData::Output: Send + Sync + 'static,
+        WsData::Output: Send + Sync + 'static
     {
         match msg {
             Ok(Some(Ok(Message::Text(text)))) => {
-                let buf: Bytes = text.into();
-                match from_slice::<WsData>(&mut buf.to_vec()) {
+                match from_slice::<WsData>(text.as_ref()) {
                     Ok(parsed_raw) => {
                         let _ = tx.send(InfraMsg {
                             task_numb: self.task_numb,
@@ -115,7 +115,7 @@ impl WsTaskBuilder {
                 };
             },
             Ok(Some(Ok(Message::Binary(bytes)))) => {
-                match from_slice::<WsData>(&mut bytes.to_vec()) {
+                match from_slice::<WsData>(bytes.as_ref()) {
                     Ok(parsed_raw) => {
                         let _ = tx.send(InfraMsg {
                             task_numb: self.task_numb,
@@ -135,20 +135,26 @@ impl WsTaskBuilder {
             },
             Ok(Some(Ok(Message::Close(frame)))) => {
                 self.log(LogLevel::Error, &format!("WebSocket closed: {:?}", frame));
+                return true;
             },
             Ok(Some(Err(e))) => {
                 self.log(LogLevel::Error, &format!("Error receiving WS message: {:?}", e));
+                return true;
             },
             Ok(None) => {
                 self.log(LogLevel::Error, "WebSocket stream ended");
+                return true;
             },
             Err(_) => {
                 if let Err(e) = ws_write.send(Message::Ping(PING.clone())).await {
                     self.log(LogLevel::Error, &format!("Failed to send ping: {:?}", e));
+                    return true;
                 }
             },
             _ => {},
         };
+
+        false
     }
 
     async fn handle_command(
@@ -215,7 +221,9 @@ impl WsTaskBuilder {
         loop {
             tokio::select! {
                 msg = timeout(timeout_sec, ws_read.next()) => {
-                    self.handle_ws_msg::<WsData>(msg, &mut ws_write, &tx).await;
+                    if self.handle_ws_msg::<WsData>(msg, &mut ws_write, &tx).await {
+                        break;
+                    };
                 },
                 cmd = self.cmd_rx.recv() => {
                     if self.handle_command(cmd, &mut ws_write).await {

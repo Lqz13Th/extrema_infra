@@ -2,9 +2,8 @@ use std::{
     sync::Arc,
     collections::HashMap,
 };
-use serde_json::from_str;
+use simd_json::from_slice;
 use reqwest::Client;
-
 use tracing::error;
 
 use crate::errors::{InfraError, InfraResult};
@@ -181,21 +180,17 @@ impl BinanceUmCli {
     async fn _get_live_instruments(&self) -> InfraResult<Vec<String>> {
         let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO].concat();
 
-        let response = self.client
-            .get(url)
-            .send()
-            .await?;
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestExchangeInfoBinanceUM = from_slice(&mut res_bytes)?;
 
-        let response_text = response.text().await?;
-        let res: RestExchangeInfoBinanceUM = from_str(&response_text)?;
-
-        let perp_symbols: Vec<String> = res.insts
+        let data: Vec<String> = res.insts
             .into_iter()
             .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
             .map(|s| binance_um_to_cli_perp(&s.inst))
             .collect();
 
-        Ok(perp_symbols)
+        Ok(data)
     }
 
     fn _get_public_sub_msg(
