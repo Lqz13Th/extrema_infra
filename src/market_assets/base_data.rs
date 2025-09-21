@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 pub enum InstrumentType {
     Spot,
     Perpetual,
+    Future,
     Option,
     Unknown,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum InstrumentStatus {
-    #[default]
     Live,
     Suspend,
     PreOpen,

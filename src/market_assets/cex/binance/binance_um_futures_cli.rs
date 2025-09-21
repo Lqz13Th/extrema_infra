@@ -76,7 +76,7 @@ impl CexPrivateRest for BinanceUmCli {
 
     async fn get_balance(
         &self,
-        assets: Vec<String>,
+        assets: Option<&[String]>
     ) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
@@ -153,7 +153,7 @@ impl BinanceUmCli {
 
     async fn _get_balance(
         &self,
-        assets: Vec<String>,
+        assets: Option<&[String]>
     ) -> InfraResult<Vec<BalanceData>> {
         let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
 
@@ -165,16 +165,17 @@ impl BinanceUmCli {
             BINANCE_UM_FUTURES_EXCHANGE_INFO
         ).await?;
 
-        let filtered = if assets.is_empty() {
-            all_balances
-        } else {
-            all_balances
-                .into_iter()
-                .filter(|b| assets.contains(&b.asset))
-                .collect()
+        let data = match assets {
+            Some(list) if !list.is_empty() => {
+                all_balances
+                    .into_iter()
+                    .filter(|b| list.contains(&b.asset))
+                    .collect()
+            },
+            _ => all_balances,
         };
 
-        Ok(filtered)
+        Ok(data)
     }
 
     async fn _get_live_instruments(&self) -> InfraResult<Vec<String>> {

@@ -2,6 +2,7 @@ use std::future::{ready, Future};
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
+    base_data::InstrumentType,
     account_data::*,
     price_data::*,
     utils_data::*,
@@ -44,31 +45,31 @@ pub trait MarketCexApi: CexPublicRest + CexPrivateRest {}
 pub trait CexPublicRest: Send + Sync {
     fn get_ticker(
         &self,
-        _insts: Vec<String>,
+        _insts: Option<&[String]>,
     ) -> impl Future<Output = InfraResult<Vec<TickerData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
     fn get_orderbook(
         &self,
-        _insts: Vec<String>,
-        _depth: usize
+        _insts: Option<&[String]>,
+        _depth: usize,
     ) -> impl Future<Output = InfraResult<Vec<OrderBookData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
     fn get_candles(
         &self,
-        _insts: Vec<String>,
+        _insts: Option<&[String]>,
         _interval: &str
     ) -> impl Future<Output = InfraResult<Vec<CandleData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
-    fn get_market_info(
+    fn get_instrument_info(
         &self,
-        _insts: Vec<String>,
-    ) -> impl Future<Output = InfraResult<Vec<MarketInfoData>>> + Send {
+        _inst_type: InstrumentType,
+    ) -> impl Future<Output = InfraResult<Vec<InstrumentInfo>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
@@ -99,14 +100,14 @@ pub trait CexPrivateRest: Send + Sync {
 
     fn get_balance(
         &self,
-        _insts: Vec<String>,
+        _insts: Option<&[String]>,
     ) -> impl Future<Output = InfraResult<Vec<BalanceData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
     fn get_position(
         &self,
-        _insts: Vec<String>,
+        _insts: Option<&[String]>,
     ) -> impl Future<Output = InfraResult<Vec<PositionData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }

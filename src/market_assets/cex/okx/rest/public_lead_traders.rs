@@ -36,21 +36,21 @@ impl From<RestPubLeadTradersOkx> for PubLeadtraderInfo {
             PubLeadtrader {
                 unique_code: r.uniqueCode,
                 nick_name: r.nickName,
-                aum: r.aum.parse::<f64>().unwrap_or(0.0),
-                copy_state: r.copyState.parse::<u64>().unwrap_or(0),
-                copy_trader_num: r.copyTraderNum.parse::<u64>().unwrap_or(0),
-                max_copy_trader_num: r.maxCopyTraderNum.parse::<u64>().unwrap_or(0),
-                accum_copy_trader_num: r.accCopyTraderNum.parse::<u64>().unwrap_or(0),
-                lead_days: r.leadDays.parse::<u64>().unwrap_or(0),
-                win_ratio: r.winRatio.parse::<f64>().unwrap_or(0.0),
-                pnl_ratio: r.pnlRatio.parse::<f64>().unwrap_or(0.0),
-                pnl: r.pnl.parse::<f64>().unwrap_or(0.0),
+                aum: r.aum.parse().unwrap_or_default(),
+                copy_state: r.copyState.parse().unwrap_or_default(),
+                copy_trader_num: r.copyTraderNum.parse().unwrap_or_default(),
+                max_copy_trader_num: r.maxCopyTraderNum.parse().unwrap_or_default(),
+                accum_copy_trader_num: r.accCopyTraderNum.parse().unwrap_or_default(),
+                lead_days: r.leadDays.parse().unwrap_or_default(),
+                win_ratio: r.winRatio.parse().unwrap_or_default(),
+                pnl_ratio: r.pnlRatio.parse().unwrap_or_default(),
+                pnl: r.pnl.parse().unwrap_or_default(),
             }
         }).collect();
 
         PubLeadtraderInfo {
-            data_version: d.dataVer.parse::<u64>().unwrap_or(0),
-            total_page: d.totalPage.parse::<u64>().unwrap_or(0),
+            data_version: d.dataVer.parse().unwrap_or_default(),
+            total_page: d.totalPage.parse().unwrap_or_default(),
             pub_leadtraders: traders,
         }
     }

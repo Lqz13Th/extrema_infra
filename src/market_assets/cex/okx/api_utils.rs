@@ -55,18 +55,21 @@ pub fn cli_perp_to_okx_swap(symbol: &str) -> String {
     format!("{}-SWAP", cleaned.replace("_", "-"))
 }
 
-pub fn okx_swap_to_cli(symbol: &str) -> String {
+pub fn okx_inst_to_cli(symbol: &str) -> String {
     let parts: Vec<&str> = symbol.split('-').collect();
     match parts.as_slice() {
         [base, quote, kind] if *kind == "SWAP" => format!("{}_{}_PERP", base, quote),
-        [base, quote, _] => format!("{}_{}", base, quote),
+        [base, quote, kind] if kind.chars().all(|c| c.is_numeric()) => {
+            format!("{}_{}_FUTURE", base, quote)
+        },
         [base, quote] => format!("{}_{}", base, quote),
         _ => {
             error!("Invalid okx symbol: {}", symbol);
             symbol.to_string()
-        }
+        },
     }
 }
+
 
 /// Query parameters for retrieving public lead traders from OKX.
 /// All fields are optional and can be used to filter or paginate results.
@@ -77,22 +80,22 @@ pub struct PubLeadTraderQuery {
     /// Sorting type: "overview" / "pnl" / "aum" / "win_ratio" / "pnl_ratio" / "current_copy_trader_pnl".
     pub sort_type: Option<String>,
     /// Trader state: 0 = all, 1 = has vacancies
-    pub state: Option<u32>,
+    pub state: Option<u64>,
     /// Minimum leading days (1 = 7 days, 2 = 30 days, 3 = 90 days, 4 = 180 days, etc.)
-    pub min_lead_days: Option<u32>,
+    pub min_lead_days: Option<u64>,
     /// Minimum assets under management
-    pub min_assets: Option<u64>,
+    pub min_assets: Option<f64>,
     /// Maximum assets under management
-    pub max_assets: Option<u64>,
+    pub max_assets: Option<f64>,
     /// Minimum AUM (Assets Under Management)
-    pub min_aum: Option<u64>,
+    pub min_aum: Option<f64>,
     /// Maximum AUM
-    pub max_aum: Option<u64>,
+    pub max_aum: Option<f64>,
     /// Data version, e.g., timestamp string "20250918140000"
     pub data_ver: Option<String>,
     /// Page number for pagination
-    pub page: Option<u32>,
+    pub page: Option<u64>,
     /// Number of records per page
-    pub limit: Option<u32>,
+    pub limit: Option<u64>,
 }
 

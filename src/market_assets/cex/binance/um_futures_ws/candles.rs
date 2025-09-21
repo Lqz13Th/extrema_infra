@@ -39,11 +39,11 @@ impl IntoWsData for WsCandleBinanceUM {
             inst: binance_um_to_cli_perp(&self.s),
             interval: CandleParam::from_candle_str(&self.k.i)
                 .unwrap_or(CandleParam::OneMinute),
-            open: self.k.o.parse().unwrap_or(0.0),
-            high: self.k.h.parse().unwrap_or(0.0),
-            low: self.k.l.parse().unwrap_or(0.0),
-            close: self.k.c.parse().unwrap_or(0.0),
-            volume: self.k.v.parse().unwrap_or(0.0),
+            open: self.k.o.parse().unwrap_or_default(),
+            high: self.k.h.parse().unwrap_or_default(),
+            low: self.k.l.parse().unwrap_or_default(),
+            close: self.k.c.parse().unwrap_or_default(),
+            volume: self.k.v.parse().unwrap_or_default(),
             confirm: self.k.x,
         }
     }

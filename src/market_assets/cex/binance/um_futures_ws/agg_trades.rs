@@ -32,8 +32,8 @@ impl IntoWsData for WsAggTradeBinanceUM {
             timestamp: ts_to_micros(self.T),
             market: Market::BinanceUmFutures,
             inst: binance_um_to_cli_perp(&self.s),
-            price: self.p.parse().unwrap_or(0.0),
-            size: self.q.parse().unwrap_or(0.0),
+            price: self.p.parse().unwrap_or_default(),
+            size: self.q.parse().unwrap_or_default(),
             side: if self.m { OrderSide::SELL } else { OrderSide::BUY },
             trade_id: self.a,
         }

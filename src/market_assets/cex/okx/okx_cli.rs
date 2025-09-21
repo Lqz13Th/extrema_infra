@@ -14,6 +14,7 @@ use crate::market_assets::{
     account_data::*,
     utils_data::*,
 };
+use crate::market_assets::cex::okx::rest::instruments::RestInstrumentsOkx;
 use crate::task_execution::task_ws::*;
 use crate::traits::{
     market_cex::{CexWebsocket, CexPrivateRest, CexPublicRest, MarketCexApi}
@@ -25,8 +26,10 @@ use super::{
     config_assets::*,
     rest::{
         account_balance::RestAccountBalOkx,
+        account_positions::RestAccountPosOkx,
         current_lead_traders::RestLeadtraderOkx,
         public_lead_traders::RestPubLeadTradersOkx,
+        public_lead_trader_stats::RestPubLeadTraderStatsOkx,
         public_current_subpositions::RestSubPositionOkx,
     }
 };
@@ -62,6 +65,12 @@ impl Default for OkxCli {
 impl MarketCexApi for OkxCli {}
 
 impl CexPublicRest for OkxCli {
+    async fn get_instrument_info(
+        &self,
+        inst_type: InstrumentType
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        self._get_instrument_info(inst_type).await
+    }
 }
 
 impl CexPrivateRest for OkxCli {
@@ -78,9 +87,16 @@ impl CexPrivateRest for OkxCli {
 
     async fn get_balance(
         &self,
-        assets: Vec<String>,
+        assets: Option<&[String]>,
     ) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
+    }
+
+    async fn get_position(
+        &self,
+        insts: Option<&[String]>,
+    ) -> InfraResult<Vec<PositionData>> {
+        self._get_positions(insts).await
     }
 }
 
@@ -184,6 +200,7 @@ impl OkxCli {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Future => "Future",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => "SPOT",
         };
@@ -200,7 +217,7 @@ impl OkxCli {
                 RequestMethod::Get,
                 body,
                 OKX_BASE_URL,
-                OKX_CURRENT_LEADTRADERS,
+                OKX_CT_CURRENT_LEADTRADERS,
             )
             .await?;
 
@@ -209,13 +226,7 @@ impl OkxCli {
             return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         }
 
-        let result: Vec<CurrentLeadtrader> = res
-            .data
-            .into_iter()
-            .map(CurrentLeadtrader::from)
-            .collect();
-
-        Ok(result)
+        Ok(res.data.into_iter().map(CurrentLeadtrader::from).collect())
     }
 
     pub async fn get_public_lead_traders(
@@ -225,11 +236,12 @@ impl OkxCli {
         let inst_type_str = match query.inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Future => "Future",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => "SPOT",
         };
 
-        let mut url = format!("{}{}?instType={}", OKX_BASE_URL, OKX_PUBLIC_LEADTRADERS, inst_type_str);
+        let mut url = format!("{}{}?instType={}", OKX_BASE_URL, OKX_CT_PUBLIC_LEADTRADERS, inst_type_str);
 
         if let Some(sort) = query.sort_type {
             url.push_str(&format!("&sortType={}", sort));
@@ -280,6 +292,46 @@ impl OkxCli {
         Ok(PubLeadtraderInfo::from(data))
     }
 
+    pub async fn get_public_lead_trader_stats(
+        &self,
+        unique_code: &str,
+        last_days: u64,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<PubLeadtraderStats>> {
+        let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Future => "Future",
+            InstrumentType::Option => "OPTION",
+            InstrumentType::Unknown => "SPOT",
+        };
+
+        let url = format!(
+            "{}{}?uniqueCode={}&instType={}&lastDays={}",
+            OKX_BASE_URL,
+            OKX_CT_PUBLIC_LEADTRADER_STATS,
+            unique_code,
+            inst_type_str,
+            last_days.to_string(),
+        );
+
+
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+
+        let res: RestResOkx<RestPubLeadTraderStatsOkx> = from_slice(&mut res_bytes)?;
+
+        if res.code != "0" {
+            let msg = res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!(
+                "code {}: {}",
+                res.code, msg
+            )));
+        }
+
+        Ok(res.data.into_iter().map(PubLeadtraderStats::from).collect())
+    }
+
     pub async fn get_lead_trader_subpositions(
         &self,
         unique_code: &str,
@@ -291,6 +343,7 @@ impl OkxCli {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Future => "Future",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => "SPOT",
         };
@@ -298,7 +351,7 @@ impl OkxCli {
         let mut url = format!(
             "{}{}?uniqueCode={}&instType={}",
             OKX_BASE_URL,
-            OKX_LEADTRADER_SUBPOSITIONS,
+            OKX_CT_LEADTRADER_SUBPOSITIONS,
             unique_code,
             inst_type_str,
         );
@@ -322,22 +375,52 @@ impl OkxCli {
             return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         }
 
-        let data: Vec<LeadtraderSubpositions> = res
-            .data
-            .into_iter()
-            .map(LeadtraderSubpositions::from)
-            .collect();
+        Ok(res.data.into_iter().map(LeadtraderSubpositions::from).collect())
+    }
 
-        Ok(data)
+    async fn _get_instrument_info(
+        &self,
+        inst_type: InstrumentType
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        let inst_type_str = match inst_type {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Future => "FUTURES",
+            InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Option => "OPTION",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiError("Unknown instrument type".to_string()))
+            },
+        };
+
+        let url = format!(
+            "{}{}?&instType={}",
+            OKX_BASE_URL,
+            OKX_PUBLIC_INSTRUMENTS,
+            inst_type_str,
+        );
+
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestInstrumentsOkx> = from_slice(&mut res_bytes)?;
+
+        if res.code != "0" {
+            let msg = res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
+        }
+
+        Ok(res.data.into_iter().map(InstrumentInfo::from).collect())
     }
 
     async fn _get_balance(
         &self,
-        assets: Vec<String>,
+        assets: Option<&[String]>,
     ) -> InfraResult<Vec<BalanceData>> {
-        let body = json!({
-            "ccy": assets,
-        }).to_string();
+        let body = match assets {
+            Some(ccys) if !ccys.is_empty() => {
+                json!({ "ccy": ccys.join(",") }).to_string()
+            },
+            _ => "{}".to_string(),
+        };
 
         let bal_res: RestResOkx<RestAccountBalOkx> = self.api_key
             .as_ref()
@@ -356,23 +439,51 @@ impl OkxCli {
             return Err(InfraError::ApiError(format!("code {}: {}", bal_res.code, msg)));
         }
 
-        let all_balances: Vec<BalanceData> = bal_res
+        let data: Vec<BalanceData> = bal_res
             .data
             .into_iter()
             .flat_map(|account| account.details)
             .map(BalanceData::from)
             .collect();
 
-        let filtered = if assets.is_empty() {
-            all_balances
-        } else {
-            all_balances
-                .into_iter()
-                .filter(|b| assets.contains(&b.asset))
-                .collect()
+        Ok(data)
+    }
+
+    async fn _get_positions(
+        &self,
+        insts: Option<&[String]>,
+    ) -> InfraResult<Vec<PositionData>> {
+        let body = match insts {
+            Some(ids) if !ids.is_empty() => {
+                json!({ "instId": ids.join(",") }).to_string()
+            },
+            _ => "{}".to_string(),
         };
 
-        Ok(filtered)
+        let pos_res: RestResOkx<RestAccountPosOkx> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_ACCOUNT_POSITIONS,
+            )
+            .await?;
+
+        if pos_res.code != "0" {
+            let msg = pos_res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", pos_res.code, msg)));
+        }
+
+        let data: Vec<PositionData> = pos_res
+            .data
+            .into_iter()
+            .map(PositionData::from) // 你可以像 BalanceData 一样实现 From
+            .collect();
+
+        Ok(data)
     }
 
     fn _get_public_sub_msg(

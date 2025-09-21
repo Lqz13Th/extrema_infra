@@ -1,13 +1,19 @@
 use serde::{Deserialize, Serialize};
 
-use super::base_data::{InstrumentType, MarginMode, PositionSide};
+use super::base_data::{InstrumentStatus, InstrumentType, MarginMode, PositionSide};
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MarketInfoData {
+pub struct InstrumentInfo {
     pub inst: String,
-    pub min_order_size: f64,
-    pub max_order_size: f64,
-    pub price_precision: u32,
+    pub inst_type: InstrumentType,
     pub lot_size: f64,
+    pub tick_size: f64,
+    pub min_lmt_size: f64,
+    pub max_lmt_size: f64,
+    pub min_mkt_size: f64,
+    pub max_mkt_size: f64,
+    pub contract_value: f64,
+    pub contract_multiplier: f64,
+    pub state: InstrumentStatus,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -56,4 +62,14 @@ pub struct PubLeadtrader {
     pub win_ratio: f64,
     pub pnl_ratio: f64,
     pub pnl: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PubLeadtraderStats {
+    pub win_ratio: f64,
+    pub profit_days: u64,
+    pub loss_days: f64,
+    pub invest_amount: f64,
+    pub avg_sub_pos_national: f64,
+    pub current_copy_trader_pnl: f64,
 }

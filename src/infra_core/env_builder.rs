@@ -37,7 +37,6 @@ impl Default for EnvBuilder<HNil> {
     }
 }
 
-
 impl<HeadList> EnvBuilder<HeadList> {
     pub fn with_board_cast_channel(mut self, channel: BoardCastChannel) -> Self {
         let channel_type_exists = self.board_cast_channels.iter().any(|ch| {
@@ -54,8 +53,7 @@ impl<HeadList> EnvBuilder<HeadList> {
         self
     }
     
-
-    pub fn with_strategy<S>(self, strategy: S) -> EnvBuilder<HCons<S, HeadList>>
+    pub fn with_strategy_module<S>(self, strategy: S) -> EnvBuilder<HCons<S, HeadList>>
     where
         S: Strategy + Clone,
     {

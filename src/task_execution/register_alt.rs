@@ -14,8 +14,8 @@ use crate::strategy_base::{
         command_core::TaskCommand
     },
     handler::{
-        alt_events::AltTimerEvent,
-        handler_core::{find_timer, BoardCastChannel, InfraMsg}
+        alt_events::AltScheduleEvent,
+        handler_core::{find_schedule, BoardCastChannel, InfraMsg}
     }
 };
 use super::{
@@ -48,18 +48,18 @@ impl AltTaskBuilder {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    if let Some(tx) = find_timer(&self.board_cast_channel) {
+                    if let Some(tx) = find_schedule(&self.board_cast_channel) {
                         let _ = tx.send(
                             InfraMsg {
                                 task_numb: self.task_numb,
-                                data: Arc::new(AltTimerEvent {
+                                data: Arc::new(AltScheduleEvent {
                                     timestamp: get_micros_timestamp(),
                                     interval_sec: n,
                                 }),
                             }
                         );
                     } else {
-                        self.log(LogLevel::Warn, "No timer channel found, retrying...");
+                        self.log(LogLevel::Warn, "No schedule channel found, retrying...");
                     }
                 },
                 result = self.cmd_rx.recv() => {

@@ -87,9 +87,9 @@ where
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn on_timer(&mut self, msg: InfraMsg<AltTimerEvent>) {
-        let fut_head = self.head.on_timer(msg.clone());
-        let fut_tail = self.tail.on_timer(msg);
+    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
+        let fut_head = self.head.on_schedule(msg.clone());
+        let fut_tail = self.tail.on_schedule(msg);
         tokio::join!(fut_head, fut_tail);
     }
 }

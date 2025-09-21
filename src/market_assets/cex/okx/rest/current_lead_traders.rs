@@ -27,9 +27,9 @@ impl From<RestLeadtraderOkx> for CurrentLeadtrader {
             timestamp: get_micros_timestamp(),
             unique_code: d.uniqueCode,
             nick_name: d.nickName,
-            margin: d.margin.parse::<f64>().unwrap_or(0.0),
-            copy_pnl: d.copyTotalPnl.parse::<f64>().unwrap_or(0.0),
-            copy_amount: d.copyTotalAmt.parse::<f64>().unwrap_or(0.0),
+            margin: d.margin.parse().unwrap_or_default(),
+            copy_pnl: d.copyTotalPnl.parse().unwrap_or_default(),
+            copy_amount: d.copyTotalAmt.parse().unwrap_or_default(),
         }
     }
 }

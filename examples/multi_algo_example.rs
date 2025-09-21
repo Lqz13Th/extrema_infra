@@ -1,5 +1,7 @@
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::oneshot;
+use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 use extrema_infra::prelude::*;
@@ -21,9 +23,9 @@ impl Strategy for EmptyStrategy {
 }
 
 impl AltEventHandler for EmptyStrategy {
-    async fn on_timer(
+    async fn on_schedule(
         &mut self,
-        msg: InfraMsg<AltTimerEvent>,
+        msg: InfraMsg<AltScheduleEvent>,
     ) {
         info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
     }
@@ -75,7 +77,7 @@ impl BinanceStrategy {
 
             // send subscribe message
             let ws_msg = self.binance_um_cli
-                .get_public_sub_msg(&channel, Some(&["ZRX_USDT_PERP".to_string()]))
+                .get_public_sub_msg(&channel, Some(&["BTC_USDT_PERP".to_string()]))
                 .await?;
 
             let cmd = TaskCommand::Subscribe {
@@ -101,9 +103,9 @@ impl Strategy for BinanceStrategy {
 }
 
 impl AltEventHandler for BinanceStrategy {
-    async fn on_timer(
+    async fn on_schedule(
         &mut self,
-        msg: InfraMsg<AltTimerEvent>,
+        msg: InfraMsg<AltScheduleEvent>,
     ) {
         info!("[BinanceStrategy] AltEventHandler: {:?}", msg);
     }
@@ -153,9 +155,9 @@ async fn main() {
         .with_board_cast_channel(BoardCastChannel::default_cex_event())
         .with_board_cast_channel(BoardCastChannel::default_candle())
         .with_board_cast_channel(BoardCastChannel::default_candle()) // duplicated skip
-        .with_board_cast_channel(BoardCastChannel::default_timer())
-        .with_strategy(EmptyStrategy)
-        .with_strategy(BinanceStrategy::new())
+        .with_board_cast_channel(BoardCastChannel::default_schedule())
+        .with_strategy_module(EmptyStrategy)
+        .with_strategy_module(BinanceStrategy::new())
         .with_task(TaskInfo::WsTask(Arc::new(binance_ws_candle)))
         .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
         .build();

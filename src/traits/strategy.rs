@@ -32,9 +32,9 @@ pub trait AltEventHandler: Clone + Send + Sync + 'static {
         _msg: InfraMsg<AltTaskInfo>
     ) -> impl Future<Output=()> + Send { ready(()) }
 
-    fn on_timer(
+    fn on_schedule(
         &mut self, 
-        _msg: InfraMsg<AltTimerEvent>
+        _msg: InfraMsg<AltScheduleEvent>
     ) -> impl Future<Output=()> + Send { ready(()) }
 }
 

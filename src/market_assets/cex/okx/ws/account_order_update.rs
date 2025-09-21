@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::market_assets::{
     api_general::ts_to_micros,
-    cex::okx::api_utils::okx_swap_to_cli,
+    cex::okx::api_utils::okx_inst_to_cli,
     market_core::Market,
     base_data::{InstrumentType, OrderSide, OrderStatus, OrderType},
 };
@@ -37,64 +37,41 @@ impl IntoWsData for WsAccountOrderOkx {
     type Output = WsAccOrder;
 
     fn into_ws(self) -> Self::Output {
-        let timestamp = self.uTime.parse::<u64>().unwrap_or(0);
-
-        // instrument_type
-        let inst_type = match self.instType.as_str() {
-            "SPOT" => InstrumentType::Spot,
-            "SWAP" => InstrumentType::Perpetual,
-            "OPTION" => InstrumentType::Option,
-            _ => InstrumentType::Unknown,
-        };
-
-        // price
-        let price = self.px
-            .as_ref()
-            .and_then(|p| p.parse::<f64>().ok())
-            .unwrap_or(0.0);
-
-        // size
-        let size = self.sz.parse::<f64>().unwrap_or(0.0);
-
-        // filled_size
-        let filled_size = self.fillSz
-            .as_ref()
-            .and_then(|sz| sz.parse::<f64>().ok())
-            .unwrap_or(0.0);
-
-        // side
-        let side = match self.side.as_str() {
-            "buy" => OrderSide::BUY,
-            "sell" => OrderSide::SELL,
-            _ => OrderSide::Unknown,
-        };
-
-        // status
-        let status = match self.state.as_str() {
-            "live" => OrderStatus::Live,
-            "filled" => OrderStatus::Filled,
-            "canceled" | "mmp_canceled" => OrderStatus::Canceled,
-            _ => OrderStatus::Unknown,
-        };
-
-        // order_type
-        let order_type = match self.ordType.as_str() {
-            "market" => OrderType::Market,
-            "limit" => OrderType::Limit,
-            _ => OrderType::Unknown,
-        };
-
         WsAccOrder {
-            timestamp: ts_to_micros(timestamp),
+            timestamp: ts_to_micros(self.uTime.parse().unwrap_or_default()),
             market: Market::Okx,
-            inst: okx_swap_to_cli(&self.instId),
-            inst_type,
-            price,
-            size,
-            filled_size,
-            side,
-            status,
-            order_type,
+            inst: okx_inst_to_cli(&self.instId),
+            inst_type: match self.instType.as_str() {
+                "SPOT" => InstrumentType::Spot,
+                "SWAP" => InstrumentType::Perpetual,
+                "OPTION" => InstrumentType::Option,
+                _ => InstrumentType::Unknown,
+            },
+            price: self.px
+                .as_ref()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0),
+            size: self.sz.parse().unwrap_or_default(),
+            filled_size: self.fillSz
+                .as_ref()
+                .and_then(|sz| sz.parse::<f64>().ok())
+                .unwrap_or(0.0),
+            side: match self.side.as_str() {
+                "buy" => OrderSide::BUY,
+                "sell" => OrderSide::SELL,
+                _ => OrderSide::Unknown,
+            },
+            status: match self.state.as_str() {
+                "live" => OrderStatus::Live,
+                "filled" => OrderStatus::Filled,
+                "canceled" | "mmp_canceled" => OrderStatus::Canceled,
+                _ => OrderStatus::Unknown,
+            },
+            order_type: match self.ordType.as_str() {
+                "market" => OrderType::Market,
+                "limit" => OrderType::Limit,
+                _ => OrderType::Unknown,
+            },
             client_order_id: if self.clOrdId.is_empty() {
                 None
             } else {

@@ -44,6 +44,31 @@ pub fn binance_um_to_cli_perp(symbol: &str) -> String {
     upper
 }
 
+pub fn binance_to_cli(symbol: &str) -> String {
+    let upper = symbol.to_uppercase();
+    let quote_currencies = ["USDT", "USDC", "USD"];
+
+    for quote in quote_currencies {
+        if upper.ends_with(quote) {
+            let base = &upper[..upper.len() - quote.len()];
+            if base.is_empty() {
+                error!("Invalid Binance symbol: {}", symbol);
+                return symbol.to_string();
+            }
+
+            // BTCUSDT_250926
+            if upper.contains('_') || upper.len() > base.len() + quote.len() {
+                return format!("{}_{}_FUTURE", base, quote);
+            } else {
+                return format!("{}_{}_PERP", base, quote);
+            }
+        }
+    }
+
+    upper
+}
+
+
 pub fn cli_perp_to_pure_lowercase(symbol: &str) -> String {
     let cleaned = symbol.strip_suffix("_PERP").unwrap_or(symbol);
     cleaned.replace("_", "").to_lowercase()

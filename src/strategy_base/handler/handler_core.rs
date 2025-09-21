@@ -24,7 +24,7 @@ pub enum BoardCastChannel {
     Alt(broadcast::Sender<InfraMsg<AltTaskInfo>>),
     Cex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
     Dex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
-    Timer(broadcast::Sender<InfraMsg<AltTimerEvent>>),
+    Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
     Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
     Lob(broadcast::Sender<InfraMsg<Vec<WsLob>>>),
     Candle(broadcast::Sender<InfraMsg<Vec<WsCandle>>>),
@@ -44,8 +44,8 @@ impl BoardCastChannel {
         BoardCastChannel::Dex(broadcast::channel(2048).0)
     }
 
-    pub fn default_timer() -> Self {
-        BoardCastChannel::Timer(broadcast::channel(2048).0)
+    pub fn default_schedule() -> Self {
+        BoardCastChannel::Schedule(broadcast::channel(2048).0)
     }
 
     pub fn default_trade() -> Self {
@@ -86,7 +86,7 @@ where
     let mut rx_cex_event = find_cex_event(channels).map(|tx| tx.subscribe());
     let mut rx_dex_event = find_dex_event(channels).map(|tx| tx.subscribe());
 
-    let mut rx_timer = find_timer(channels).map(|tx| tx.subscribe());
+    let mut rx_schedule = find_schedule(channels).map(|tx| tx.subscribe());
 
     let mut rx_trade = find_trade(channels).map(|tx| tx.subscribe());
     let mut rx_lob = find_lob(channels).map(|tx| tx.subscribe());
@@ -136,12 +136,12 @@ where
                     },
                 };
             },
-            msg = recv_or_pending(&mut rx_timer) => {
+            msg = recv_or_pending(&mut rx_schedule) => {
                 match msg {
-                    Ok(msg) => strategies.on_timer(msg).await,
+                    Ok(msg) => strategies.on_schedule(msg).await,
                     Err(e) => {
-                        error!("rx_timer err: {:?}, reconnecting...", e);
-                        rx_timer = find_timer(channels).map(|tx| tx.subscribe());
+                        error!("rx_schedule err: {:?}, reconnecting...", e);
+                        rx_schedule = find_schedule(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -214,11 +214,11 @@ pub(crate) fn find_dex_event(
     })
 }
 
-pub(crate) fn find_timer(
+pub(crate) fn find_schedule(
     channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<InfraMsg<AltTimerEvent>>> {
+) -> Option<broadcast::Sender<InfraMsg<AltScheduleEvent>>> {
     channels.iter().find_map(|ch| {
-        if let BoardCastChannel::Timer(tx) = ch {
+        if let BoardCastChannel::Schedule(tx) = ch {
             Some(tx.clone())
         } else {
             None
