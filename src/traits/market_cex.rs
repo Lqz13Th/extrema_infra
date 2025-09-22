@@ -7,6 +7,7 @@ use crate::market_assets::{
     price_data::*,
     utils_data::*,
 };
+use crate::market_assets::api_general::OrderParams;
 use crate::task_execution::task_ws::WsChannel;
 
 pub trait CexWebsocket: Send + Sync {
@@ -83,18 +84,17 @@ pub trait CexPrivateRest: Send + Sync {
 
     fn place_order(
         &self,
-        _inst: String,
-        _side: String,
-        _price: Option<f64>,
-        _quantity: f64,
-    ) -> impl Future<Output = InfraResult<OrderData>> + Send {
+        _order_params: OrderParams,
+    ) -> impl Future<Output = InfraResult<OrderAckData>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
-    fn cancel_orders(
+    fn cancel_order(
         &self,
-        _insts: Vec<String>,
-    ) -> impl Future<Output = InfraResult<OrderData>> + Send {
+        _inst: String,
+        _order_id: Option<String>,
+        _cli_order_id: Option<String>,
+    ) -> impl Future<Output = InfraResult<OrderAckData>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 

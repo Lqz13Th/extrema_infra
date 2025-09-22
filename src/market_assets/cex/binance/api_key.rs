@@ -18,9 +18,9 @@ pub fn read_binance_env_key() -> InfraResult<BinanceKey> {
     let _ = dotenv::dotenv();
 
     let api_key = std::env::var("BINANCE_API_KEY")
-        .map_err(|_| InfraError::EnvVarMissing("BINANCE_API_KEY".to_string()))?;
+        .map_err(|_| InfraError::EnvVarMissing("BINANCE_API_KEY".into()))?;
     let secret_key = std::env::var("BINANCE_SECRET_KEY")
-        .map_err(|_| InfraError::EnvVarMissing("BINANCE_SECRET_KEY".to_string()))?;
+        .map_err(|_| InfraError::EnvVarMissing("BINANCE_SECRET_KEY".into()))?;
 
     Ok(BinanceKey::new(&api_key, &secret_key))
 }
@@ -34,8 +34,8 @@ pub struct BinanceKey {
 impl BinanceKey {
     fn new(api_key: &str, secret_key: &str) -> Self {
         Self {
-            api_key: api_key.to_string(),
-            secret_key: secret_key.to_string(),
+            api_key: api_key.into(),
+            secret_key: secret_key.into(),
         }
     }
 

@@ -5,16 +5,15 @@ use std::{
 use simd_json::from_slice;
 use serde_json::json;
 use reqwest::Client;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
-    api_general::RequestMethod,
-    base_data::InstrumentType,
+    api_general::*,
+    base_data::*,
     account_data::*,
     utils_data::*,
 };
-use crate::market_assets::cex::okx::rest::instruments::RestInstrumentsOkx;
 use crate::task_execution::task_ws::*;
 use crate::traits::{
     market_cex::{CexWebsocket, CexPrivateRest, CexPublicRest, MarketCexApi}
@@ -28,9 +27,11 @@ use super::{
         account_balance::RestAccountBalOkx,
         account_positions::RestAccountPosOkx,
         current_lead_traders::RestLeadtraderOkx,
+        instruments::RestInstrumentsOkx,
         public_lead_traders::RestPubLeadTradersOkx,
         public_lead_trader_stats::RestPubLeadTraderStatsOkx,
         public_current_subpositions::RestSubPositionOkx,
+        trade_order::RestOrderAckOkx,
     }
 };
 
@@ -83,6 +84,13 @@ impl CexPrivateRest for OkxCli {
                 error!("Failed to read OKX env key: {:?}", e);
             },
         };
+    }
+
+    async fn place_order(
+        &self,
+        order_params: OrderParams,
+    ) -> InfraResult<OrderAckData> {
+        self._place_order(order_params).await
     }
 
     async fn get_balance(
@@ -154,14 +162,14 @@ impl CexWebsocket for OkxCli {
             _ => return Err(InfraError::Unimplemented),
         };
 
-        Ok(url.to_string())
+        Ok(url.into())
     }
 
     async fn get_private_connect_msg(
         &self,
         _channel: &WsChannel
     ) -> InfraResult<String> {
-        Ok(OKX_WS_PRI.to_string())
+        Ok(OKX_WS_PRI.into())
     }
 }
 
@@ -226,7 +234,13 @@ impl OkxCli {
             return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         }
 
-        Ok(res.data.into_iter().map(CurrentLeadtrader::from).collect())
+        let data: Vec<CurrentLeadtrader> = res.data
+            .unwrap_or_default()
+            .into_iter()
+            .map(CurrentLeadtrader::from)
+            .collect();
+
+        Ok(data)
     }
 
     pub async fn get_public_lead_traders(
@@ -241,7 +255,12 @@ impl OkxCli {
             InstrumentType::Unknown => "SPOT",
         };
 
-        let mut url = format!("{}{}?instType={}", OKX_BASE_URL, OKX_CT_PUBLIC_LEADTRADERS, inst_type_str);
+        let mut url = format!(
+            "{}{}?instType={}",
+            OKX_BASE_URL,
+            OKX_CT_PUBLIC_LEADTRADERS,
+            inst_type_str,
+        );
 
         if let Some(sort) = query.sort_type {
             url.push_str(&format!("&sortType={}", sort));
@@ -285,6 +304,7 @@ impl OkxCli {
 
         let data = res
             .data
+            .unwrap_or_default()
             .into_iter()
             .next()
             .ok_or(InfraError::ApiError("No data returned".into()))?;
@@ -329,7 +349,13 @@ impl OkxCli {
             )));
         }
 
-        Ok(res.data.into_iter().map(PubLeadtraderStats::from).collect())
+        let data: Vec<PubLeadtraderStats> = res.data
+            .unwrap_or_default()
+            .into_iter()
+            .map(PubLeadtraderStats::from)
+            .collect();
+
+        Ok(data)
     }
 
     pub async fn get_lead_trader_subpositions(
@@ -375,7 +401,13 @@ impl OkxCli {
             return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         }
 
-        Ok(res.data.into_iter().map(LeadtraderSubpositions::from).collect())
+        let data: Vec<LeadtraderSubpositions> = res.data
+            .unwrap_or_default()
+            .into_iter()
+            .map(LeadtraderSubpositions::from)
+            .collect();
+
+        Ok(data)
     }
 
     async fn _get_instrument_info(
@@ -388,7 +420,7 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiError("Unknown instrument type".to_string()))
+                return Err(InfraError::ApiError("Unknown instrument type".into()))
             },
         };
 
@@ -408,8 +440,98 @@ impl OkxCli {
             return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         }
 
-        Ok(res.data.into_iter().map(InstrumentInfo::from).collect())
+        let data: Vec<InstrumentInfo> = res.data
+            .unwrap_or_default()
+            .into_iter()
+            .map(InstrumentInfo::from)
+            .collect();
+
+        Ok(data)
     }
+
+    async fn _place_order(
+        &self,
+        order_params: OrderParams,
+    ) -> InfraResult<OrderAckData> {
+        let mut body = json!({
+            "instId": to_okx_inst(&order_params.inst),
+            "side": match order_params.side {
+                OrderSide::BUY => "buy",
+                OrderSide::SELL => "sell",
+                _ => "buy", // fallback
+            },
+            "sz": order_params.size.to_string(),
+            "ordType": match order_params.order_type {
+                OrderType::Limit => "limit",
+                OrderType::Market => "market",
+                OrderType::PostOnly => "post_only",
+                OrderType::Fok => "fok",
+                OrderType::Ioc => "ioc",
+                OrderType::Unknown => "market",
+            },
+        });
+
+        if let Some(price) = order_params.price {
+            body["px"] = json!(price);
+        }
+
+        if let Some(reduce_only) = order_params.reduce_only {
+            body["reduceOnly"] = json!(reduce_only);
+        }
+
+        if let Some(td_mode) = order_params.margin_mode {
+            body["tdMode"] = json!(match td_mode {
+                MarginMode::Isolated => "isolated",
+                MarginMode::Cross => "cross",
+                MarginMode::Unknown => "isolated",
+            });
+        }
+
+        if let Some(pos_side) = order_params.position_side {
+            body["posSide"] = json!(match pos_side {
+                PositionSide::Long => "long",
+                PositionSide::Short => "short",
+                PositionSide::Unknown => "net",
+            });
+        }
+
+        if let Some(cl_id) = order_params.client_order_id {
+            body["clOrdId"] = json!(cl_id);
+        }
+
+        for (k, v) in order_params.extra {
+            body[k] = json!(v);
+        }
+
+        let res: RestResOkx<RestOrderAckOkx> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                body.to_string(),
+                OKX_BASE_URL,
+                OKX_TRADE_ORDER,
+            )
+            .await?;
+
+        warn!("{:?}", res);
+        if res.code != "0" {
+            return Err(InfraError::ApiError(res.msg.unwrap_or_default()));
+        }
+
+
+        let data: OrderAckData = res
+            .data
+            .unwrap_or_default()
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or_else(|| InfraError::ApiError("Empty order ack data".into()))?;
+
+        Ok(data)
+    }
+
 
     async fn _get_balance(
         &self,
@@ -419,7 +541,7 @@ impl OkxCli {
             Some(ccys) if !ccys.is_empty() => {
                 json!({ "ccy": ccys.join(",") }).to_string()
             },
-            _ => "{}".to_string(),
+            _ => "{}".into(),
         };
 
         let bal_res: RestResOkx<RestAccountBalOkx> = self.api_key
@@ -441,6 +563,7 @@ impl OkxCli {
 
         let data: Vec<BalanceData> = bal_res
             .data
+            .unwrap_or_default()
             .into_iter()
             .flat_map(|account| account.details)
             .map(BalanceData::from)
@@ -457,7 +580,7 @@ impl OkxCli {
             Some(ids) if !ids.is_empty() => {
                 json!({ "instId": ids.join(",") }).to_string()
             },
-            _ => "{}".to_string(),
+            _ => "{}".into(),
         };
 
         let pos_res: RestResOkx<RestAccountPosOkx> = self.api_key
@@ -479,6 +602,7 @@ impl OkxCli {
 
         let data: Vec<PositionData> = pos_res
             .data
+            .unwrap_or_default()
             .into_iter()
             .map(PositionData::from) // 你可以像 BalanceData 一样实现 From
             .collect();

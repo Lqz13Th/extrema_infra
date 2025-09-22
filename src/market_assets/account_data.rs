@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::market_assets::base_data::{InstrumentType, PositionSide};
+use crate::market_assets::base_data::{InstrumentType, OrderSide, OrderStatus, OrderType, PositionSide};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BalanceData {
@@ -15,7 +15,7 @@ pub struct PositionData {
     pub timestamp: u64,
     pub inst: String,
     pub inst_type: InstrumentType,
-    pub position_side: PositionSide, // "LONG" / "SHORT"
+    pub position_side: PositionSide,
     pub size: f64,
     pub avg_price: f64,
     pub mark_price: f64,
@@ -24,12 +24,9 @@ pub struct PositionData {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OrderData {
+pub struct OrderAckData {
     pub timestamp: u64,
+    pub order_status: OrderStatus,
     pub order_id: String,
-    pub inst: String,
-    pub side: String,
-    pub price: f64,
-    pub quantity: f64,
-    pub status: String, // "NEW", "FILLED", ...
+    pub cli_order_id: Option<String>,
 }

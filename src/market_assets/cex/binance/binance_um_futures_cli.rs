@@ -102,7 +102,7 @@ impl CexWebsocket for BinanceUmCli {
         &self,
         _channel: &WsChannel,
     ) -> InfraResult<String> {
-        Ok(BINANCE_UM_FUTURES_WS.to_string())
+        Ok(BINANCE_UM_FUTURES_WS.into())
     }
 
     async fn get_private_connect_msg(

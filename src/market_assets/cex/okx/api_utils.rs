@@ -10,7 +10,7 @@ use crate::market_assets::base_data::{
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestResOkx<T> {
     pub code: String,
-    pub data: Vec<T>,
+    pub data: Option<Vec<T>>,
     pub msg: Option<String>,
 }
 
@@ -50,10 +50,14 @@ pub fn get_okx_timestamp() -> String {
     format!("{}.{}", seconds, millis)
 }
 
-pub fn cli_perp_to_okx_swap(symbol: &str) -> String {
-    let cleaned = symbol.strip_suffix("_PERP").unwrap_or(symbol);
-    format!("{}-SWAP", cleaned.replace("_", "-"))
+pub fn to_okx_inst(symbol: &str) -> String {
+    let mut inst = symbol.replace('_', "-");
+    if inst.ends_with("-PERP") {
+        inst = inst.trim_end_matches("-PERP").to_string() + "-SWAP";
+    }
+    inst
 }
+
 
 pub fn okx_inst_to_cli(symbol: &str) -> String {
     let parts: Vec<&str> = symbol.split('-').collect();
@@ -65,7 +69,7 @@ pub fn okx_inst_to_cli(symbol: &str) -> String {
         [base, quote] => format!("{}_{}", base, quote),
         _ => {
             error!("Invalid okx symbol: {}", symbol);
-            symbol.to_string()
+            symbol.into()
         },
     }
 }

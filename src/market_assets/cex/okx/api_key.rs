@@ -17,11 +17,11 @@ pub fn read_okx_env_key() -> InfraResult<OkxKey> {
     let _ = dotenv::dotenv();
 
     let api_key = std::env::var("OKX_API_KEY")
-        .map_err(|_| InfraError::EnvVarMissing("OKX_API_KEY".to_string()))?;
+        .map_err(|_| InfraError::EnvVarMissing("OKX_API_KEY".into()))?;
     let secret_key = std::env::var("OKX_SECRET_KEY")
-        .map_err(|_| InfraError::EnvVarMissing("OKX_SECRET_KEY".to_string()))?;
+        .map_err(|_| InfraError::EnvVarMissing("OKX_SECRET_KEY".into()))?;
     let passphrase = std::env::var("OKX_PASSPHRASE")
-        .map_err(|_| InfraError::EnvVarMissing("OKX_PASSPHRASE".to_string()))?;
+        .map_err(|_| InfraError::EnvVarMissing("OKX_PASSPHRASE".into()))?;
 
     Ok(OkxKey::new(&api_key, &secret_key, &passphrase))
 }
@@ -36,9 +36,9 @@ pub struct OkxKey {
 impl OkxKey {
     fn new(api_key: &str, secret_key: &str, passphrase: &str) -> Self {
         Self {
-            api_key: api_key.to_string(),
-            secret_key: secret_key.to_string(),
-            passphrase: passphrase.to_string(),
+            api_key: api_key.into(),
+            secret_key: secret_key.into(),
+            passphrase: passphrase.into(),
         }
     }
 

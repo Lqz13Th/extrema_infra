@@ -11,6 +11,8 @@ use serde::{
 };
 
 use crate::errors::InfraResult;
+use crate::market_assets::base_data::{MarginMode, OrderSide, OrderType, PositionSide, TimeInForce};
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature<T> {
     pub signature: String,
@@ -51,4 +53,19 @@ pub fn ts_to_micros(ts: u64) -> u64 {
         10_000_000_000..=9_999_999_999_999 => ts * 1_000,
         _ => ts,
     }
+}
+
+#[derive(Default)]
+pub struct OrderParams {
+    pub inst: String,
+    pub side: OrderSide,
+    pub size: f64,
+    pub order_type: OrderType,
+    pub price: Option<f64>,
+    pub reduce_only: Option<bool>,
+    pub margin_mode: Option<MarginMode>,
+    pub position_side: Option<PositionSide>,
+    pub time_in_force: Option<TimeInForce>,  // GTC, IOC, FOK, GTD
+    pub client_order_id: Option<String>,
+    pub extra: HashMap<String, String>, // general
 }

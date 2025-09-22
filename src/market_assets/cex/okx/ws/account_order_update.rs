@@ -72,7 +72,7 @@ impl IntoWsData for WsAccountOrderOkx {
                 "limit" => OrderType::Limit,
                 _ => OrderType::Unknown,
             },
-            client_order_id: if self.clOrdId.is_empty() {
+            cli_order_id: if self.clOrdId.is_empty() {
                 None
             } else {
                 Some(self.clOrdId)

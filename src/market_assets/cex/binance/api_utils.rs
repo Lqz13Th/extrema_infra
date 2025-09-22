@@ -19,7 +19,7 @@ pub fn ws_subscribe_msg_binance(
             .iter()
             .map(|symbol| format!("{}@{}", cli_perp_to_pure_lowercase(symbol), param))
             .collect(),
-        None => vec![param.to_string()],
+        None => vec![param.into()],
     };
 
     let subscribe_msg = json!({
@@ -37,7 +37,7 @@ pub fn binance_um_to_cli_perp(symbol: &str) -> String {
         let base = &upper[..upper.len() - 4];
         if base.is_empty() {
             error!("Invalid binance um symbol: {}", symbol);
-            return symbol.to_string();
+            return symbol.into();
         }
         return format!("{}_{}_PERP", base, &upper[upper.len() - 4..]);
     }
@@ -53,7 +53,7 @@ pub fn binance_to_cli(symbol: &str) -> String {
             let base = &upper[..upper.len() - quote.len()];
             if base.is_empty() {
                 error!("Invalid Binance symbol: {}", symbol);
-                return symbol.to_string();
+                return symbol.into();
             }
 
             // BTCUSDT_250926

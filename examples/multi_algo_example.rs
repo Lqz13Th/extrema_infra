@@ -5,7 +5,7 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 use extrema_infra::prelude::*;
-
+use extrema_infra::market_assets::cex::prelude::*;
 
 ///# Empty strategy
 #[derive(Clone)]
@@ -77,7 +77,7 @@ impl BinanceStrategy {
 
             // send subscribe message
             let ws_msg = self.binance_um_cli
-                .get_public_sub_msg(&channel, Some(&["BTC_USDT_PERP".to_string()]))
+                .get_public_sub_msg(&channel, Some(&["BTC_USDT_PERP".into()]))
                 .await?;
 
             let cmd = TaskCommand::Subscribe {
