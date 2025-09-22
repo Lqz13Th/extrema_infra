@@ -14,6 +14,8 @@ use crate::market_assets::{
     account_data::*,
     utils_data::*,
 };
+use crate::market_assets::cex::okx::rest::market_ticker::RestMarketTickerOkx;
+use crate::market_assets::price_data::TickerData;
 use crate::task_execution::task_ws::*;
 use crate::traits::{
     market_cex::{CexWebsocket, CexPrivateRest, CexPublicRest, MarketCexApi}
@@ -26,11 +28,11 @@ use super::{
     rest::{
         account_balance::RestAccountBalOkx,
         account_positions::RestAccountPosOkx,
-        current_lead_traders::RestLeadtraderOkx,
-        instruments::RestInstrumentsOkx,
-        public_lead_traders::RestPubLeadTradersOkx,
-        public_lead_trader_stats::RestPubLeadTraderStatsOkx,
-        public_current_subpositions::RestSubPositionOkx,
+        ct_current_lead_traders::RestLeadtraderOkx,
+        public_instruments::RestInstrumentsOkx,
+        ct_public_lead_traders::RestPubLeadTradersOkx,
+        ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
+        ct_public_current_subpositions::RestSubPositionOkx,
         trade_order::RestOrderAckOkx,
     }
 };
@@ -66,6 +68,13 @@ impl Default for OkxCli {
 impl MarketCexApi for OkxCli {}
 
 impl CexPublicRest for OkxCli {
+    async fn get_ticker(
+        &self,
+        insts: &str,
+    ) -> InfraResult<TickerData> {
+        self._get_ticker(insts).await
+    }
+
     async fn get_instrument_info(
         &self,
         inst_type: InstrumentType
@@ -208,7 +217,7 @@ impl OkxCli {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Future => "Future",
+            InstrumentType::Futures => "Future",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => "SPOT",
         };
@@ -250,7 +259,7 @@ impl OkxCli {
         let inst_type_str = match query.inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Future => "Future",
+            InstrumentType::Futures => "Future",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => "SPOT",
         };
@@ -321,7 +330,7 @@ impl OkxCli {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Future => "Future",
+            InstrumentType::Futures => "Future",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => "SPOT",
         };
@@ -369,7 +378,7 @@ impl OkxCli {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Future => "Future",
+            InstrumentType::Futures => "Future",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => "SPOT",
         };
@@ -410,13 +419,43 @@ impl OkxCli {
         Ok(data)
     }
 
+    async fn _get_ticker(
+        &self,
+        inst: &str,
+    ) -> InfraResult<TickerData> {
+        let url = format!(
+            "{}{}?&instId={}",
+            OKX_BASE_URL,
+            OKX_MARKET_TICKER,
+            to_okx_inst(inst),
+        );
+
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestMarketTickerOkx> = from_slice(&mut res_bytes)?;
+
+        if res.code != "0" {
+            let msg = res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
+        }
+
+        let data: TickerData = res.data
+            .unwrap_or_default()
+            .into_iter()
+            .next()
+            .map(TickerData::from)
+            .ok_or_else(|| InfraError::ApiError("Empty market tick data".into()))?;
+
+        Ok(data)
+    }
+
     async fn _get_instrument_info(
         &self,
         inst_type: InstrumentType
     ) -> InfraResult<Vec<InstrumentInfo>> {
         let inst_type_str = match inst_type {
             InstrumentType::Spot => "SPOT",
-            InstrumentType::Future => "FUTURES",
+            InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Option => "OPTION",
             InstrumentType::Unknown => {
@@ -539,8 +578,9 @@ impl OkxCli {
     ) -> InfraResult<Vec<BalanceData>> {
         let body = match assets {
             Some(ccys) if !ccys.is_empty() => {
-                json!({ "ccy": ccys.join(",") }).to_string()
-            },
+                let okx_ccys: Vec<String> = ccys.iter().map(|s| to_okx_inst(s)).collect();
+                json!({ "ccy": okx_ccys.join(",") }).to_string()
+            }
             _ => "{}".into(),
         };
 
@@ -578,7 +618,8 @@ impl OkxCli {
     ) -> InfraResult<Vec<PositionData>> {
         let body = match insts {
             Some(ids) if !ids.is_empty() => {
-                json!({ "instId": ids.join(",") }).to_string()
+                let okx_ids: Vec<String> = ids.iter().map(|s| to_okx_inst(s)).collect();
+                json!({ "instId": okx_ids.join(",") }).to_string()
             },
             _ => "{}".into(),
         };

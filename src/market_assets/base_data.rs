@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub enum InstrumentType {
     Spot,
     Perpetual,
-    Future,
+    Futures,
     Option,
     #[default]
     Unknown,

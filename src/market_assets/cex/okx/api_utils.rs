@@ -24,7 +24,7 @@ pub fn ws_subscribe_msg_okx(
             .map(|inst| {
                 json!({
                     "channel": channel,
-                    "instId": inst
+                    "instId": to_okx_inst(inst),
                 })
             })
             .collect(),

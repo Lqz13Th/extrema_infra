@@ -8,6 +8,7 @@ use crate::market_assets::{
     utils_data::*,
 };
 use crate::market_assets::api_general::OrderParams;
+use crate::prelude::CandleParam;
 use crate::task_execution::task_ws::WsChannel;
 
 pub trait CexWebsocket: Send + Sync {
@@ -46,23 +47,23 @@ pub trait MarketCexApi: CexPublicRest + CexPrivateRest {}
 pub trait CexPublicRest: Send + Sync {
     fn get_ticker(
         &self,
-        _insts: Option<&[String]>,
-    ) -> impl Future<Output = InfraResult<Vec<TickerData>>> + Send {
+        _inst: &str,
+    ) -> impl Future<Output = InfraResult<TickerData>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
     fn get_orderbook(
         &self,
-        _insts: Option<&[String]>,
+        _inst: &str,
         _depth: usize,
-    ) -> impl Future<Output = InfraResult<Vec<OrderBookData>>> + Send {
+    ) -> impl Future<Output = InfraResult<OrderBookData>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 
     fn get_candles(
         &self,
-        _insts: Option<&[String]>,
-        _interval: &str
+        _inst: &str,
+        _interval: CandleParam,
     ) -> impl Future<Output = InfraResult<Vec<CandleData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
@@ -91,9 +92,9 @@ pub trait CexPrivateRest: Send + Sync {
 
     fn cancel_order(
         &self,
-        _inst: String,
-        _order_id: Option<String>,
-        _cli_order_id: Option<String>,
+        _inst: &str,
+        _order_id: Option<&str>,
+        _cli_order_id: Option<&str>,
     ) -> impl Future<Output = InfraResult<OrderAckData>> + Send {
         ready(Err(InfraError::Unimplemented))
     }

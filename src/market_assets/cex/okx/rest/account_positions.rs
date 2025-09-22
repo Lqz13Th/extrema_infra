@@ -29,7 +29,7 @@ impl From<RestAccountPosOkx> for PositionData {
             inst: okx_inst_to_cli(&d.instId),
             inst_type: match d.instType.as_str() {
                 "SWAP" => InstrumentType::Perpetual,
-                "FUTURES" => InstrumentType::Future,
+                "FUTURES" => InstrumentType::Futures,
                 "SPOT" => InstrumentType::Spot,
                 _ => InstrumentType::Unknown,
             },
