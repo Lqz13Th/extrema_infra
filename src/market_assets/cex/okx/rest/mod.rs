@@ -1,9 +1,10 @@
 pub mod account_balance;
 pub mod account_positions;
 pub mod ct_public_current_subpositions;
-pub mod public_instruments;
 pub mod ct_current_lead_traders;
 pub mod ct_public_lead_trader_stats;
 pub mod ct_public_lead_traders;
-pub mod trade_order;
+pub mod ct_public_subpositions_history;
 pub mod market_ticker;
+pub mod public_instruments;
+pub mod trade_order;

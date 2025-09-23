@@ -17,7 +17,7 @@ pub struct InstrumentInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct LeadtraderSubpositions {
+pub struct LeadtraderSubposition {
     pub timestamp: u64,
     pub unique_code: String,
     pub inst: String,
@@ -30,6 +30,26 @@ pub struct LeadtraderSubpositions {
     pub size: f64,
     pub ins_type: InstrumentType,
     pub margin: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LeadtraderSubpositionHistory {
+    pub timestamp: u64,
+    pub unique_code: String,
+    pub inst: String,
+    pub subpos_id: String,
+    pub pos_side: PositionSide,
+    pub margin_mode: MarginMode,
+    pub ins_type: InstrumentType,
+    pub leverage: f64,
+    pub size: f64,
+    pub margin: f64,
+    pub open_ts: u64,
+    pub open_avg_price: f64,
+    pub close_ts: u64,
+    pub close_avg_price: f64,
+    pub pnl: f64,
+    pub pnl_ratio: f64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

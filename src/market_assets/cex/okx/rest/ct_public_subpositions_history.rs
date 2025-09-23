@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 use crate::market_assets::{
     api_general::{get_micros_timestamp, ts_to_micros},
     base_data::{InstrumentType, MarginMode, PositionSide},
-    utils_data::LeadtraderSubposition,
+    utils_data::LeadtraderSubpositionHistory,
     cex::okx::api_utils::okx_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RestSubPositionOkx {
+pub struct RestSubPositionHistoryOkx {
     pub instId: String,
     pub subPosId: String,
     pub posSide: String,
@@ -18,20 +18,21 @@ pub struct RestSubPositionOkx {
     pub openAvgPx: String,
     pub openTime: String,
     pub subPos: String,
+    pub closeTime: Option<String>,
+    pub closeAvgPx: Option<String>,
+    pub pnl: Option<String>,
+    pub pnlRatio: Option<String>,
     pub instType: String,
     pub margin: String,
-    pub upl: String,
-    pub uplRatio: String,
-    pub markPx: Option<String>,
-    pub uniqueCode: String,
     pub ccy: String,
+    pub uniqueCode: String,
 }
 
-impl From<RestSubPositionOkx> for LeadtraderSubposition {
-    fn from(d: RestSubPositionOkx) -> Self {
+impl From<RestSubPositionHistoryOkx> for LeadtraderSubpositionHistory {
+    fn from(d: RestSubPositionHistoryOkx) -> Self {
         let size_val = d.subPos.parse::<f64>().unwrap_or(0.0);
-        
-        LeadtraderSubposition {
+
+        LeadtraderSubpositionHistory {
             timestamp: get_micros_timestamp(),
             unique_code: d.uniqueCode,
             inst: okx_inst_to_cli(&d.instId),
@@ -45,23 +46,36 @@ impl From<RestSubPositionOkx> for LeadtraderSubposition {
                     } else {
                         PositionSide::Short
                     }
-                }
+                },
             },
             margin_mode: match d.mgnMode.to_lowercase().as_str() {
                 "cross" => MarginMode::Cross,
                 "isolated" => MarginMode::Isolated,
                 _ => MarginMode::Cross,
             },
-            leverage: d.lever.parse().unwrap_or_default(),
-            open_ts: ts_to_micros(d.openTime.parse().unwrap_or_default()),
-            open_avg_price: d.openAvgPx.parse().unwrap_or_default(),
-            size: size_val,
-            ins_type: match d.instType.to_uppercase().as_str() { 
+            ins_type: match d.instType.to_uppercase().as_str() {
                 "SWAP" => InstrumentType::Perpetual,
                 "SPOT" => InstrumentType::Spot,
                 _ => InstrumentType::Spot,
             },
+            leverage: d.lever.parse().unwrap_or_default(),
+            size: size_val,
             margin: d.margin.parse().unwrap_or_default(),
+            open_ts: ts_to_micros(d.openTime.parse().unwrap_or_default()),
+            open_avg_price: d.openAvgPx.parse().unwrap_or_default(),
+            close_ts: d
+                .closeTime
+                .map(|t| ts_to_micros(t.parse().unwrap_or_default()))
+                .unwrap_or(0),
+            close_avg_price: d
+                .closeAvgPx
+                .map(|p| p.parse().unwrap_or_default())
+                .unwrap_or(0.0),
+            pnl: d.pnl.map(|p| p.parse().unwrap_or_default()).unwrap_or(0.0),
+            pnl_ratio: d
+                .pnlRatio
+                .map(|r| r.parse().unwrap_or_default())
+                .unwrap_or(0.0),
         }
     }
 }

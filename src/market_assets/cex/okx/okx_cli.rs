@@ -12,10 +12,9 @@ use crate::market_assets::{
     api_general::*,
     base_data::*,
     account_data::*,
+    price_data::*,
     utils_data::*,
 };
-use crate::market_assets::cex::okx::rest::market_ticker::RestMarketTickerOkx;
-use crate::market_assets::price_data::TickerData;
 use crate::task_execution::task_ws::*;
 use crate::traits::{
     market_cex::{CexWebsocket, CexPrivateRest, CexPublicRest, MarketCexApi}
@@ -29,10 +28,12 @@ use super::{
         account_balance::RestAccountBalOkx,
         account_positions::RestAccountPosOkx,
         ct_current_lead_traders::RestLeadtraderOkx,
-        public_instruments::RestInstrumentsOkx,
         ct_public_lead_traders::RestPubLeadTradersOkx,
-        ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
         ct_public_current_subpositions::RestSubPositionOkx,
+        ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
+        ct_public_subpositions_history::RestSubPositionHistoryOkx,
+        market_ticker::RestMarketTickerOkx,
+        public_instruments::RestInstrumentsOkx,
         trade_order::RestOrderAckOkx,
     }
 };
@@ -137,7 +138,8 @@ impl CexWebsocket for OkxCli {
                 vec![json!({
                     "channel": "orders",
                     "instType": "ANY",
-                })]            },
+                })]
+            },
             WsChannel::AccountPosition => {
                 vec![json!({
                     "channel": "positions",
@@ -216,10 +218,12 @@ impl OkxCli {
     ) -> InfraResult<Vec<CurrentLeadtrader>> {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
+            InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Futures => "Future",
             InstrumentType::Option => "OPTION",
-            InstrumentType::Unknown => "SPOT",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiError("Unknown instrument type".into()))
+            },
         };
 
         let body = json!({
@@ -258,10 +262,12 @@ impl OkxCli {
     ) -> InfraResult<PubLeadtraderInfo> {
         let inst_type_str = match query.inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
+            InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Futures => "Future",
             InstrumentType::Option => "OPTION",
-            InstrumentType::Unknown => "SPOT",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiError("Unknown instrument type".into()))
+            },
         };
 
         let mut url = format!(
@@ -329,10 +335,12 @@ impl OkxCli {
     ) -> InfraResult<Vec<PubLeadtraderStats>> {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
+            InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Futures => "Future",
             InstrumentType::Option => "OPTION",
-            InstrumentType::Unknown => "SPOT",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiError("Unknown instrument type".into()))
+            },
         };
 
         let url = format!(
@@ -372,21 +380,69 @@ impl OkxCli {
         unique_code: &str,
         inst_type: Option<InstrumentType>,
         limit: Option<u32>,
-        before: Option<&str>,
-        after: Option<&str>,
-    ) -> InfraResult<Vec<LeadtraderSubpositions>> {
+    ) -> InfraResult<Vec<LeadtraderSubposition>> {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
+            InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Futures => "Future",
             InstrumentType::Option => "OPTION",
-            InstrumentType::Unknown => "SPOT",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiError("Unknown instrument type".into()))
+            },
         };
 
         let mut url = format!(
             "{}{}?uniqueCode={}&instType={}",
             OKX_BASE_URL,
             OKX_CT_LEADTRADER_SUBPOSITIONS,
+            unique_code,
+            inst_type_str,
+        );
+
+        if let Some(l) = limit {
+            url.push_str(&format!("&limit={}", l));
+        }
+
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestSubPositionOkx> = from_slice(&mut res_bytes)?;
+
+        if res.code != "0" {
+            let msg = res.msg.unwrap_or_default();
+            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
+        }
+
+        let data: Vec<LeadtraderSubposition> = res.data
+            .unwrap_or_default()
+            .into_iter()
+            .map(LeadtraderSubposition::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_lead_trader_subpositions_history(
+        &self,
+        unique_code: &str,
+        inst_type: Option<InstrumentType>,
+        limit: Option<u32>,
+        before: Option<&str>,
+        after: Option<&str>,
+    ) -> InfraResult<Vec<LeadtraderSubpositionHistory>> {
+        let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Futures => "FUTURES",
+            InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Option => "OPTION",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiError("Unknown instrument type".into()))
+            },
+        };
+
+        let mut url = format!(
+            "{}{}?uniqueCode={}&instType={}",
+            OKX_BASE_URL,
+            OKX_CT_LEADTRADER_SUBPOSITIONS_HISTORY,
             unique_code,
             inst_type_str,
         );
@@ -403,17 +459,17 @@ impl OkxCli {
 
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestSubPositionOkx> = from_slice(&mut res_bytes)?;
+        let res: RestResOkx<RestSubPositionHistoryOkx> = from_slice(&mut res_bytes)?;
 
         if res.code != "0" {
             let msg = res.msg.unwrap_or_default();
             return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
         }
 
-        let data: Vec<LeadtraderSubpositions> = res.data
+        let data: Vec<LeadtraderSubpositionHistory> = res.data
             .unwrap_or_default()
             .into_iter()
-            .map(LeadtraderSubpositions::from)
+            .map(LeadtraderSubpositionHistory::from)
             .collect();
 
         Ok(data)
