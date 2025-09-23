@@ -187,7 +187,7 @@ async fn main() {
 ---
 
 ## Latency-sensitive strategy
-For latency-sensitive trading, please separate the architecture into multiple modules
+For a practical implementation, see the [complex strategy example](examples/complex_strategy_example.rs).
 - **Latency-sensitive task**  
   - Handles order placement, cancel/replace, LOB reaction, etc.
   - Minimal logic, no blocking, no heavy computation.
@@ -195,7 +195,7 @@ For latency-sensitive trading, please separate the architecture into multiple mo
 
 - **Supporting tasks**
   - Order execution, feature calculation, Risk checks, Position management etc.
-  - These tasks communicate with the latency-sensitive task via channels (**CommandEmitter** → **OrderExecute**) or Rwlock
+  - These tasks communicate with the latency-sensitive task via channels (**CommandEmitter** → **OrderExecute**) or Rwlock.
   - Using **AltTask** for feature extraction, sending data to Torch prediction via command handle, then generating signals to execute orders.
 
 Latency-sensitive logic can be decomposed into multiple tasks.
