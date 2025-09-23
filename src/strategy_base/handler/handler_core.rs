@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use futures::future;
 use tracing::error;
-
+use crate::market_assets::api_general::OrderParams;
 use crate::strategy_base::handler::{
     alt_events::*,
     cex_events::*,
@@ -24,6 +24,7 @@ pub enum BoardCastChannel {
     Alt(broadcast::Sender<InfraMsg<AltTaskInfo>>),
     Cex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
     Dex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
+    OrderExecute(broadcast::Sender<InfraMsg<Vec<OrderParams>>>),
     Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
     Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
     Lob(broadcast::Sender<InfraMsg<Vec<WsLob>>>),
@@ -44,7 +45,11 @@ impl BoardCastChannel {
         BoardCastChannel::Dex(broadcast::channel(2048).0)
     }
 
-    pub fn default_schedule() -> Self {
+    pub fn default_order_execution() -> Self {
+        BoardCastChannel::OrderExecute(broadcast::channel(2048).0)
+    }
+
+    pub fn default_scheduler() -> Self {
         BoardCastChannel::Schedule(broadcast::channel(2048).0)
     }
 
@@ -86,7 +91,8 @@ where
     let mut rx_cex_event = find_cex_event(channels).map(|tx| tx.subscribe());
     let mut rx_dex_event = find_dex_event(channels).map(|tx| tx.subscribe());
 
-    let mut rx_schedule = find_schedule(channels).map(|tx| tx.subscribe());
+    let mut rx_order_execute = find_order_execution(channels).map(|tx| tx.subscribe());
+    let mut rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
 
     let mut rx_trade = find_trade(channels).map(|tx| tx.subscribe());
     let mut rx_lob = find_lob(channels).map(|tx| tx.subscribe());
@@ -136,12 +142,21 @@ where
                     },
                 };
             },
+            msg = recv_or_pending(&mut rx_order_execute) => {
+                match msg {
+                    Ok(msg) => strategies.on_order_execution(msg).await,
+                    Err(e) => {
+                        error!("rx_order_execute err: {:?}, reconnecting...", e);
+                        rx_order_execute = find_order_execution(channels).map(|tx| tx.subscribe());
+                    },
+                };
+            },
             msg = recv_or_pending(&mut rx_schedule) => {
                 match msg {
                     Ok(msg) => strategies.on_schedule(msg).await,
                     Err(e) => {
                         error!("rx_schedule err: {:?}, reconnecting...", e);
-                        rx_schedule = find_schedule(channels).map(|tx| tx.subscribe());
+                        rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -214,7 +229,19 @@ pub(crate) fn find_dex_event(
     })
 }
 
-pub(crate) fn find_schedule(
+pub(crate) fn find_order_execution(
+    channels: &Arc<Vec<BoardCastChannel>>
+) -> Option<broadcast::Sender<InfraMsg<Vec<OrderParams>>>> {
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::OrderExecute(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_scheduler(
     channels: &Arc<Vec<BoardCastChannel>>
 ) -> Option<broadcast::Sender<InfraMsg<AltScheduleEvent>>> {
     channels.iter().find_map(|ch| {

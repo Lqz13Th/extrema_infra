@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum InstrumentType {
     Spot,
     Perpetual,
@@ -10,7 +10,7 @@ pub enum InstrumentType {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum InstrumentStatus {
     Live,
     Suspend,
@@ -31,7 +31,7 @@ pub enum OrderStatus {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum OrderSide {
     BUY,
     SELL,
@@ -39,7 +39,7 @@ pub enum OrderSide {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum PositionSide {
     Long,
     Short,
@@ -47,7 +47,7 @@ pub enum PositionSide {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum MarginMode {
     Cross,
     Isolated,
@@ -55,7 +55,7 @@ pub enum MarginMode {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum OrderType {
     Market,
     Limit,
@@ -66,7 +66,7 @@ pub enum OrderType {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum TimeInForce {
     GTC,
     IOC,

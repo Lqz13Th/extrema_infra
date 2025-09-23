@@ -125,7 +125,10 @@ tracing-subscriber = "0.3.20"
 Then, on your main.rs:
 
 ```rust
-use std::sync::Arc;
+use std::{
+  sync::Arc,
+  time::Duration,
+};
 use tracing::info;
 use extrema_infra::prelude::*;
 
@@ -167,12 +170,12 @@ async fn main() {
   info!("Logger initialized");
 
   let alt_task = AltTaskInfo {
-    alt_task_type: AltTaskType::TimerBasedState(5),
+    alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
     chunk: 1,
   };
 
   let mediator = EnvBuilder::new()
-          .with_board_cast_channel(BoardCastChannel::default_schedule())
+          .with_board_cast_channel(BoardCastChannel::default_scheduler())
           .with_strategy_module(EmptyStrategy)
           .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
           .build();
@@ -180,3 +183,23 @@ async fn main() {
   mediator.execute().await;
 }
 ```
+
+---
+
+## Latency-sensitive strategy
+For latency-sensitive trading, please separate the architecture into multiple modules
+- **Latency-sensitive task**  
+  - Handles order placement, cancel/replace, LOB reaction, etc.
+  - Minimal logic, no blocking, no heavy computation.
+  - Data resample etc.
+
+- **Supporting tasks**
+  - Order execution, feature calculation, Risk checks, Position management etc.
+  - These tasks communicate with the latency-sensitive task via channels (**CommandEmitter** → **OrderExecute**) or Rwlock
+  - Using **AltTask** for feature extraction, sending data to Torch prediction via command handle, then generating signals to execute orders.
+
+Latency-sensitive logic can be decomposed into multiple tasks.
+where each task handles only a subset of instruments for maximum efficiency. 
+
+Meanwhile, support logic can also be split into dedicated tasks, 
+with each task focusing on a single role to maintain clarity and modularity.

@@ -1,6 +1,6 @@
 use std::future::ready;
 use std::sync::Arc;
-
+use crate::market_assets::api_general::OrderParams;
 use crate::strategy_base::{
     command::command_core::CommandHandle,
     handler::{
@@ -30,6 +30,11 @@ pub trait AltEventHandler: Clone + Send + Sync + 'static {
     fn on_alt_event(
         &mut self,
         _msg: InfraMsg<AltTaskInfo>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_order_execution(
+        &mut self,
+        _msg: InfraMsg<Vec<OrderParams>>
     ) -> impl Future<Output=()> + Send { ready(()) }
 
     fn on_schedule(
@@ -84,9 +89,8 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
     ) -> Option<Arc<CommandHandle>> {
         self.command_registry().iter().find_map(|handle| {
             match &handle.task_info {
-                TaskInfo::AltTask(alt_task)
-                if &alt_task.alt_task_type == alt_task_type
-                    && handle.task_numb == task_numb
+                TaskInfo::AltTask(task)
+                if &task.alt_task_type == alt_task_type && handle.task_numb == task_numb
                 => Some(handle.clone()),
                 _ => None,
             }
@@ -100,9 +104,8 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
     ) -> Option<Arc<CommandHandle>> {
         self.command_registry().iter().find_map(|handle| {
             match &handle.task_info {
-                TaskInfo::WsTask(t)
-                if t.ws_channel == *channel
-                    && handle.task_numb == task_numb
+                TaskInfo::WsTask(task)
+                if task.ws_channel == *channel && handle.task_numb == task_numb
                 => Some(handle.clone()),
                 _ => None,
             }

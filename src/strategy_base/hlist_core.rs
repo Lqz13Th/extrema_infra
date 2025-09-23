@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tracing::info;
-
+use crate::market_assets::api_general::OrderParams;
 use crate::strategy_base::{
     command::command_core::CommandHandle,
     handler::{
@@ -84,6 +84,12 @@ where
     async fn on_alt_event(&mut self, task_info: InfraMsg<AltTaskInfo>) {
         let fut_head = self.head.on_alt_event(task_info.clone());
         let fut_tail = self.tail.on_alt_event(task_info);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_order_execution(&mut self, msg: InfraMsg<Vec<OrderParams>>) {
+        let fut_head = self.head.on_order_execution(msg.clone());
+        let fut_tail = self.tail.on_order_execution(msg);
         tokio::join!(fut_head, fut_tail);
     }
 

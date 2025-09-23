@@ -5,6 +5,7 @@ use tokio::sync::{
 };
 
 use crate::errors::{InfraError, InfraResult};
+use crate::market_assets::api_general::OrderParams;
 use crate::strategy_base::command::ack_handle::{AckHandle, AckStatus};
 use crate::task_execution::task_general::TaskInfo;
 
@@ -50,7 +51,9 @@ pub enum TaskCommand {
     Subscribe { msg: String, ack: AckHandle },
     Unsubscribe { msg: String, ack: AckHandle },
     Shutdown { msg: String, ack: AckHandle },
-    Login { msg: String, ack: AckHandle }, 
+    Login { msg: String, ack: AckHandle },
+
+    OrderExecute(Vec<OrderParams>),
 
     NNInput(Arc<NeuralInput>),
     NNOutput(Arc<NeuralOutput>),

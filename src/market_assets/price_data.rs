@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::market_assets::base_data::InstrumentType;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TickerData {
     pub timestamp: u64,
     pub inst: String,

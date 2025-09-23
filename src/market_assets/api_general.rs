@@ -55,7 +55,7 @@ pub fn ts_to_micros(ts: u64) -> u64 {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct OrderParams {
     pub inst: String,
     pub side: OrderSide,

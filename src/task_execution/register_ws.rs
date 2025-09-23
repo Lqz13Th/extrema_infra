@@ -47,10 +47,9 @@ use crate::market_assets::{
         },
     },
 };
-use crate::prelude::AckHandle;
 use crate::strategy_base::{
     command::{
-        ack_handle::AckStatus,
+        ack_handle::{AckHandle, AckStatus},
         command_core::TaskCommand,
     },
     handler::handler_core::*,
@@ -216,7 +215,7 @@ impl WsTaskBuilder {
         WsData::Output: Send + Sync + 'static,
     {
         let (mut ws_write, mut ws_read) = ws_stream.split();
-        let timeout_sec = Duration::from_secs(13);
+        let timeout_sec = Duration::from_secs(10);
 
         loop {
             tokio::select! {

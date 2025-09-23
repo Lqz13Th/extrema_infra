@@ -62,6 +62,7 @@ impl IntoWsData for WsAccountOrderOkx {
                 _ => OrderSide::Unknown,
             },
             status: match self.state.as_str() {
+                "partially_filled" => OrderStatus::PartiallyFilled,
                 "live" => OrderStatus::Live,
                 "filled" => OrderStatus::Filled,
                 "canceled" | "mmp_canceled" => OrderStatus::Canceled,

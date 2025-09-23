@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::base_data::{InstrumentStatus, InstrumentType, MarginMode, PositionSide};
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct InstrumentInfo {
     pub inst: String,
     pub inst_type: InstrumentType,
@@ -16,7 +16,7 @@ pub struct InstrumentInfo {
     pub state: InstrumentStatus,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct LeadtraderSubpositions {
     pub timestamp: u64,
     pub unique_code: String,

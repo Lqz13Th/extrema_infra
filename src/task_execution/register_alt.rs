@@ -2,12 +2,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::{
-    time::sleep,
+    select,
+    time::{
+        sleep,
+        interval,
+    },
     sync::mpsc
 };
+use tokio::sync::broadcast;
 use tracing::{error, info, warn};
 
-use crate::market_assets::api_general::get_micros_timestamp;
+use crate::market_assets::api_general::{
+    get_micros_timestamp,
+    OrderParams,
+};
 use crate::strategy_base::{
     command::{
         ack_handle::AckStatus,
@@ -15,7 +23,7 @@ use crate::strategy_base::{
     },
     handler::{
         alt_events::AltScheduleEvent,
-        handler_core::{find_schedule, BoardCastChannel, InfraMsg}
+        handler_core::*,
     }
 };
 use super::{
@@ -42,25 +50,43 @@ impl AltTaskBuilder {
         }
     }
 
-    async fn timer_based_state(&mut self, n: u64) {
-        let mut interval = tokio::time::interval(Duration::from_secs(n));
+    async fn order_execution(
+        &mut self,
+        tx: broadcast::Sender<InfraMsg<Vec<OrderParams>>>,
+    ) {
+        while let Some(cmd) = self.cmd_rx.recv().await {
+            match cmd {
+                TaskCommand::OrderExecute(order_params) => {
+                    let _ = tx.send(
+                        InfraMsg {
+                            task_numb: self.task_numb,
+                            data: Arc::new(order_params),
+                        }
+                    );
+                },
+                _ => self.handle_cmd(cmd),
+            };
+        }
+    }
 
+    async fn time_scheduler(
+        &mut self,
+        tx: broadcast::Sender<InfraMsg<AltScheduleEvent>>,
+        duration: Duration,
+    ) {
+        let mut interval = interval(duration);
         loop {
-            tokio::select! {
+            select! {
                 _ = interval.tick() => {
-                    if let Some(tx) = find_schedule(&self.board_cast_channel) {
-                        let _ = tx.send(
-                            InfraMsg {
-                                task_numb: self.task_numb,
-                                data: Arc::new(AltScheduleEvent {
-                                    timestamp: get_micros_timestamp(),
-                                    interval_sec: n,
-                                }),
-                            }
-                        );
-                    } else {
-                        self.log(LogLevel::Warn, "No schedule channel found, retrying...");
-                    }
+                    let _ = tx.send(
+                        InfraMsg {
+                            task_numb: self.task_numb,
+                            data: Arc::new(AltScheduleEvent {
+                                timestamp: get_micros_timestamp(),
+                                duration,
+                            }),
+                        }
+                    );
                 },
                 result = self.cmd_rx.recv() => {
                     match result {
@@ -75,20 +101,34 @@ impl AltTaskBuilder {
         }
     }
 
-
-    fn neural_network(&self) {
+    fn neural_network(&self, n: u64) {
         println!("neural network");
+        self.log(LogLevel::Warn, &format!("Unimplemented NeuralNetwork({})", n));
     }
 
     async fn alt_task_distribution(&mut self) {
         match self.alt_info.alt_task_type {
-            AltTaskType::NeuralNetwork(n) => {
-                self.neural_network();
-                self.log(LogLevel::Warn, &format!("Unimplemented NeuralNetwork({})", n));
+            AltTaskType::OrderExecution() => {
+                if let Some(tx) = find_order_execution(&self.board_cast_channel) {
+                    self.order_execution(tx).await
+                } else {
+                    self.log(
+                        LogLevel::Error,
+                        "No broadcast channel found for order execution",
+                    );
+                }
             },
-            AltTaskType::TimerBasedState(n) => {
-            self.timer_based_state(n).await;
+            AltTaskType::TimeScheduler(duration) => {
+                if let Some(tx) = find_scheduler(&self.board_cast_channel) {
+                    self.time_scheduler(tx, duration).await
+                } else {
+                    self.log(
+                        LogLevel::Error,
+                        "No broadcast channel found for order execution",
+                    );
+                }
             },
+            AltTaskType::NeuralNetwork(n) => self.neural_network(n),
         };
     }
 

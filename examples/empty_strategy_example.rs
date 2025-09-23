@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 use tracing::info;
 use extrema_infra::prelude::*;
 
@@ -40,12 +43,12 @@ async fn main() {
     info!("Logger initialized");
 
     let alt_task = AltTaskInfo {
-        alt_task_type: AltTaskType::TimerBasedState(5),
+        alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
         chunk: 1,
     };
 
     let mediator = EnvBuilder::new()
-        .with_board_cast_channel(BoardCastChannel::default_schedule())
+        .with_board_cast_channel(BoardCastChannel::default_scheduler())
         .with_strategy_module(EmptyStrategy)
         .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
         .build();

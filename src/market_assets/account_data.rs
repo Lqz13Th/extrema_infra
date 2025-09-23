@@ -10,7 +10,7 @@ pub struct BalanceData {
     pub available: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PositionData {
     pub timestamp: u64,
     pub inst: String,
