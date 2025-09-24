@@ -41,6 +41,11 @@ pub trait AltEventHandler: Clone + Send + Sync + 'static {
         &mut self, 
         _msg: InfraMsg<AltScheduleEvent>
     ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_preds(
+        &mut self,
+        _msg: InfraMsg<AltMatrix>
+    ) -> impl Future<Output=()> + Send { ready(()) }
 }
 
 pub trait CexEventHandler: Clone + Send + Sync + 'static {

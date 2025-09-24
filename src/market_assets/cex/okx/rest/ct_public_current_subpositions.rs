@@ -8,7 +8,7 @@ use crate::market_assets::{
 };
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RestSubPositionOkx {
     pub instId: String,
     pub subPosId: String,

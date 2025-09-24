@@ -349,7 +349,7 @@ impl OkxCli {
             OKX_CT_PUBLIC_LEADTRADER_STATS,
             unique_code,
             inst_type_str,
-            last_days.to_string(),
+            last_days,
         );
 
 
@@ -555,7 +555,7 @@ impl OkxCli {
                 OrderSide::SELL => "sell",
                 _ => "buy", // fallback
             },
-            "sz": order_params.size.to_string(),
+            "sz": order_params.size,
             "ordType": match order_params.order_type {
                 OrderType::Limit => "limit",
                 OrderType::Market => "market",

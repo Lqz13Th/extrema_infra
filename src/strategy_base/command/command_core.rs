@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tokio::sync::{
     oneshot,
     mpsc,
@@ -6,7 +5,10 @@ use tokio::sync::{
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::api_general::OrderParams;
-use crate::strategy_base::command::ack_handle::{AckHandle, AckStatus};
+use crate::strategy_base::{
+    command::ack_handle::{AckHandle, AckStatus},
+    handler::alt_events::AltMatrix,
+};
 use crate::task_execution::task_general::TaskInfo;
 
 #[derive(Clone, Debug)]
@@ -54,9 +56,7 @@ pub enum TaskCommand {
     Login { msg: String, ack: AckHandle },
 
     OrderExecute(Vec<OrderParams>),
-
-    NNInput(Arc<NeuralInput>),
-    NNOutput(Arc<NeuralOutput>),
+    FeatInput(AltMatrix),
 }
 
 impl TaskCommand {
@@ -72,18 +72,4 @@ impl TaskCommand {
 }
 
 
-#[derive(Clone, Debug)]
-pub struct NeuralInput {
-    pub features: Vec<f32>,
-    pub n_rows: usize,
-    pub n_cols: usize,
-    pub timestamp: i64,
-}
 
-#[derive(Clone, Debug)]
-pub struct NeuralOutput {
-    pub probs: Vec<f32>,
-    pub n_rows: usize,
-    pub n_cols: usize,
-    pub value: f32,
-}

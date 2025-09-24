@@ -33,7 +33,7 @@ impl HFTStrategy {
     async fn generate_signal(&mut self) -> InfraResult<()> {
         let order_params = OrderParams {
             inst: "BTC_USDT_PERP".to_string(),
-            size: 0.01,
+            size: 0.01.to_string(),
             side: OrderSide::BUY,
             order_type: OrderType::Market,
             ..Default::default()
@@ -46,7 +46,7 @@ impl HFTStrategy {
     /// This does not place orders directly; instead it sends a command to the
     /// AccountModule, which is responsible for communicating with the exchange.
     async fn send_order(&mut self, orders: Vec<OrderParams>) -> InfraResult<()> {
-        if let Some(handle) = self.find_alt_handle(&AltTaskType::OrderExecution(), 1) {
+        if let Some(handle) = self.find_alt_handle(&AltTaskType::OrderExecution, 1) {
             let cmd = TaskCommand::OrderExecute(orders);
             handle.send_command(cmd, None).await?;
         } else {

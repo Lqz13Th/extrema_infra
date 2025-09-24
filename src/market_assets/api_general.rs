@@ -59,9 +59,9 @@ pub fn ts_to_micros(ts: u64) -> u64 {
 pub struct OrderParams {
     pub inst: String,
     pub side: OrderSide,
-    pub size: f64,
+    pub size: String,
     pub order_type: OrderType,
-    pub price: Option<f64>,
+    pub price: Option<String>,
     pub reduce_only: Option<bool>,
     pub margin_mode: Option<MarginMode>,
     pub position_side: Option<PositionSide>,

@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
-
-use crate::market_assets::utils_data::PubLeadtraderStats;
+use crate::market_assets::{
+    api_general::get_micros_timestamp,
+    utils_data::PubLeadtraderStats,
+};
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RestPubLeadTraderStatsOkx {
     pub winRatio: String,
     pub profitDays: String,
@@ -17,6 +19,7 @@ pub struct RestPubLeadTraderStatsOkx {
 impl From<RestPubLeadTraderStatsOkx> for PubLeadtraderStats {
     fn from(d: RestPubLeadTraderStatsOkx) -> Self {
         PubLeadtraderStats {
+            timestamp: get_micros_timestamp(),
             win_ratio: d.winRatio.parse().unwrap_or_default(),
             profit_days: d.profitDays.parse().unwrap_or_default(),
             loss_days: d.lossDays.parse().unwrap_or_default(),

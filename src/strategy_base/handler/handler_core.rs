@@ -26,6 +26,7 @@ pub enum BoardCastChannel {
     Dex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
     OrderExecute(broadcast::Sender<InfraMsg<Vec<OrderParams>>>),
     Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
+    ModelPreds(broadcast::Sender<InfraMsg<AltMatrix>>),
     Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
     Lob(broadcast::Sender<InfraMsg<Vec<WsLob>>>),
     Candle(broadcast::Sender<InfraMsg<Vec<WsCandle>>>),
@@ -51,6 +52,10 @@ impl BoardCastChannel {
 
     pub fn default_scheduler() -> Self {
         BoardCastChannel::Schedule(broadcast::channel(2048).0)
+    }
+
+    pub fn default_model_preds() -> Self {
+        BoardCastChannel::ModelPreds(broadcast::channel(2048).0)
     }
 
     pub fn default_trade() -> Self {
@@ -93,6 +98,7 @@ where
 
     let mut rx_order_execute = find_order_execution(channels).map(|tx| tx.subscribe());
     let mut rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
+    let mut rx_preds= find_model_preds(channels).map(|tx| tx.subscribe());
 
     let mut rx_trade = find_trade(channels).map(|tx| tx.subscribe());
     let mut rx_lob = find_lob(channels).map(|tx| tx.subscribe());
@@ -157,6 +163,15 @@ where
                     Err(e) => {
                         error!("rx_schedule err: {:?}, reconnecting...", e);
                         rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_preds) => {
+                match msg {
+                    Ok(msg) => strategies.on_preds(msg).await,
+                    Err(e) => {
+                        error!("rx_preds err: {:?}, reconnecting...", e);
+                        rx_preds = find_model_preds(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -246,6 +261,18 @@ pub(crate) fn find_scheduler(
 ) -> Option<broadcast::Sender<InfraMsg<AltScheduleEvent>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Schedule(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_model_preds(
+    channels: &Arc<Vec<BoardCastChannel>>
+) -> Option<broadcast::Sender<InfraMsg<AltMatrix>>> {
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::ModelPreds(tx) = ch {
             Some(tx.clone())
         } else {
             None

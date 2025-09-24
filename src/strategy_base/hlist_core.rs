@@ -98,6 +98,12 @@ where
         let fut_tail = self.tail.on_schedule(msg);
         tokio::join!(fut_head, fut_tail);
     }
+
+    async fn on_preds(&mut self, msg: InfraMsg<AltMatrix>) {
+        let fut_head = self.head.on_preds(msg.clone());
+        let fut_tail = self.tail.on_preds(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
 }
 
 impl<Head, Tail> CexEventHandler for HCons<Head, Tail>

@@ -13,7 +13,7 @@ pub struct RestPubLeadTradersOkx {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RankInfo {
     pub aum: String,                 // Assets under management (AUM), unit: USDT
     pub copyState: String,           // Current copy-trading state: 0 = not copying, 1 = copying

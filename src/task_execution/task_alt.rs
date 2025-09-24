@@ -8,7 +8,7 @@ pub struct AltTaskInfo {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AltTaskType {
-    OrderExecution(),
+    OrderExecution,
     TimeScheduler(Duration),
-    NeuralNetwork(u64),
+    ModelPreds(u16),
 }

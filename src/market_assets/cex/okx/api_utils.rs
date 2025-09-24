@@ -77,7 +77,7 @@ pub fn okx_inst_to_cli(symbol: &str) -> String {
 
 /// Query parameters for retrieving public lead traders from OKX.
 /// All fields are optional and can be used to filter or paginate results.
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PubLeadTraderQuery {
     /// Instrument type: Spot / Perpetual / Option
     pub inst_type: Option<InstrumentType>,

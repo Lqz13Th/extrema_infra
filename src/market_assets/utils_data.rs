@@ -86,6 +86,7 @@ pub struct PubLeadtrader {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PubLeadtraderStats {
+    pub timestamp: u64,
     pub win_ratio: f64,
     pub profit_days: u64,
     pub loss_days: f64,

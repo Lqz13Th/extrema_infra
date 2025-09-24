@@ -311,7 +311,6 @@ impl WsTaskBuilder {
         loop {
             sleep(sleep_interval).await;
             self.ws_cex_event();
-
             self.log(LogLevel::Info, "Initiated");
 
             let initial_command = self.cmd_rx.recv().await;
