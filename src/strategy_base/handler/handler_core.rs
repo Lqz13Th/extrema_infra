@@ -15,7 +15,7 @@ use crate::traits::strategy::Strategy;
 
 #[derive(Clone, Debug)]
 pub struct InfraMsg<T> {
-    pub task_numb: u64,
+    pub task_id: u64,
     pub data: Arc<T>,
 }
 

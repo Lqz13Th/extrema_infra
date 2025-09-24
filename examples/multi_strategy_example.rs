@@ -180,12 +180,14 @@ async fn main() {
         market: Market::BinanceUmFutures,
         ws_channel: WsChannel::Candle(Some(CandleParam::OneMinute)),
         chunk: 1, // number of websocket connections for this task
+        task_id: None,
     };
 
     // Alt Task: Time Scheduler (fires every 5 seconds)
     let alt_task = AltTaskInfo {
         alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
         chunk: 1,
+        task_id: None,
     };
 
     // EnvBuilder builds the full runtime:

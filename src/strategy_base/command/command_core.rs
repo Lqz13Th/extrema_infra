@@ -15,7 +15,7 @@ use crate::task_execution::task_general::TaskInfo;
 pub struct CommandHandle {
     pub cmd_tx: mpsc::Sender<TaskCommand>,
     pub task_info: TaskInfo,
-    pub task_numb: u64,
+    pub task_id: u64,
 }
 
 impl CommandHandle {

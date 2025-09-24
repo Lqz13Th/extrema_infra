@@ -5,6 +5,7 @@ pub struct WsTaskInfo {
     pub market: Market,
     pub ws_channel: WsChannel,
     pub chunk: u64,
+    pub task_id: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

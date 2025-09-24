@@ -43,7 +43,7 @@ pub(crate) struct AltTaskBuilder {
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
     pub alt_info: Arc<AltTaskInfo>,
-    pub task_numb: u64,
+    pub task_id: u64,
 }
 
 
@@ -64,7 +64,7 @@ impl AltTaskBuilder {
                 TaskCommand::OrderExecute(order_params) => {
                     let _ = tx.send(
                         InfraMsg {
-                            task_numb: self.task_numb,
+                            task_id: self.task_id,
                             data: Arc::new(order_params),
                         }
                     );
@@ -85,7 +85,7 @@ impl AltTaskBuilder {
                 _ = interval.tick() => {
                     let _ = tx.send(
                         InfraMsg {
-                            task_numb: self.task_numb,
+                            task_id: self.task_id,
                             data: Arc::new(AltScheduleEvent {
                                 timestamp: get_micros_timestamp(),
                                 duration,
@@ -127,7 +127,7 @@ impl AltTaskBuilder {
                             match AltMatrix::deserialize(&mut de) {
                                 Ok(matrix) => {
                                     let _ = tx.send(InfraMsg {
-                                        task_numb: self.task_numb,
+                                        task_id: self.task_id,
                                         data: Arc::new(matrix),
                                     });
                                 },
@@ -212,7 +212,7 @@ impl AltTaskBuilder {
     fn alt_event(&self) {
         if let Some(tx) = find_alt_event(&self.board_cast_channel) {
             let msg = InfraMsg {
-                task_numb: self.task_numb,
+                task_id: self.task_id,
                 data: self.alt_info.clone(),
             };
 

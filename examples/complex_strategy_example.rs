@@ -215,13 +215,15 @@ async fn main() {
     let acc_order_task = WsTaskInfo {
         market: Market::Okx,
         ws_channel: WsChannel::AccountOrder,
-        chunk: 1
+        chunk: 1,
+        task_id: None,
     };
 
     let okx_trade_task = WsTaskInfo {
         market: Market::Okx,
         ws_channel: WsChannel::Trades(Some(TradesParam::AggTrades)),
-        chunk: 10 // Run 10 independent WebSocket connections for parallel trade feeds
+        chunk: 10, // Run 10 independent WebSocket connections for parallel trade feeds
+        task_id: None,
     };
 
     // EnvBuilder sets up the environment:

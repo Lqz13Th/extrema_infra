@@ -90,12 +90,12 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
     fn find_alt_handle(
         &self,
         alt_task_type: &AltTaskType,
-        task_numb: u64
+        task_id: u64
     ) -> Option<Arc<CommandHandle>> {
         self.command_registry().iter().find_map(|handle| {
             match &handle.task_info {
                 TaskInfo::AltTask(task)
-                if &task.alt_task_type == alt_task_type && handle.task_numb == task_numb
+                if &task.alt_task_type == alt_task_type && handle.task_id == task_id
                 => Some(handle.clone()),
                 _ => None,
             }
@@ -105,12 +105,12 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
     fn find_ws_handle(
         &self,
         channel: &WsChannel,
-        task_numb: u64
+        task_id: u64
     ) -> Option<Arc<CommandHandle>> {
         self.command_registry().iter().find_map(|handle| {
             match &handle.task_info {
                 TaskInfo::WsTask(task)
-                if task.ws_channel == *channel && handle.task_numb == task_numb
+                if task.ws_channel == *channel && handle.task_id == task_id
                 => Some(handle.clone()),
                 _ => None,
             }

@@ -70,7 +70,7 @@ pub(crate) struct WsTaskBuilder{
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
     pub ws_info: Arc<WsTaskInfo>,
-    pub task_numb: u64,
+    pub task_id: u64,
 }
 
 impl WsTaskBuilder {
@@ -101,7 +101,7 @@ impl WsTaskBuilder {
                 match from_slice::<WsData>(text.as_ref()) {
                     Ok(parsed_raw) => {
                         let _ = tx.send(InfraMsg {
-                            task_numb: self.task_numb,
+                            task_id: self.task_id,
                             data: Arc::new(parsed_raw.into_ws()),
                         });
                     },
@@ -117,7 +117,7 @@ impl WsTaskBuilder {
                 match from_slice::<WsData>(bytes.as_ref()) {
                     Ok(parsed_raw) => {
                         let _ = tx.send(InfraMsg {
-                            task_numb: self.task_numb,
+                            task_id: self.task_id,
                             data: Arc::new(parsed_raw.into_ws()),
                         });
                     },
@@ -292,7 +292,7 @@ impl WsTaskBuilder {
     fn ws_cex_event(&self) {
         if let Some(tx) = find_cex_event(&self.board_cast_channel) {
             let msg = InfraMsg {
-                task_numb: self.task_numb,
+                task_id: self.task_id,
                 data: self.ws_info.clone(),
             };
 
@@ -305,7 +305,7 @@ impl WsTaskBuilder {
     }
 
     pub(crate) async fn ws_mid_relay(&mut self) {
-        let sleep_interval = Duration::from_secs(5 + 3 * self.task_numb);
+        let sleep_interval = Duration::from_secs(5 + 3 * self.task_id);
         self.log(LogLevel::Info, "Spawned ws task");
 
         loop {
@@ -347,13 +347,13 @@ impl WsTaskBuilder {
     fn log(&self, level: LogLevel, msg: &str) {
         match level {
             LogLevel::Info => {
-                info!("Ws task: {:?}, task numb: {}. {}", self.ws_info, self.task_numb, msg)
+                info!("Ws task: {:?}, task id: {}. {}", self.ws_info, self.task_id, msg)
             },
             LogLevel::Warn => {
-                warn!("Ws task: {:?}, task numb: {}. {}", self.ws_info, self.task_numb, msg)
+                warn!("Ws task: {:?}, task id: {}. {}", self.ws_info, self.task_id, msg)
             },
             LogLevel::Error => {
-                error!("Ws task: {:?}, task numb: {}. {}", self.ws_info, self.task_numb, msg)
+                error!("Ws task: {:?}, task id: {}. {}", self.ws_info, self.task_id, msg)
             },
         }
     }
