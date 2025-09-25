@@ -8,6 +8,31 @@ At its core: **One unified framework for multiple exchanges, multiple strategies
 
 ---
 
+## Key Features
+- **Machine Learning Integration Across Languages**
+  - Rust generates high-throughput features for low-latency trading.
+  - Features are sent via ZeroMQ to Python ML models (Torch, GBM, Transformer, etc.).
+  - Predictions returned asynchronously to Rust for signal generation and order execution.
+
+- **Unified Exchange Abstraction**
+  - All exchanges (Binance, OKX, etc.) normalized into unified `Market` enum + structs.
+  - Strategies write once, run anywhere.
+
+- **Broadcast-based Data Distribution**
+  - Subscribe once, broadcast to many.
+  - Multiple strategies consume the same feed without extra I/O.
+
+- **Static Efficiency**
+  - No dynamic boxing, no runtime dispatch.
+  - Unified REST & WS interfaces with pre-converted data.
+
+- **Lock-Free Concurrency**
+  - Message passing via channels and broadcast without mutex locks.
+  - Eliminates contention, ensuring **low-latency, high-throughput** event delivery.
+  - Perfect for real-time trading workloads.
+
+---
+
 ## Why HList?
 
 Traditional frameworks force strategies into **homogeneous containers** (e.g., `Vec<Box<dyn Strategy>>`), which means:
@@ -31,31 +56,6 @@ With **HList**:
 | **Type Safety**           | Runtime only                    | Compile-time enforced         |
 | **Performance**           | Extra indirection, heap alloc   | Zero overhead, no heap alloc  |
 | **Compile-time Checking** | Limited                         | Full (trait bounds enforced)  |
-
----
-
-## Key Features
-- **Machine Learning Integration Across Languages**
-  - Rust generates high-throughput features for low-latency trading.
-  - Features are sent via ZeroMQ to Python ML models (Torch, GBM, Transformer, etc.).
-  - Predictions returned asynchronously to Rust for signal generation and order execution.
-  
-- **Unified Exchange Abstraction**  
-  - All exchanges (Binance, OKX, etc.) normalized into unified `Market` enum + structs.  
-  - Strategies write once, run anywhere.  
-
-- **Broadcast-based Data Distribution**  
-  - Subscribe once, broadcast to many.  
-  - Multiple strategies consume the same feed without extra I/O.  
-
-- **Static Efficiency**  
-  - No dynamic boxing, no runtime dispatch.  
-  - Unified REST & WS interfaces with pre-converted data.  
-
-- **Lock-Free Concurrency**  
-  - Message passing via channels and broadcast without mutex locks.  
-  - Eliminates contention, ensuring **low-latency, high-throughput** event delivery.  
-  - Perfect for real-time trading workloads.
 
 ---
 
@@ -208,3 +208,5 @@ where each task handles only a subset of instruments for maximum efficiency.
 
 Meanwhile, support logic can also be split into dedicated tasks, 
 with each task focusing on a single role to maintain clarity and modularity.
+
+---
