@@ -5,7 +5,10 @@ pub use crate::infra_core::{
     env_mediator::EnvMediator,
 };
 
-pub use crate::market_assets::market_core::Market;
+pub use crate::market_assets::{
+    base_data::*,
+    market_core::Market,
+};
 
 pub use crate::strategy_base::{
     command::{

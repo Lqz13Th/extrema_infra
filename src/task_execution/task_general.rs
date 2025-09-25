@@ -11,7 +11,7 @@ pub enum TaskInfo {
     WsTask(Arc<WsTaskInfo>),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Debug)]
 pub(crate) enum LogLevel {
     Info,
     Warn,

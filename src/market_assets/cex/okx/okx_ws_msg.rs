@@ -1,9 +1,9 @@
-use std::fmt::Debug;
 use serde::Deserialize;
 use tracing::{info, warn};
 
 use crate::traits::conversion::IntoWsData;
-#[derive(Debug, Deserialize)]
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum OkxWsData<T> {
     ChannelBatch(OkxWsChannel<T>),
@@ -11,7 +11,7 @@ pub enum OkxWsData<T> {
 }
 
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OkxWsEvent {
     pub event: Option<String>,
     pub code: Option<String>,
@@ -21,13 +21,13 @@ pub struct OkxWsEvent {
 }
 
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct WsArg {
     pub channel: Option<String>,
     pub instId: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OkxWsChannel<T> {
     pub arg: WsArg,
     pub data: Vec<T>,

@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
-
 use crate::market_assets::base_data::InstrumentType;
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct TickerData {
     pub timestamp: u64,
     pub inst: String,
@@ -10,7 +9,7 @@ pub struct TickerData {
     pub price: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CandleData {
     pub timestamp: u64,
     pub inst: String,
@@ -21,7 +20,7 @@ pub struct CandleData {
     pub volume: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OrderBookData {
     pub timestamp: u64,
     pub inst: String,

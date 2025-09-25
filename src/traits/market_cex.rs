@@ -2,14 +2,15 @@ use std::future::{ready, Future};
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
+    api_data::{
+        account_data::*,
+        price_data::*,
+        utils_data::*,
+    },
+    api_general::OrderParams,
     base_data::InstrumentType,
-    account_data::*,
-    price_data::*,
-    utils_data::*,
 };
-use crate::market_assets::api_general::OrderParams;
-use crate::prelude::CandleParam;
-use crate::task_execution::task_ws::WsChannel;
+use crate::task_execution::task_ws::{CandleParam, WsChannel};
 
 pub trait CexWebsocket: Send + Sync {
     fn get_public_sub_msg(

@@ -1,9 +1,9 @@
 use serde::Deserialize;
 
 use crate::market_assets::{
-    market_core::Market,
     api_general::ts_to_micros,
     cex::binance::api_utils::binance_um_to_cli_perp,
+    market_core::Market,
 };
 use crate::strategy_base::handler::cex_events::WsCandle;
 use crate::task_execution::task_ws::CandleParam;

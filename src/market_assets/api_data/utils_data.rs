@@ -1,7 +1,12 @@
 use serde::{Deserialize, Serialize};
+use crate::market_assets::base_data::{
+    InstrumentStatus, 
+    InstrumentType, 
+    MarginMode, 
+    PositionSide,
+};
 
-use super::base_data::{InstrumentStatus, InstrumentType, MarginMode, PositionSide};
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InstrumentInfo {
     pub inst: String,
     pub inst_type: InstrumentType,
@@ -16,7 +21,7 @@ pub struct InstrumentInfo {
     pub state: InstrumentStatus,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LeadtraderSubposition {
     pub timestamp: u64,
     pub unique_code: String,
@@ -32,7 +37,7 @@ pub struct LeadtraderSubposition {
     pub margin: f64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LeadtraderSubpositionHistory {
     pub timestamp: u64,
     pub unique_code: String,
@@ -52,7 +57,7 @@ pub struct LeadtraderSubpositionHistory {
     pub pnl_ratio: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CurrentLeadtrader {
     pub timestamp: u64,
     pub unique_code: String,
@@ -62,14 +67,14 @@ pub struct CurrentLeadtrader {
     pub copy_amount: f64,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PubLeadtraderInfo {
     pub data_version: u64,
     pub total_page: u64,
     pub pub_leadtraders: Vec<PubLeadtrader>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PubLeadtrader {
     pub unique_code: String,
     pub nick_name: String,
@@ -84,7 +89,7 @@ pub struct PubLeadtrader {
     pub pnl: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PubLeadtraderStats {
     pub timestamp: u64,
     pub win_ratio: f64,

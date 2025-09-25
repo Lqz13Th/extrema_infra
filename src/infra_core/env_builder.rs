@@ -7,10 +7,7 @@ use crate::infra_core::{
 };
 use crate::strategy_base::{
     handler::handler_core::BoardCastChannel,
-    hlist_core::{
-        HCons,
-        HNil
-    },
+    hlist_core::{HCons, HNil},
 };
 use crate::task_execution::task_general::TaskInfo;
 use crate::traits::strategy::Strategy;

@@ -2,37 +2,35 @@ use std::sync::Arc;
 use serde::de::DeserializeOwned;
 use serde_json::from_slice;
 use futures_util::{
+    stream::SplitSink,
     SinkExt,
     StreamExt,
-    stream::SplitSink,
 };
 use tokio::{
+    net::TcpStream,
     sync::{broadcast, mpsc},
     time::{
+        error::Elapsed,
         sleep,
         timeout,
         Duration,
-        error::Elapsed,
     },
-    net::TcpStream,
 };
 use tungstenite::{
-    Error,
-    Bytes,
     protocol::Message,
+    Bytes,
+    Error,
 };
 use tokio_tungstenite::{
     connect_async,
     MaybeTlsStream,
     WebSocketStream,
-
 };
 
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
-    market_core::Market,
     cex::{
         binance::{
             binance_ws_msg::BinanceWsData,
@@ -43,10 +41,13 @@ use crate::market_assets::{
         },
         okx::{
             okx_ws_msg::OkxWsData,
-            ws::account_order_update::WsAccountOrderOkx,
+            ws::account_order::WsAccountOrderOkx,
         },
     },
+    market_core::Market,
 };
+use crate::market_assets::cex::okx::ws::trades::WsTradesOkx;
+use crate::prelude::{TradesParam, WsTrade};
 use crate::strategy_base::{
     command::{
         ack_handle::{AckHandle, AckStatus},
@@ -58,7 +59,7 @@ use crate::traits::conversion::IntoWsData;
 
 use super::{
     task_general::LogLevel,
-    task_ws::{WsTaskInfo, WsChannel}
+    task_ws::{WsChannel, WsTaskInfo}
 };
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -274,6 +275,19 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for OKX Acc Order"
+                    );
+                }
+            },
+            (Market::Okx, WsChannel::Trades(..)) => {
+                if let Some(tx) = find_trade(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<WsTradesOkx>>(
+                        tx,
+                        ws_stream
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for OKX Trades"
                     );
                 }
             },

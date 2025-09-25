@@ -7,7 +7,7 @@ pub struct AltScheduleEvent {
     pub duration: Duration,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AltMatrix {
     pub timestamp: u64,
     pub preds: Vec<f32>,

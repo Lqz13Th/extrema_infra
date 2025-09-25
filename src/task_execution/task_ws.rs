@@ -8,7 +8,7 @@ pub struct WsTaskInfo {
     pub task_id: Option<u64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WsChannel {
     AccountOrder,
     AccountPosition,
@@ -19,7 +19,7 @@ pub enum WsChannel {
     Other(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CandleParam {
     OneSecond,
     OneMinute,
@@ -32,10 +32,10 @@ pub enum CandleParam {
     Custom(String)
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TradesParam {
     AggTrades,
-    Trades,
+    AllTrades,
 }
 
 

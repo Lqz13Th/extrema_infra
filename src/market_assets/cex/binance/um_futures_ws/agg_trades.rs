@@ -1,10 +1,10 @@
 use serde::Deserialize;
 
 use crate::market_assets::{
-    market_core::Market,
-    base_data::*,
     api_general::ts_to_micros,
     cex::binance::api_utils::binance_um_to_cli_perp,
+    base_data::*,
+    market_core::Market,
 };
 use crate::strategy_base::handler::cex_events::WsTrade;
 use crate::traits::conversion::IntoWsData;

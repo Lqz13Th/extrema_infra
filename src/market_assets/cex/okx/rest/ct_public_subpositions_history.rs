@@ -1,14 +1,18 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::market_assets::{
-    api_general::{get_micros_timestamp, ts_to_micros},
-    base_data::{InstrumentType, MarginMode, PositionSide},
-    utils_data::LeadtraderSubpositionHistory,
+    api_data::utils_data::LeadtraderSubpositionHistory,
     cex::okx::api_utils::okx_inst_to_cli,
+    api_general::{get_micros_timestamp, ts_to_micros},
+    base_data::{
+        InstrumentType, 
+        MarginMode, 
+        PositionSide,
+    },
 };
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RestSubPositionHistoryOkx {
     pub instId: String,
     pub subPosId: String,

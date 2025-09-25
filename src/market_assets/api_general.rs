@@ -7,11 +7,18 @@ use hmac::Hmac;
 use sha2::Sha256;
 use serde::{
     de::DeserializeOwned,
-    Deserialize, Serialize
+    Deserialize, 
+    Serialize,
 };
 
 use crate::errors::InfraResult;
-use crate::market_assets::base_data::{MarginMode, OrderSide, OrderType, PositionSide, TimeInForce};
+use crate::market_assets::base_data::{
+    MarginMode, 
+    OrderSide, 
+    OrderType, 
+    PositionSide, 
+    TimeInForce,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature<T> {
@@ -55,7 +62,7 @@ pub fn ts_to_micros(ts: u64) -> u64 {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OrderParams {
     pub inst: String,
     pub side: OrderSide,

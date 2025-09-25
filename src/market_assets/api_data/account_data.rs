@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
-use crate::market_assets::base_data::{InstrumentType, OrderStatus, PositionSide};
+use crate::market_assets::base_data::{
+    InstrumentType, 
+    OrderStatus, 
+    PositionSide,
+};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct BalanceData {
     pub timestamp: u64,
     pub asset: String,
@@ -10,7 +14,7 @@ pub struct BalanceData {
     pub available: f64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PositionData {
     pub timestamp: u64,
     pub inst: String,
@@ -23,7 +27,7 @@ pub struct PositionData {
     pub leverage: f64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OrderAckData {
     pub timestamp: u64,
     pub order_status: OrderStatus,

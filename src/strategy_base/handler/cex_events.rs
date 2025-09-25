@@ -1,7 +1,5 @@
-use crate::market_assets::{
-    market_core::Market,
-    base_data::*
-};
+use crate::market_assets::base_data::*;
+use crate::market_assets::market_core::Market;
 use crate::task_execution::task_ws::CandleParam;
 
 #[derive(Clone, Debug)]

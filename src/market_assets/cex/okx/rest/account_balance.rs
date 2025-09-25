@@ -1,18 +1,18 @@
 use serde::Deserialize;
 
 use crate::market_assets::{
+    api_data::account_data::BalanceData,
     api_general::ts_to_micros,
-    account_data::BalanceData
 };
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RestAccountBalOkx {
     pub details: Vec<AccountBalDetails>
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct AccountBalDetails {
     pub ccy: String,
     pub eq: String,

@@ -1,5 +1,8 @@
-use std::future::ready;
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    future::ready,
+};
+
 use crate::market_assets::api_general::OrderParams;
 use crate::strategy_base::{
     command::command_core::CommandHandle,
@@ -12,7 +15,7 @@ use crate::strategy_base::{
 use crate::task_execution::{
     task_general::TaskInfo,
     task_alt::{AltTaskInfo, AltTaskType},
-    task_ws::{WsTaskInfo, WsChannel},
+    task_ws::{WsChannel, WsTaskInfo},
 };
 
 pub trait Strategy: EventHandler + CommandEmitter {

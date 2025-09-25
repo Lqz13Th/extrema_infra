@@ -1,26 +1,27 @@
 use std::{
-    sync::Arc,
     collections::HashMap,
+    sync::Arc,
 };
 use simd_json::from_slice;
 use reqwest::Client;
 use tracing::error;
 
 use crate::errors::{InfraError, InfraResult};
-
 use crate::market_assets::{
+    api_data::account_data::*,
     api_general::RequestMethod,
     base_data::*,
-    account_data::*,
 };
 use crate::task_execution::task_ws::*;
-
-use crate::traits::{
-    market_cex::{CexWebsocket, CexPrivateRest, CexPublicRest, MarketCexApi}
+use crate::traits::market_cex::{
+    CexPrivateRest, 
+    CexPublicRest, 
+    CexWebsocket, 
+    MarketCexApi,
 };
 
 use super::{
-    api_key::{BinanceKey, read_binance_env_key},
+    api_key::{read_binance_env_key, BinanceKey},
     api_utils::*,
     config_assets::*,
     um_futures_rest::exchange_info::RestExchangeInfoBinanceUM,

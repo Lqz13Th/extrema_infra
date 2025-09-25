@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tracing::info;
+
 use crate::market_assets::api_general::OrderParams;
 use crate::strategy_base::{
     command::command_core::CommandHandle,
@@ -15,17 +16,6 @@ use crate::task_execution::{
 };
 use crate::traits::strategy::*;
 
-// macro_rules! hlist {
-//     () => {
-//         HNil
-//     };
-//     ($head:expr $(, $tail:expr)*) => {
-//         HCons {
-//             head: $head,
-//             tail: hlist!($($tail),*)
-//         }
-//     };
-// }
 
 #[derive(Clone)]
 pub struct HNil;

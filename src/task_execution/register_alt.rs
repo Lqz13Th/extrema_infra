@@ -1,5 +1,7 @@
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 use rmp_serde::{Serializer, Deserializer};
 use serde::{Serialize, Deserialize};
 use tokio::{
@@ -11,7 +13,7 @@ use tokio::{
     sync::{
         mpsc,
         broadcast,
-    }
+    },
 };
 use zeromq::{ReqSocket, Socket, SocketRecv, SocketSend};
 use tracing::{error, info, warn};
@@ -20,14 +22,13 @@ use crate::market_assets::api_general::{
     get_micros_timestamp,
     OrderParams,
 };
-use crate::prelude::AltMatrix;
 use crate::strategy_base::{
     command::{
         ack_handle::AckStatus,
         command_core::TaskCommand
     },
     handler::{
-        alt_events::AltScheduleEvent,
+        alt_events::{AltMatrix, AltScheduleEvent},
         handler_core::*,
     }
 };

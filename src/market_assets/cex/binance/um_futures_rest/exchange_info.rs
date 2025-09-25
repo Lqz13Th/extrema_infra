@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct RestExchangeInfoBinanceUM {
     pub insts: Vec<InstrumentInfo>,
 }

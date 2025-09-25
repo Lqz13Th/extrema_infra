@@ -1,13 +1,13 @@
 use serde::Deserialize;
+
 use crate::market_assets::{
-    base_data::{InstrumentStatus, InstrumentType},
-    utils_data::InstrumentInfo,
+    api_data::utils_data::InstrumentInfo,
     cex::okx::api_utils::okx_inst_to_cli,
+    base_data::{InstrumentStatus, InstrumentType},
 };
 
-
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RestInstrumentsOkx {
     pub instId: String,
     pub instType: String,

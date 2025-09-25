@@ -1,14 +1,14 @@
 use serde::Deserialize;
 
 use crate::market_assets::{
+    api_data::price_data::TickerData,
+    cex::prelude::okx_inst_to_cli,
     api_general::ts_to_micros,
     base_data::InstrumentType,
-    price_data::TickerData,
-    cex::prelude::okx_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RestMarketTickerOkx {
     pub instId: String,
     pub last: String,

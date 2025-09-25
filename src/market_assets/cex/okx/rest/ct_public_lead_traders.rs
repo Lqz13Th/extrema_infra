@@ -1,11 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-use crate::market_assets::{
-    utils_data::{PubLeadtraderInfo, PubLeadtrader},
-};
+use crate::market_assets::api_data::utils_data::{PubLeadtrader, PubLeadtraderInfo};
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RestPubLeadTradersOkx {
     pub dataVer: String,
     pub totalPage: String,
@@ -13,7 +11,7 @@ pub struct RestPubLeadTradersOkx {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RankInfo {
     pub aum: String,                 // Assets under management (AUM), unit: USDT
     pub copyState: String,           // Current copy-trading state: 0 = not copying, 1 = copying

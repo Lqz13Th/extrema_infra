@@ -1,6 +1,6 @@
 use std::{
-    sync::Arc,
     collections::HashMap,
+    sync::Arc,
 };
 use simd_json::from_slice;
 use serde_json::json;
@@ -9,28 +9,33 @@ use tracing::{error, warn};
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
+    api_data::{
+        account_data::*,
+        price_data::*,
+        utils_data::*,
+    },
     api_general::*,
     base_data::*,
-    account_data::*,
-    price_data::*,
-    utils_data::*,
 };
 use crate::task_execution::task_ws::*;
-use crate::traits::{
-    market_cex::{CexWebsocket, CexPrivateRest, CexPublicRest, MarketCexApi}
+use crate::traits::market_cex::{
+    CexPrivateRest, 
+    CexPublicRest, 
+    CexWebsocket, 
+    MarketCexApi
 };
 
 use super::{
-    api_key::{OkxKey, read_okx_env_key},
+    api_key::{read_okx_env_key, OkxKey},
     api_utils::*,
     config_assets::*,
     rest::{
         account_balance::RestAccountBalOkx,
         account_positions::RestAccountPosOkx,
         ct_current_lead_traders::RestLeadtraderOkx,
-        ct_public_lead_traders::RestPubLeadTradersOkx,
         ct_public_current_subpositions::RestSubPositionOkx,
         ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
+        ct_public_lead_traders::RestPubLeadTradersOkx,
         ct_public_subpositions_history::RestSubPositionHistoryOkx,
         market_ticker::RestMarketTickerOkx,
         public_instruments::RestInstrumentsOkx,

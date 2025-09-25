@@ -1,10 +1,9 @@
-use std::fmt::Debug;
 use serde::Deserialize;
 use tracing::{info, warn};
 
 use crate::traits::conversion::IntoWsData;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum BinanceWsData<T> {
     ChannelSingle(T),
@@ -12,14 +11,14 @@ pub enum BinanceWsData<T> {
     Event(BinanceWsRes),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct BinanceWsRes {
     pub result: Option<String>,
     pub id: u32,
     pub error: Option<BinanceWsError>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct BinanceWsError {
     pub code: i64,
     pub msg: String,
