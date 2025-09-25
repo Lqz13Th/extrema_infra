@@ -35,7 +35,11 @@ With **HList**:
 ---
 
 ## Key Features
-
+- **Machine Learning Integration Across Languages**
+  - Rust generates high-throughput features for low-latency trading.
+  - Features are sent via ZeroMQ to Python ML models (Torch, GBM, Transformer, etc.).
+  - Predictions returned asynchronously to Rust for signal generation and order execution.
+  
 - **Unified Exchange Abstraction**  
   - All exchanges (Binance, OKX, etc.) normalized into unified `Market` enum + structs.  
   - Strategies write once, run anywhere.  
@@ -51,7 +55,7 @@ With **HList**:
 - **Lock-Free Concurrency**  
   - Message passing via channels and broadcast without mutex locks.  
   - Eliminates contention, ensuring **low-latency, high-throughput** event delivery.  
-  - Perfect for real-time trading workloads.  
+  - Perfect for real-time trading workloads.
 
 ---
 
@@ -187,15 +191,15 @@ async fn main() {
 
 ---
 
-## Latency-sensitive strategy
+## Latency-sensitive ML strategy
 For a practical implementation, see the [complex strategy example](examples/complex_strategy_example.rs).
 - **Latency-sensitive task**  
   - Handles order placement, cancel/replace, LOB reaction, etc.
   - Minimal logic, no blocking, no heavy computation.
-  - Data resample etc.
+  - Data sampling etc.
 
 - **Supporting tasks**
-  - Order execution, feature calculation, Risk checks, Position management etc.
+  - Order execution, feature generation, Risk checks, Position management etc.
   - These tasks communicate with the latency-sensitive task via channels (**CommandEmitter** → **OrderExecute**) or Rwlock.
   - Using **AltTask** for feature extraction, sending data to Torch prediction via command handle, then generating signals to execute orders.
 

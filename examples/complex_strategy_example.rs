@@ -10,12 +10,14 @@ use extrema_infra::market_assets::{
     base_data::{OrderSide, OrderType}
 };
 
+/// -------------------------------------
 /// High Frequency Trading (HFT) Strategy
 /// -------------------------------------
-/// This module is responsible for:
-/// 1. Receiving market data events (e.g., trades)
-/// 2. Generating trading signals
-/// 3. Sending order execution commands to the Order/Account module
+/// Responsibilities:
+/// 1. Receive market data events (e.g., trades)
+/// 2. Generate trading signals & features
+/// 3. Receive predictions from model (message from python)
+/// 4. Send order execution commands to AccountModule
 #[derive(Clone)]
 struct HFTStrategy {
     command_handles: Vec<Arc<CommandHandle>>,
@@ -28,23 +30,61 @@ impl HFTStrategy {
         }
     }
 
-    /// Generate a simple signal (here: always buy 0.01 BTC at market price).
-    /// In practice, you would add your cpu bounded logic here.
-    async fn generate_signal(&mut self) -> InfraResult<()> {
-        let order_params = OrderParams {
-            inst: "BTC_USDT_PERP".to_string(),
-            size: 0.01.to_string(),
-            side: OrderSide::BUY,
-            order_type: OrderType::Market,
-            ..Default::default()
-        };
+    /// Generate a signal from market trades.
+    /// In this example, it creates a simple AltMatrix.
+    async fn generate_signal(&mut self, msg: InfraMsg<Vec<WsTrade>>) -> InfraResult<()> {
+        if msg.data.is_empty() {
+            return Err(InfraError::Other("empty infra data".to_string()));
+        }
 
-        self.send_order(vec![order_params]).await
+        // Build feature matrix
+        let n_rows = msg.data.len();
+        let n_cols = 3;
+        let preds: Vec<f32> = msg
+            .data
+            .iter()
+            .map(|trade| (trade.price * trade.size) as f32)
+            .collect();
+
+        let matrix_a = AltMatrix {
+            timestamp: 1234567890,
+            preds,
+            n_rows,
+            n_cols,
+        }.clone();
+
+        let matrix_b = matrix_a.clone();
+
+        // Send features to two different models
+        self.send_feat_to_model_a(matrix_a).await?;
+        self.send_feat_to_model_b(matrix_b).await?;
+        Ok(())
     }
 
-    /// Send order(s) to the order execution task.
-    /// This does not place orders directly; instead it sends a command to the
-    /// AccountModule, which is responsible for communicating with the exchange.
+    /// Send feature matrix to model A
+    async fn send_feat_to_model_a(&mut self, feat: AltMatrix) -> InfraResult<()> {
+        if let Some(handle) = self.find_alt_handle(&AltTaskType::ModelPreds(1111), 1111) {
+            let cmd = TaskCommand::FeatInput(feat);
+            handle.send_command(cmd, None).await?;
+        } else {
+            error!("No model handle found for Model A");
+        }
+        Ok(())
+    }
+
+    /// Send feature matrix to model B
+    async fn send_feat_to_model_b(&mut self, feat: AltMatrix) -> InfraResult<()> {
+        if let Some(handle) = self.find_alt_handle(&AltTaskType::ModelPreds(2222), 2222) {
+            let cmd = TaskCommand::FeatInput(feat);
+            handle.send_command(cmd, None).await?;
+        } else {
+            error!("No model handle found for Model B");
+        }
+        Ok(())
+    }
+
+    /// Send order(s) to the order execution task
+    /// Orders are sent via CommandHandle, not directly to the exchange
     async fn send_order(&mut self, orders: Vec<OrderParams>) -> InfraResult<()> {
         if let Some(handle) = self.find_alt_handle(&AltTaskType::OrderExecution, 1) {
             let cmd = TaskCommand::OrderExecute(orders);
@@ -57,7 +97,6 @@ impl HFTStrategy {
 }
 
 impl EventHandler for HFTStrategy {}
-impl AltEventHandler for HFTStrategy {}
 impl DexEventHandler for HFTStrategy {}
 
 impl Strategy for HFTStrategy {
@@ -66,12 +105,29 @@ impl Strategy for HFTStrategy {
     }
 }
 
+impl AltEventHandler for HFTStrategy {
+    /// Handle predictions from models
+    async fn on_preds(&mut self, msg: InfraMsg<AltMatrix>) {
+        info!("Received model prediction, task id: {}", msg.task_id);
+
+        let order_params = OrderParams {
+            inst: "BTC_USDT_PERP".to_string(),
+            size: 0.01.to_string(),
+            side: OrderSide::BUY,
+            order_type: OrderType::Market,
+            ..Default::default()
+        };
+
+        if let Err(e) = self.send_order(vec![order_params]).await {
+            error!("Error sending order: {:?}", e);
+        }
+    }
+}
+
 impl CexEventHandler for HFTStrategy {
-    /// You should send subscribe message to websocket in order to get trade msg.
-    /// React to new trades (market data).
-    /// Each trade event may trigger signal generation.
-    async fn on_trade(&mut self, _msg: InfraMsg<Vec<WsTrade>>) {
-        if let Err(e) = self.generate_signal().await {
+    /// Subscribe and react to trades via WebSocket
+    async fn on_trade(&mut self, msg: InfraMsg<Vec<WsTrade>>) {
+        if let Err(e) = self.generate_signal(msg).await {
             error!("Error generating signal: {:?}", e);
         }
     }
@@ -88,12 +144,13 @@ impl CommandEmitter for HFTStrategy {
 }
 
 
+/// -------------------------------------
 /// Account Module
-/// --------------
-/// This module is responsible for:
-/// 1. Managing exchange connection (login, subscriptions, heartbeats).
-/// 2. Executing incoming orders (from strategy).
-/// 3. Receiving account/order updates from the exchange.
+/// -------------------------------------
+/// Responsibilities:
+/// 1. Manage exchange connection and authentication
+/// 2. Execute orders sent from strategies
+/// 3. Receive account/order updates from exchange
 #[derive(Clone)]
 struct AccountModule {
     command_handles: Vec<Arc<CommandHandle>>,
@@ -114,7 +171,7 @@ impl AccountModule {
     /// - Login
     /// - Subscribe to account/order updates
     ///
-    /// ⚠️ NOTE: This is an async/IO-heavy function, so it should be separated
+    /// NOTE: This is an async/IO-heavy function, so it should be separated
     /// from latency-critical paths like signal processing.
     pub async fn connect_channel(&mut self, channel: &WsChannel) -> InfraResult<()> {
         if let Some(handle) = self.find_ws_handle(&channel, 1) {
@@ -184,7 +241,7 @@ impl CexEventHandler for AccountModule {
         }
     }
 
-    /// Handle account/order updates from OKX (fills, cancellations, etc.).
+    /// Handle account/order updates from exchange
     async fn on_acc_order(&mut self, msg: InfraMsg<Vec<WsAccOrder>>) {
         info!("Updating account status: {:?}", msg);
     }
@@ -226,6 +283,24 @@ async fn main() {
         task_id: None,
     };
 
+    let place_order_task = AltTaskInfo {
+        alt_task_type: AltTaskType::OrderExecution,
+        chunk: 1,
+        task_id: None,
+    };
+
+    let model_a_task = AltTaskInfo {
+        alt_task_type: AltTaskType::ModelPreds(1111), // Zeromq port
+        chunk: 1,
+        task_id: Some(1111), // Custom task ID
+    };
+
+    let model_b_task = AltTaskInfo {
+        alt_task_type: AltTaskType::ModelPreds(2222), // Zeromq port
+        chunk: 1,
+        task_id: Some(2222), // Custom task ID
+    };
+
     // EnvBuilder sets up the environment:
     // - Register broadcast channels (pub/sub for internal message passing)
     // - Register strategy modules
@@ -234,13 +309,16 @@ async fn main() {
         .with_board_cast_channel(BoardCastChannel::default_cex_event())
         .with_board_cast_channel(BoardCastChannel::default_account_order())
         .with_board_cast_channel(BoardCastChannel::default_order_execution())
-        .with_board_cast_channel(BoardCastChannel::default_cex_event())
+        .with_board_cast_channel(BoardCastChannel::default_model_preds())
         .with_strategy_module(strategy_account_module)
         .with_strategy_module(strategy_logic)
         .with_task(TaskInfo::WsTask(Arc::new(acc_order_task)))
         .with_task(TaskInfo::WsTask(Arc::new(okx_trade_task)))
+        .with_task(TaskInfo::AltTask(Arc::new(model_a_task)))
+        .with_task(TaskInfo::AltTask(Arc::new(model_b_task)))
+        .with_task(TaskInfo::AltTask(Arc::new(place_order_task)))
         .build();
 
-    // Run the environment (spins up event loop + tasks)
+    // Execute environment (runs all tasks)
     mediator.execute().await;
 }
