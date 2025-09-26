@@ -19,9 +19,9 @@ use crate::market_assets::{
 };
 use crate::task_execution::task_ws::*;
 use crate::traits::market_cex::{
-    CexPrivateRest, 
-    CexPublicRest, 
-    CexWebsocket, 
+    CexPrivateRest,
+    CexPublicRest,
+    CexWebsocket,
     MarketCexApi
 };
 
@@ -167,19 +167,21 @@ impl CexWebsocket for OkxCli {
         channel: &WsChannel,
     ) -> InfraResult<String> {
         let url = match channel {
+            WsChannel::Trades(Some(trades_param)) => match trades_param {
+                TradesParam::AggTrades => OKX_WS_PUB,
+                TradesParam::AllTrades => OKX_WS_BUS,
+            },
             WsChannel::Candle(_)
-            | WsChannel::Trades(_)
             | WsChannel::Tick
-            | WsChannel::Lob => OKX_WS_PUB,
-
-            WsChannel::Other(s) if s == "instruments"
-                || s == "funding-rate" => OKX_WS_BUS,
-
+            | WsChannel::Lob
+            | WsChannel::Trades(None) => OKX_WS_PUB,
+            WsChannel::Other(s) if s == "instruments" || s == "funding-rate" => OKX_WS_BUS,
             _ => return Err(InfraError::Unimplemented),
         };
 
         Ok(url.into())
     }
+
 
     async fn get_private_connect_msg(
         &self,
@@ -721,8 +723,8 @@ impl OkxCli {
             WsChannel::Candle(channel) => {
                 self._ws_subscribe_candle(channel, insts)
             },
-            WsChannel::Trades(_) => {
-                Err(InfraError::Unimplemented)
+            WsChannel::Trades(trades_param) => {
+                self._ws_subscribe_trades(trades_param, insts)
             },
             WsChannel::Tick => {
                 Err(InfraError::Unimplemented)
@@ -749,6 +751,19 @@ impl OkxCli {
         let channel = format!("candle{}", interval);
 
         Ok(ws_subscribe_msg_okx(&channel, insts))
+    }
+
+    fn _ws_subscribe_trades(
+        &self,
+        trades_param: &Option<TradesParam>,
+        insts: Option<&[String]>
+    ) -> InfraResult<String> {
+        let channel = match trades_param {
+            Some(TradesParam::AggTrades) | None => "trades",
+            Some(TradesParam::AllTrades) => "tradesAll",
+        };
+
+        Ok(ws_subscribe_msg_okx(channel, insts))
     }
 }
 

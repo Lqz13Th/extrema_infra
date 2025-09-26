@@ -47,7 +47,6 @@ use crate::market_assets::{
     market_core::Market,
 };
 use crate::market_assets::cex::okx::ws::trades::WsTradesOkx;
-use crate::prelude::{TradesParam, WsTrade};
 use crate::strategy_base::{
     command::{
         ack_handle::{AckHandle, AckStatus},
@@ -90,7 +89,7 @@ impl WsTaskBuilder {
     async fn handle_ws_msg<WsData>(
         &mut self,
         msg: Result<Option<Result<Message, Error>>, Elapsed>,
-        ws_write: &mut WsWrite,
+        ws_stream: &mut WsStream,
         tx: &broadcast::Sender<InfraMsg<WsData::Output>>,
     ) -> bool
     where
@@ -131,7 +130,7 @@ impl WsTaskBuilder {
                 };
             },
             Ok(Some(Ok(Message::Ping(payload)))) => {
-                let _ = ws_write.send(Message::Pong(payload)).await;
+                let _ = ws_stream.send(Message::Pong(payload)).await;
             },
             Ok(Some(Ok(Message::Close(frame)))) => {
                 self.log(LogLevel::Error, &format!("WebSocket closed: {:?}", frame));
@@ -146,7 +145,7 @@ impl WsTaskBuilder {
                 return true;
             },
             Err(_) => {
-                if let Err(e) = ws_write.send(Message::Ping(PING.clone())).await {
+                if let Err(e) = ws_stream.send(Message::Ping(PING.clone())).await {
                     self.log(LogLevel::Error, &format!("Failed to send ping: {:?}", e));
                     return true;
                 }
@@ -160,21 +159,21 @@ impl WsTaskBuilder {
     async fn handle_command(
         &mut self,
         cmd: Option<TaskCommand>,
-        ws_write: &mut WsWrite,
+        ws_stream: &mut WsStream,
     ) -> bool {
         if let Some(cmd) = cmd {
             match cmd {
                 TaskCommand::Login { msg, ack } => {
-                    self.send_cmd(ws_write, msg, ack, AckStatus::Login).await
+                    self.send_cmd(ws_stream, msg, ack, AckStatus::Login).await
                 },
                 TaskCommand::Subscribe { msg, ack } => {
-                    self.send_cmd(ws_write, msg, ack, AckStatus::Subscribe).await
+                    self.send_cmd(ws_stream, msg, ack, AckStatus::Subscribe).await
                 },
                 TaskCommand::Unsubscribe { msg, ack } => {
-                    self.send_cmd(ws_write, msg, ack, AckStatus::Unsubscribe).await
+                    self.send_cmd(ws_stream, msg, ack, AckStatus::Unsubscribe).await
                 },
                 TaskCommand::Shutdown { msg, ack } => {
-                    self.send_cmd(ws_write, msg, ack, AckStatus::Shutdown).await;
+                    self.send_cmd(ws_stream, msg, ack, AckStatus::Shutdown).await;
                     return true;
                 },
                 _ => self.log(LogLevel::Warn, "Unexpected command"),
@@ -186,12 +185,12 @@ impl WsTaskBuilder {
 
     async fn send_cmd(
         &mut self,
-        ws_write: &mut WsWrite,
+        ws_stream: &mut WsStream,
         msg: String,
         ack_handle: AckHandle,
         ack_status: AckStatus,
     ) {
-        if ws_write.send(Message::text(msg.clone())).await.is_err() {
+        if ws_stream.send(Message::text(msg.clone())).await.is_err() {
             self.log(
                 LogLevel::Error,
                 &format!("Failed to send {:?}: {}", ack_status, msg)
@@ -209,24 +208,23 @@ impl WsTaskBuilder {
     async fn ws_loop<WsData>(
         &mut self,
         tx: broadcast::Sender<InfraMsg<WsData::Output>>,
-        ws_stream: WsStream,
+        ws_stream: &mut WsStream,
     )
     where
         WsData: DeserializeOwned + IntoWsData + Send + 'static,
         WsData::Output: Send + Sync + 'static,
     {
-        let (mut ws_write, mut ws_read) = ws_stream.split();
         let timeout_sec = Duration::from_secs(10);
 
         loop {
             tokio::select! {
-                msg = timeout(timeout_sec, ws_read.next()) => {
-                    if self.handle_ws_msg::<WsData>(msg, &mut ws_write, &tx).await {
+                msg = timeout(timeout_sec, ws_stream.next()) => {
+                    if self.handle_ws_msg::<WsData>(msg, ws_stream, &tx).await {
                         break;
                     };
                 },
                 cmd = self.cmd_rx.recv() => {
-                    if self.handle_command(cmd, &mut ws_write).await {
+                    if self.handle_command(cmd, ws_stream).await {
                         break;
                     }
                 },
@@ -236,7 +234,7 @@ impl WsTaskBuilder {
 
     async fn ws_channel_distribution(
         &mut self,
-        ws_stream: WsStream,
+        ws_stream: &mut WsStream,
     ) {
         match (&self.ws_info.market, &self.ws_info.ws_channel) {
             (Market::BinanceUmFutures, WsChannel::Trades(..)) => {
@@ -343,7 +341,7 @@ impl WsTaskBuilder {
                 },
             };
 
-            let ws_stream = match self.connect_websocket(&url).await {
+            let mut ws_stream = match self.connect_websocket(&url).await {
                 Ok(ws) => ws,
                 Err(e) => {
                     self.log(LogLevel::Error, &format!("Failed to connect ws: {:?}", e));
@@ -353,7 +351,7 @@ impl WsTaskBuilder {
             };
 
             ack.respond(AckStatus::Connect);
-            self.ws_channel_distribution(ws_stream).await;
+            self.ws_channel_distribution(&mut ws_stream).await;
 
         }
     }
