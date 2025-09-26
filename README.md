@@ -104,13 +104,11 @@ For connecting to exchanges, you need to implement these traits for each exchang
   - **CexPublicRest**: market data (ticker, orderbook, candles, instruments).
   - **CexPrivateRest**: trading operations (init API key, place/cancel orders, get balance, get positions).
 
-Default implementations return `InfraError::Unimplemented`, so you must override the methods you need.
-
 ---
 
 ## Example: Spawn example strategy
 
-Make sure you activated the desired exchange api of the extrema infra crate on Cargo.toml:
+On your strategy Cargo.toml:
 
 ```toml
 [package]
