@@ -42,11 +42,11 @@ use crate::market_assets::{
         okx::{
             okx_ws_msg::OkxWsData,
             ws::account_order::WsAccountOrderOkx,
+            ws::trades::WsTradesOkx,
         },
     },
     market_core::Market,
 };
-use crate::market_assets::cex::okx::ws::trades::WsTradesOkx;
 use crate::strategy_base::{
     command::{
         ack_handle::{AckHandle, AckStatus},
@@ -62,7 +62,6 @@ use super::{
 };
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
-type WsWrite = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 static PING: Bytes = Bytes::from_static(b"ping");
 
 #[derive(Debug)]
