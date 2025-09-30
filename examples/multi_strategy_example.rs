@@ -14,6 +14,7 @@ use extrema_infra::market_assets::cex::prelude::*;
 /// This is a placeholder strategy that:
 /// - Initializes but does not trade
 /// - Logs incoming events (candles, schedules)
+///
 /// Useful for testing system wiring without executing orders.
 #[derive(Clone)]
 struct EmptyStrategy;
@@ -85,11 +86,11 @@ impl BinanceStrategy {
     /// Connect to Binance WebSocket channel and send subscription.
     /// This runs only when a CEX event is received that signals the channel is ready.
     async fn connect_channel(&self, channel: &WsChannel) -> InfraResult<()> {
-        if let Some(handle) = self.find_ws_handle(&channel, 1) {
+        if let Some(handle) = self.find_ws_handle(channel, 1) {
             info!("[BinanceStrategy] Sending connect to {:?}", handle);
 
             // Step 1: Request connection URL
-            let ws_url = self.binance_um_cli.get_public_connect_msg(&channel).await?;
+            let ws_url = self.binance_um_cli.get_public_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::Connect {
                 msg: ws_url,
@@ -99,7 +100,7 @@ impl BinanceStrategy {
 
             // Step 2: Subscribe to BTC/USDT perpetual candle updates
             let ws_msg = self.binance_um_cli
-                .get_public_sub_msg(&channel, Some(&["BTC_USDT_PERP".into()]))
+                .get_public_sub_msg(channel, Some(&["BTC_USDT_PERP".into()]))
                 .await?;
 
             let cmd = TaskCommand::Subscribe {

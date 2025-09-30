@@ -174,7 +174,7 @@ impl AccountModule {
     /// NOTE: This is an async/IO-heavy function, so it should be separated
     /// from latency-critical paths like signal processing.
     pub async fn connect_channel(&mut self, channel: &WsChannel) -> InfraResult<()> {
-        if let Some(handle) = self.find_ws_handle(&channel, 1) {
+        if let Some(handle) = self.find_ws_handle(channel, 1) {
             // Step 1: Connect
             let ws_url = self.api_cli.get_private_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
