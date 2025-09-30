@@ -2,7 +2,6 @@ use std::sync::Arc;
 use serde::de::DeserializeOwned;
 use serde_json::from_slice;
 use futures_util::{
-    stream::SplitSink,
     SinkExt,
     StreamExt,
 };

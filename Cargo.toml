@@ -11,18 +11,15 @@ path = "src/lib.rs"
 # Networking & async
 tokio = { version = "1.47.1", features = ["full"] }
 reqwest = { version = "0.12.23", features = ["json"] }
-tokio-tungstenite = { version = "0.27.0", features = ["native-tls"] }
-tungstenite = "0.27.0"
+tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
+tungstenite = "0.28.0"
 futures = "0.3.31"
 futures-util = "0.3.31"
 zeromq = "0.4.1"
 
-# Data & Feature processing
-polars = "0.51.0"
-
 # Parsing & Serialization
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.142"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 simd-json = "0.16.0"
 
 # Cryptography & Encoding
@@ -37,7 +34,8 @@ tracing-subscriber = "0.3.20"
 
 # Environment & Error handling
 dotenv = "0.15.0"
-thiserror = "2.0.14"
+polars-error = "0.51.0"
+thiserror = "2.0.17"
 
 [profile.release]
 opt-level = 3

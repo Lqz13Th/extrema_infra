@@ -18,7 +18,7 @@ pub enum InfraError {
     SimdJson(#[from] simd_json::Error),
 
     #[error("Polars error: {0}")]
-    Polars(#[from] polars::prelude::PolarsError),
+    Polars(#[from] polars_error::PolarsError),
 
     #[error("API returned error: {0}")]
     ApiError(String),
