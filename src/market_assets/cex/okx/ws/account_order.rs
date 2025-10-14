@@ -4,9 +4,9 @@ use crate::market_assets::{
     api_general::ts_to_micros,
     cex::okx::api_utils::okx_inst_to_cli,
     base_data::{
-        InstrumentType, 
-        OrderSide, 
-        OrderStatus, 
+        InstrumentType,
+        OrderSide,
+        OrderStatus,
         OrderType,
     },
     market_core::Market,
@@ -49,7 +49,7 @@ impl IntoWsData for WsAccountOrderOkx {
             inst_type: match self.instType.as_str() {
                 "SPOT" => InstrumentType::Spot,
                 "SWAP" => InstrumentType::Perpetual,
-                "OPTION" => InstrumentType::Option,
+                "OPTION" => InstrumentType::Options,
                 _ => InstrumentType::Unknown,
             },
             price: self.px

@@ -227,7 +227,7 @@ impl OkxCli {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Option => "OPTION",
+            InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
                 return Err(InfraError::ApiError("Unknown instrument type".into()))
             },
@@ -271,7 +271,7 @@ impl OkxCli {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Option => "OPTION",
+            InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
                 return Err(InfraError::ApiError("Unknown instrument type".into()))
             },
@@ -344,7 +344,7 @@ impl OkxCli {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Option => "OPTION",
+            InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
                 return Err(InfraError::ApiError("Unknown instrument type".into()))
             },
@@ -392,7 +392,7 @@ impl OkxCli {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Option => "OPTION",
+            InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
                 return Err(InfraError::ApiError("Unknown instrument type".into()))
             },
@@ -440,7 +440,7 @@ impl OkxCli {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Option => "OPTION",
+            InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
                 return Err(InfraError::ApiError("Unknown instrument type".into()))
             },
@@ -520,7 +520,7 @@ impl OkxCli {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
             InstrumentType::Perpetual => "SWAP",
-            InstrumentType::Option => "OPTION",
+            InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
                 return Err(InfraError::ApiError("Unknown instrument type".into()))
             },

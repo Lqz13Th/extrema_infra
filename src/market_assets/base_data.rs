@@ -5,7 +5,7 @@ pub enum InstrumentType {
     Spot,
     Perpetual,
     Futures,
-    Option,
+    Options,
     #[default]
     Unknown,
 }
