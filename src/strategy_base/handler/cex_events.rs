@@ -52,3 +52,27 @@ pub struct WsAccOrder {
 }
 
 
+#[derive(Clone, Debug)]
+pub struct WsAccBalPos {
+    pub timestamp: u64,
+    pub market: Market,
+    pub balances: Vec<WsAccBalance>,
+    pub positions: Vec<WsAccPosition>,
+}
+
+#[derive(Clone, Debug)]
+pub struct WsAccBalance {
+    pub inst: String,
+    pub cash_bal: f64,
+}
+
+#[derive(Clone, Debug)]
+pub struct WsAccPosition {
+    pub inst: String,
+    pub inst_type: InstrumentType,
+    pub avg_price: f64,
+    pub size: f64,
+    pub position_side: PositionSide,
+    pub margin_mode: MarginMode,
+}
+

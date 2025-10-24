@@ -593,6 +593,7 @@ impl OkxCli {
             body["posSide"] = json!(match pos_side {
                 PositionSide::Long => "long",
                 PositionSide::Short => "short",
+                PositionSide::Both => "net",
                 PositionSide::Unknown => "net",
             });
         }

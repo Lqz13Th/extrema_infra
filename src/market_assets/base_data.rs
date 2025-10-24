@@ -62,6 +62,7 @@ pub enum MarginMode {
 pub enum PositionSide {
     Long,
     Short,
+    Both,
     #[default]
     Unknown,
 }
