@@ -24,7 +24,7 @@ pub fn ws_subscribe_msg_okx(
             .map(|inst| {
                 json!({
                     "channel": channel,
-                    "instId": to_okx_inst(inst),
+                    "instId": cli_perp_to_okx_inst(inst),
                 })
             })
             .collect(),
@@ -50,7 +50,7 @@ pub fn get_okx_timestamp() -> String {
     format!("{}.{}", seconds, millis)
 }
 
-pub fn to_okx_inst(symbol: &str) -> String {
+pub fn cli_perp_to_okx_inst(symbol: &str) -> String {
     let mut inst = symbol.replace('_', "-");
     if inst.ends_with("-PERP") {
         inst = inst.trim_end_matches("-PERP").to_string() + "-SWAP";

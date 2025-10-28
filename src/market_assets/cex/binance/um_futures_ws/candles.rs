@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::market_assets::{
     api_general::ts_to_micros,
-    cex::binance::api_utils::binance_um_to_cli_perp,
+    cex::binance::api_utils::binance_inst_to_cli,
     market_core::Market,
 };
 use crate::strategy_base::handler::cex_events::WsCandle;
@@ -36,7 +36,7 @@ impl IntoWsData for WsCandleBinanceUM {
         WsCandle {
             timestamp: ts_to_micros(self.k.t),
             market: Market::BinanceUmFutures,
-            inst: binance_um_to_cli_perp(&self.s),
+            inst: binance_inst_to_cli(&self.s),
             interval: CandleParam::from_candle_str(&self.k.i)
                 .unwrap_or(CandleParam::OneMinute),
             open: self.k.o.parse().unwrap_or_default(),

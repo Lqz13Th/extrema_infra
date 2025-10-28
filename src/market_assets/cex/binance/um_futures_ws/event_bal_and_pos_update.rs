@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::market_assets::{
     api_general::ts_to_micros,
-    cex::binance::api_utils::binance_um_to_cli_perp,
+    cex::binance::api_utils::binance_inst_to_cli,
     base_data::*,
     market_core::Market,
 };
@@ -61,7 +61,7 @@ impl IntoWsData for WsBalAndPosBinanceUM {
         }).collect();
 
         let positions = self.a.P.into_iter().map(|p| WsAccPosition {
-            inst: binance_um_to_cli_perp(&p.s),
+            inst: binance_inst_to_cli(&p.s),
             inst_type: {
                 if p.s.contains('_') {
                     InstrumentType::Futures

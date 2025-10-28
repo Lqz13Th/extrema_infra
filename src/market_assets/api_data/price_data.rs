@@ -20,6 +20,20 @@ pub struct CandleData {
     pub volume: f64,
 }
 
+impl CandleData {
+    pub fn new(inst: &str, timestamp: u64, open: f64, high: f64, low: f64, close: f64) -> Self {
+        Self {
+            timestamp,
+            inst: inst.to_string(),
+            open,
+            high,
+            low,
+            close,
+            volume: 0.0,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OrderBookData {
     pub timestamp: u64,

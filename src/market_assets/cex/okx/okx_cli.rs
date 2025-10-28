@@ -490,7 +490,7 @@ impl OkxCli {
             "{}{}?&instId={}",
             OKX_BASE_URL,
             OKX_MARKET_TICKER,
-            to_okx_inst(inst),
+            cli_perp_to_okx_inst(inst),
         );
 
         let responds = self.client.get(&url).send().await?;
@@ -556,7 +556,7 @@ impl OkxCli {
         order_params: OrderParams,
     ) -> InfraResult<OrderAckData> {
         let mut body = json!({
-            "instId": to_okx_inst(&order_params.inst),
+            "instId": cli_perp_to_okx_inst(&order_params.inst),
             "side": match order_params.side {
                 OrderSide::BUY => "buy",
                 OrderSide::SELL => "sell",
@@ -642,7 +642,7 @@ impl OkxCli {
     ) -> InfraResult<Vec<BalanceData>> {
         let body = match assets {
             Some(ccys) if !ccys.is_empty() => {
-                let okx_ccys: Vec<String> = ccys.iter().map(|s| to_okx_inst(s)).collect();
+                let okx_ccys: Vec<String> = ccys.iter().map(|s| cli_perp_to_okx_inst(s)).collect();
                 json!({ "ccy": okx_ccys.join(",") }).to_string()
             }
             _ => "{}".into(),
@@ -682,7 +682,7 @@ impl OkxCli {
     ) -> InfraResult<Vec<PositionData>> {
         let body = match insts {
             Some(ids) if !ids.is_empty() => {
-                let okx_ids: Vec<String> = ids.iter().map(|s| to_okx_inst(s)).collect();
+                let okx_ids: Vec<String> = ids.iter().map(|s| cli_perp_to_okx_inst(s)).collect();
                 json!({ "instId": okx_ids.join(",") }).to_string()
             },
             _ => "{}".into(),

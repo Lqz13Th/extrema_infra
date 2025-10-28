@@ -99,3 +99,10 @@ pub struct PubLeadtraderStats {
     pub avg_sub_pos_national: f64,
     pub current_copy_trader_pnl: f64,
 }
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct FundingRateInfo {
+    pub timestamp: u64,
+    pub inst: String,
+    pub funding_hours: f64,
+}

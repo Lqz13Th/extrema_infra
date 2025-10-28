@@ -1,15 +1,24 @@
 use std::sync::Arc;
 use simd_json::from_slice;
 use reqwest::Client;
+use serde_json::Value;
 use tracing::error;
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
-    api_data::account_data::*,
+    cex::binance::um_futures_rest::{
+        account_balance::RestAccountBalBinanceUM,
+        funding_rate_info::RestFundingInfoBinanceUM,
+    },
+    api_data::{
+        account_data::*,
+        price_data::*,
+        utils_data::*,
+    },
     api_general::RequestMethod,
     base_data::*,
 };
-use crate::market_assets::cex::binance::um_futures_rest::account_balance::RestAccountBalBinanceUM;
+use crate::market_assets::api_general::ts_to_micros;
 use crate::task_execution::task_ws::*;
 use crate::traits::market_cex::{
     CexPrivateRest, 
@@ -136,6 +145,71 @@ impl BinanceUmCli {
         Ok(listen_key)
     }
 
+    pub async fn get_premium_index_klines(
+        &self,
+        symbol: &str,
+        interval: &str,
+        limit: Option<u32>,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        let url = format!(
+            "{}{}?symbol={}&interval={}",
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_PREMIUM_INDEX_KLINES,
+            cli_perp_to_pure_uppercase(symbol),
+            interval
+        );
+
+        let mut req = self.client.get(&url);
+
+        if let Some(l) = limit {
+            req = req.query(&[("limit", l.to_string())]);
+        }
+        if let Some(start) = start_time {
+            req = req.query(&[("startTime", start.to_string())]);
+        }
+        if let Some(end) = end_time {
+            req = req.query(&[("endTime", end.to_string())]);
+        }
+
+        let responds = req.send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: Vec<Vec<Value>> = from_slice(&mut res_bytes)?;
+
+        let mut candles = Vec::with_capacity(res.len());
+        for entry in res {
+            if entry.len() < 5 {
+                continue;
+            }
+
+            let open_time = ts_to_micros(entry[0].as_u64().unwrap_or_default());
+            let open = entry[1].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
+            let high = entry[2].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
+            let low = entry[3].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
+            let close = entry[4].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
+
+            candles.push(CandleData::new(symbol, open_time, open, high, low, close));
+        }
+
+        Ok(candles)
+    }
+
+    pub async fn get_funding_info(&self) -> InfraResult<Vec<FundingRateInfo>> {
+        let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_FUNDING_INFO].concat();
+
+        let resp = self.client.get(url).send().await?;
+        let mut res_bytes = resp.bytes().await?.to_vec();
+        let res: Vec<RestFundingInfoBinanceUM> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_iter()
+            .map(FundingRateInfo::from)
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _get_balance(
         &self,
         assets: Option<&[String]>
@@ -178,7 +252,7 @@ impl BinanceUmCli {
         let data: Vec<String> = res.symbols
             .into_iter()
             .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
-            .map(|s| binance_um_to_cli_perp(&s.symbol))
+            .map(|s| binance_inst_to_cli(&s.symbol))
             .collect();
 
         Ok(data)
