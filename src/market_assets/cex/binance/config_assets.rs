@@ -14,5 +14,10 @@ pub const BINANCE_UM_FUTURES_BALANCE_INFO: &str = "/fapi/v3/balance";
 pub const BINANCE_UM_FUTURES_LISTEN_KEY: &str = "/fapi/v1/listenKey";
 
 /// # CmFutures API
+pub const BINANCE_CM_FUTURES_WS: &str = "wss://dstream.binance.com/ws";
 pub const BINANCE_CM_FUTURES_BASE_URL: &str = "https://dapi.binance.com";
+pub const BINANCE_CM_FUTURES_EXCHANGE_INFO: &str = "/dapi/v1/exchangeInfo";
 
+pub const BINANCE_CM_FUTURES_ACCOUNT_INFO: &str = "/dapi/v1/balance";
+pub const BINANCE_CM_FUTURES_BALANCE_INFO: &str = "/dapi/v1/account";
+pub const BINANCE_CM_FUTURES_LISTEN_KEY: &str = "/dapi/v1/listenKey";

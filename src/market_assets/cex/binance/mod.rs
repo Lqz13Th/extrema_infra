@@ -9,3 +9,4 @@ pub mod binance_cm_futures_cli;
 
 pub(crate) mod um_futures_ws;
 mod um_futures_rest;
+mod cm_futures_rest;

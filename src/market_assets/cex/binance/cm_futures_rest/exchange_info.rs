@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct RestExchangeInfoBinanceUM {
+pub(crate) struct RestExchangeInfoBinanceCM {
     pub symbols: Vec<InstrumentInfo>,
 }
 

@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 use simd_json::from_slice;
 use reqwest::Client;
 use tracing::error;
@@ -12,6 +9,7 @@ use crate::market_assets::{
     api_general::RequestMethod,
     base_data::*,
 };
+use crate::market_assets::cex::binance::um_futures_rest::account_balance::RestAccountBalBinanceUM;
 use crate::task_execution::task_ws::*;
 use crate::traits::market_cex::{
     CexPrivateRest, 
@@ -27,20 +25,6 @@ use super::{
     um_futures_rest::exchange_info::RestExchangeInfoBinanceUM,
 };
 
-fn create_binance_cli_with_key(
-    keys: HashMap<String, BinanceKey>,
-    shared_client: Arc<Client>,
-) -> HashMap<String, BinanceUmCli> {
-    keys.into_iter()
-        .map(|(id, key)| {
-            let cli = BinanceUmCli {
-                client: shared_client.clone(),
-                api_key: Some(key),
-            };
-            (id, cli)
-        })
-        .collect()
-}
 
 #[derive(Clone, Debug)]
 pub struct BinanceUmCli {
@@ -132,7 +116,7 @@ impl BinanceUmCli {
             RequestMethod::Post,
             None,
             BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_EXCHANGE_INFO
+            BINANCE_UM_FUTURES_LISTEN_KEY,
         ).await?;
 
         Ok(listen_key)
@@ -146,7 +130,7 @@ impl BinanceUmCli {
             RequestMethod::Put,
             None,
             BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_EXCHANGE_INFO
+            BINANCE_UM_FUTURES_LISTEN_KEY,
         ).await?;
 
         Ok(listen_key)
@@ -158,23 +142,28 @@ impl BinanceUmCli {
     ) -> InfraResult<Vec<BalanceData>> {
         let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
 
-        let all_balances: Vec<BalanceData> = api_key.send_signed_request(
+        let bal_res: Vec<RestAccountBalBinanceUM> = api_key.send_signed_request(
             &self.client,
             RequestMethod::Get,
             None,
             BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_EXCHANGE_INFO
+            BINANCE_UM_FUTURES_BALANCE_INFO,
         ).await?;
 
-        let data = match assets {
+        let filtered_res = match assets {
             Some(list) if !list.is_empty() => {
-                all_balances
+                bal_res
                     .into_iter()
                     .filter(|b| list.contains(&b.asset))
                     .collect()
             },
-            _ => all_balances,
+            _ => bal_res,
         };
+
+        let data: Vec<BalanceData> = filtered_res
+            .into_iter()
+            .map(BalanceData::from)
+            .collect();
 
         Ok(data)
     }
@@ -186,10 +175,10 @@ impl BinanceUmCli {
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestExchangeInfoBinanceUM = from_slice(&mut res_bytes)?;
 
-        let data: Vec<String> = res.insts
+        let data: Vec<String> = res.symbols
             .into_iter()
             .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
-            .map(|s| binance_um_to_cli_perp(&s.inst))
+            .map(|s| binance_um_to_cli_perp(&s.symbol))
             .collect();
 
         Ok(data)

@@ -1,14 +1,34 @@
+use std::{
+    sync::Arc,
+    collections::HashMap
+};
+use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
 use tracing::error;
 
 use crate::market_assets::base_data::SUBSCRIBE;
+use super::api_key::BinanceKey;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
 pub struct BinanceListenKey {
     pub listenKey: String,
 }
+
+fn create_binance_cli_with_key<C, F>(
+    keys: HashMap<String, BinanceKey>,
+    shared_client: Arc<Client>,
+    make_cli: F,
+) -> HashMap<String, C>
+where
+    F: Fn(Arc<Client>, BinanceKey) -> C,
+{
+    keys.into_iter()
+        .map(|(id, key)| (id, make_cli(Arc::clone(&shared_client), key)))
+        .collect()
+}
+
 
 pub fn ws_subscribe_msg_binance(
     param: &str,
@@ -35,6 +55,19 @@ pub fn binance_um_to_cli_perp(symbol: &str) -> String {
     let upper = symbol.to_uppercase();
     if upper.ends_with("USDT") || upper.ends_with("USDC") {
         let base = &upper[..upper.len() - 4];
+        if base.is_empty() {
+            error!("Invalid binance um symbol: {}", symbol);
+            return symbol.into();
+        }
+        return format!("{}_{}_PERP", base, &upper[upper.len() - 4..]);
+    }
+    upper
+}
+
+pub fn binance_cm_to_cli_perp(symbol: &str) -> String {
+    let upper = symbol.to_uppercase();
+    if upper.ends_with("USD") {
+        let base = &upper[..upper.len() - 3];
         if base.is_empty() {
             error!("Invalid binance um symbol: {}", symbol);
             return symbol.into();
