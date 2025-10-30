@@ -22,6 +22,14 @@ pub struct InstrumentInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct FundingRateData {
+    pub timestamp: u64,
+    pub inst: String,
+    pub funding_rate: f64,
+    pub funding_time: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FundingRateInfo {
     pub timestamp: u64,
     pub inst: String,

@@ -30,6 +30,7 @@ use super::{
     um_futures_rest::{
         account_balance::RestAccountBalBinanceUM,
         exchange_info::RestExchangeInfoBinanceUM,
+        funding_rate::RestFundingRateBinanceUM,
         funding_rate_info::RestFundingInfoBinanceUM,
         open_interest_statistics::RestOpenInterestBinanceUM,
     },
@@ -209,6 +210,50 @@ impl BinanceUmCli {
         Ok(data)
     }
 
+    pub async fn get_funding_rate_history(
+        &self,
+        symbol: Option<&str>,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        let mut url = format!("{}/fapi/v1/fundingRate", BINANCE_UM_FUTURES_BASE_URL);
+
+        let mut first = true;
+        if let Some(s) = symbol {
+            url.push_str(if first { "?" } else { "&" });
+            first = false;
+            url.push_str(&format!("symbol={}", s));
+        }
+        if let Some(s) = start_time {
+            url.push_str(if first { "?" } else { "&" });
+            first = false;
+            url.push_str(&format!("startTime={}", s));
+        }
+        if let Some(e) = end_time {
+            url.push_str(if first { "?" } else { "&" });
+            first = false;
+            url.push_str(&format!("endTime={}", e));
+        }
+        if let Some(l) = limit {
+            url.push_str(if first { "?" } else { "&" });
+            url.push_str(&format!("limit={}", l));
+        }
+
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+
+        let res: Vec<RestFundingRateBinanceUM> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_iter()
+            .map(FundingRateData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+
     pub async fn get_open_interest_hist(
         &self,
         symbol: &str,
@@ -234,7 +279,6 @@ impl BinanceUmCli {
             url.push_str(&format!("&endTime={}", e));
         }
 
-        // 发起请求
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: Vec<RestOpenInterestBinanceUM> = from_slice(&mut res_bytes)?;
