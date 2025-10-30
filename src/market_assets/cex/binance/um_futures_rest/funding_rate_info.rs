@@ -1,9 +1,9 @@
 use serde::Deserialize;
 
 use crate::market_assets::{
-    cex::prelude::binance_inst_to_cli,
     api_data::utils_data::FundingRateInfo,
     api_general::get_micros_timestamp,
+    cex::binance::api_utils::binance_inst_to_cli,
 };
 
 #[allow(non_snake_case)]

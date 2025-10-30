@@ -9,6 +9,7 @@ use crate::market_assets::{
     cex::binance::um_futures_rest::{
         account_balance::RestAccountBalBinanceUM,
         funding_rate_info::RestFundingInfoBinanceUM,
+        open_interest_statistics::RestOpenInterestBinanceUM,
     },
     api_data::{
         account_data::*,
@@ -198,13 +199,52 @@ impl BinanceUmCli {
     pub async fn get_funding_info(&self) -> InfraResult<Vec<FundingRateInfo>> {
         let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_FUNDING_INFO].concat();
 
-        let resp = self.client.get(url).send().await?;
-        let mut res_bytes = resp.bytes().await?.to_vec();
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
         let res: Vec<RestFundingInfoBinanceUM> = from_slice(&mut res_bytes)?;
 
         let data = res
             .into_iter()
             .map(FundingRateInfo::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_open_interest_hist(
+        &self,
+        symbol: &str,
+        period: &str,
+        limit: Option<u32>,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+    ) -> InfraResult<Vec<OpenInterest>> {
+        let url = format!(
+            "{}/futures/data/openInterestHist?symbol={}&period={}",
+            BINANCE_UM_FUTURES_BASE_URL,
+            symbol,
+            period,
+        );
+
+        let mut req = self.client.get(&url);
+
+        if let Some(l) = limit {
+            req = req.query(&[("limit", l.to_string())]);
+        }
+        if let Some(s) = start_time {
+            req = req.query(&[("startTime", s.to_string())]);
+        }
+        if let Some(e) = end_time {
+            req = req.query(&[("endTime", e.to_string())]);
+        }
+
+        let responds = req.send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: Vec<RestOpenInterestBinanceUM> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_iter()
+            .map(OpenInterest::from)
             .collect();
 
         Ok(data)

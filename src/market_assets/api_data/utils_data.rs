@@ -22,6 +22,21 @@ pub struct InstrumentInfo {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct FundingRateInfo {
+    pub timestamp: u64,
+    pub inst: String,
+    pub funding_hours: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct OpenInterest {
+    pub timestamp: u64,
+    pub inst: String,
+    pub sum_open_interest: f64,
+    pub sum_open_interest_value: Option<f64>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct LeadtraderSubposition {
     pub timestamp: u64,
     pub unique_code: String,
@@ -98,11 +113,4 @@ pub struct PubLeadtraderStats {
     pub invest_amount: f64,
     pub avg_sub_pos_national: f64,
     pub current_copy_trader_pnl: f64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct FundingRateInfo {
-    pub timestamp: u64,
-    pub inst: String,
-    pub funding_hours: f64,
 }
