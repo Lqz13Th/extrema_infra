@@ -149,7 +149,7 @@ impl BinanceUmCli {
 
     pub async fn get_premium_index_klines(
         &self,
-        ins: &str,
+        inst: &str,
         interval: &str,
         limit: Option<u32>,
         start_time: Option<u64>,
@@ -159,7 +159,7 @@ impl BinanceUmCli {
             "{}{}?symbol={}&interval={}",
             BINANCE_UM_FUTURES_BASE_URL,
             BINANCE_UM_FUTURES_PREMIUM_INDEX_KLINES,
-            cli_perp_to_pure_uppercase(ins),
+            cli_perp_to_pure_uppercase(inst),
             interval
         );
 
@@ -189,7 +189,7 @@ impl BinanceUmCli {
             let low = entry[3].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
             let close = entry[4].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
 
-            candles.push(CandleData::new(ins, open_time, open, high, low, close));
+            candles.push(CandleData::new(inst, open_time, open, high, low, close));
         }
 
         Ok(candles)
@@ -212,7 +212,7 @@ impl BinanceUmCli {
 
     pub async fn get_funding_rate_history(
         &self,
-        ins: Option<&str>,
+        inst: Option<&str>,
         limit: Option<u32>,
         start_time: Option<u64>,
         end_time: Option<u64>,
@@ -220,7 +220,7 @@ impl BinanceUmCli {
         let mut url = format!("{}/fapi/v1/fundingRate", BINANCE_UM_FUTURES_BASE_URL);
 
         let mut first = true;
-        if let Some(s) = ins {
+        if let Some(s) = inst {
             url.push_str(if first { "?" } else { "&" });
             first = false;
             url.push_str(&format!("symbol={}", s));
@@ -256,7 +256,7 @@ impl BinanceUmCli {
 
     pub async fn get_open_interest_hist(
         &self,
-        ins: &str,
+        inst: &str,
         period: &str,
         limit: Option<u32>,
         start_time: Option<u64>,
@@ -265,7 +265,7 @@ impl BinanceUmCli {
         let mut url = format!(
             "{}/futures/data/openInterestHist?symbol={}&period={}",
             BINANCE_UM_FUTURES_BASE_URL,
-            ins,
+            inst,
             period,
         );
 

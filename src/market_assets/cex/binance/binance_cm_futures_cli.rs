@@ -144,7 +144,7 @@ impl BinanceCmCli {
 
     pub async fn get_open_interest_hist(
         &self,
-        ins: &str,
+        inst: &str,
         period: &str,
         limit: Option<u32>,
         start_time: Option<u64>,
@@ -153,7 +153,7 @@ impl BinanceCmCli {
         let mut url = format!(
             "{}/futures/data/openInterestHist?symbol={}&period={}",
             BINANCE_CM_FUTURES_BASE_URL,
-            ins,
+            inst,
             period,
         );
 
