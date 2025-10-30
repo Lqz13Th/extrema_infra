@@ -154,7 +154,7 @@ impl BinanceUmCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
     ) -> InfraResult<Vec<CandleData>> {
-        let url = format!(
+        let mut url = format!(
             "{}{}?symbol={}&interval={}",
             BINANCE_UM_FUTURES_BASE_URL,
             BINANCE_UM_FUTURES_PREMIUM_INDEX_KLINES,
@@ -162,19 +162,17 @@ impl BinanceUmCli {
             interval
         );
 
-        let mut req = self.client.get(&url);
-
         if let Some(l) = limit {
-            req = req.query(&[("limit", l.to_string())]);
+            url.push_str(&format!("&limit={}", l));
         }
         if let Some(start) = start_time {
-            req = req.query(&[("startTime", start.to_string())]);
+            url.push_str(&format!("&startTime={}", start));
         }
         if let Some(end) = end_time {
-            req = req.query(&[("endTime", end.to_string())]);
+            url.push_str(&format!("&endTime={}", end));
         }
 
-        let responds = req.send().await?;
+        let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: Vec<Vec<Value>> = from_slice(&mut res_bytes)?;
 
@@ -219,26 +217,25 @@ impl BinanceUmCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
     ) -> InfraResult<Vec<OpenInterest>> {
-        let url = format!(
+        let mut url = format!(
             "{}/futures/data/openInterestHist?symbol={}&period={}",
             BINANCE_UM_FUTURES_BASE_URL,
             symbol,
             period,
         );
 
-        let mut req = self.client.get(&url);
-
         if let Some(l) = limit {
-            req = req.query(&[("limit", l.to_string())]);
+            url.push_str(&format!("&limit={}", l));
         }
         if let Some(s) = start_time {
-            req = req.query(&[("startTime", s.to_string())]);
+            url.push_str(&format!("&startTime={}", s));
         }
         if let Some(e) = end_time {
-            req = req.query(&[("endTime", e.to_string())]);
+            url.push_str(&format!("&endTime={}", e));
         }
 
-        let responds = req.send().await?;
+        // 发起请求
+        let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: Vec<RestOpenInterestBinanceUM> = from_slice(&mut res_bytes)?;
 
