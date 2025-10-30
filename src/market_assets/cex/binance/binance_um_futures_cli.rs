@@ -6,11 +6,6 @@ use tracing::error;
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
-    cex::binance::um_futures_rest::{
-        account_balance::RestAccountBalBinanceUM,
-        funding_rate_info::RestFundingInfoBinanceUM,
-        open_interest_statistics::RestOpenInterestBinanceUM,
-    },
     api_data::{
         account_data::*,
         price_data::*,
@@ -32,7 +27,12 @@ use super::{
     api_key::{read_binance_env_key, BinanceKey},
     api_utils::*,
     config_assets::*,
-    um_futures_rest::exchange_info::RestExchangeInfoBinanceUM,
+    um_futures_rest::{
+        account_balance::RestAccountBalBinanceUM,
+        exchange_info::RestExchangeInfoBinanceUM,
+        funding_rate_info::RestFundingInfoBinanceUM,
+        open_interest_statistics::RestOpenInterestBinanceUM,
+    },
 };
 
 

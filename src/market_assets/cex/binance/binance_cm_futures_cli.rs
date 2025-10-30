@@ -5,7 +5,10 @@ use tracing::error;
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
-    api_data::account_data::*,
+    api_data::{
+        account_data::*,
+        utils_data::*,
+    },
     api_general::RequestMethod,
     base_data::*,
 };
@@ -22,7 +25,10 @@ use super::{
     api_key::{read_binance_env_key, BinanceKey},
     api_utils::*,
     config_assets::*,
-    um_futures_rest::exchange_info::RestExchangeInfoBinanceUM,
+    cm_futures_rest::{
+        exchange_info::RestExchangeInfoBinanceCM,
+        open_interest_statistics::RestOpenInterestBinanceCM,
+    },
 };
 
 
@@ -136,6 +142,43 @@ impl BinanceCmCli {
         Ok(listen_key)
     }
 
+    pub async fn get_open_interest_hist(
+        &self,
+        symbol: &str,
+        period: &str,
+        limit: Option<u32>,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+    ) -> InfraResult<Vec<OpenInterest>> {
+        let mut url = format!(
+            "{}/futures/data/openInterestHist?symbol={}&period={}",
+            BINANCE_UM_FUTURES_BASE_URL,
+            symbol,
+            period,
+        );
+
+        if let Some(l) = limit {
+            url.push_str(&format!("&limit={}", l));
+        }
+        if let Some(s) = start_time {
+            url.push_str(&format!("&startTime={}", s));
+        }
+        if let Some(e) = end_time {
+            url.push_str(&format!("&endTime={}", e));
+        }
+
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: Vec<RestOpenInterestBinanceCM> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_iter()
+            .map(OpenInterest::from)
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _get_balance(
         &self,
         assets: Option<&[String]>
@@ -173,7 +216,7 @@ impl BinanceCmCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestExchangeInfoBinanceUM = from_slice(&mut res_bytes)?;
+        let res: RestExchangeInfoBinanceCM = from_slice(&mut res_bytes)?;
 
         let data: Vec<String> = res.symbols
             .into_iter()
