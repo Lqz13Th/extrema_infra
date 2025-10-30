@@ -253,7 +253,6 @@ impl BinanceUmCli {
         Ok(data)
     }
 
-
     pub async fn get_open_interest_hist(
         &self,
         symbol: &str,

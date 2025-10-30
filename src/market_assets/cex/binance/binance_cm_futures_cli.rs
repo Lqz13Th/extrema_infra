@@ -152,7 +152,7 @@ impl BinanceCmCli {
     ) -> InfraResult<Vec<OpenInterest>> {
         let mut url = format!(
             "{}/futures/data/openInterestHist?symbol={}&period={}",
-            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_CM_FUTURES_BASE_URL,
             symbol,
             period,
         );
