@@ -217,27 +217,19 @@ impl BinanceUmCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
     ) -> InfraResult<Vec<FundingRateData>> {
-        let mut url = format!("{}/fapi/v1/fundingRate", BINANCE_UM_FUTURES_BASE_URL);
+        let mut url = format!("{}/fapi/v1/fundingRate?", BINANCE_UM_FUTURES_BASE_URL);
 
-        let mut first = true;
         if let Some(s) = inst {
-            url.push_str(if first { "?" } else { "&" });
-            first = false;
             url.push_str(&format!("symbol={}", s));
         }
         if let Some(l) = limit {
-            url.push_str(if first { "?" } else { "&" });
-            url.push_str(&format!("limit={}", l));
+            url.push_str(&format!("&limit={}", l));
         }
         if let Some(s) = start_time {
-            url.push_str(if first { "?" } else { "&" });
-            first = false;
-            url.push_str(&format!("startTime={}", s));
+            url.push_str(&format!("&startTime={}", s));
         }
         if let Some(e) = end_time {
-            url.push_str(if first { "?" } else { "&" });
-            first = false;
-            url.push_str(&format!("endTime={}", e));
+            url.push_str(&format!("&endTime={}", e));
         }
 
 
