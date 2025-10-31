@@ -120,7 +120,7 @@ edition = "2024"
 # Infra
 extrema_infra = { path = "../extrema_infra" }
 # Tokio async runtime
-tokio = { version = "1.47.1", features = ["full"] }
+tokio = { version = "1.48.0", features = ["full"] }
 # Logging
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
