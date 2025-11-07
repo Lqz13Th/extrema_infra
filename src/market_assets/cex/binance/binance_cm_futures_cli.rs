@@ -142,7 +142,7 @@ impl BinanceCmCli {
         Ok(listen_key)
     }
 
-    pub async fn get_open_interest_hist(
+    pub async fn get_open_interest_history(
         &self,
         inst: &str,
         period: &str,
