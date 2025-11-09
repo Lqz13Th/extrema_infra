@@ -341,7 +341,7 @@ impl BinanceUmCli {
                 self._ws_subscribe_candle(channel, insts)
             },
             WsChannel::Trades(_) => {
-                Err(InfraError::Unimplemented)
+                self._ws_subscribe_aggtrade(insts)
             },
             WsChannel::Tick => {
                 Err(InfraError::Unimplemented)
@@ -368,5 +368,9 @@ impl BinanceUmCli {
         let channel = format!("kline_{}", interval);
 
         Ok(ws_subscribe_msg_binance(&channel, insts))
+    }
+
+    fn _ws_subscribe_aggtrade(&self, insts: Option<&[String]>) -> InfraResult<String> {
+        Ok(ws_subscribe_msg_binance("aggTrade", insts))
     }
 }
