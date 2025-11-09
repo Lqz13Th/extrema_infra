@@ -22,7 +22,6 @@ pub(crate) struct WsAggTradeBinanceUM {
     pub l: u64,         // Last trade ID
     pub T: u64,         // Trade time
     pub m: bool,        // Is the buyer the market maker?
-    pub M: bool,        // Ignore
 }
 
 impl IntoWsData for WsAggTradeBinanceUM {
