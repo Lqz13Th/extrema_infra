@@ -1,10 +1,12 @@
 #[derive(Clone, Debug, Default)]
 pub enum Market {
-    #[default]
+    BinanceCmFutures,
     BinanceUmFutures,
     BinanceSpot,
     Coinbase,
     Okx,
     SolPumpFun,
+    #[default]
+    HyperLiquid,
 }
 

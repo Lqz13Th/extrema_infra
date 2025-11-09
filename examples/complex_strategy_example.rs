@@ -305,7 +305,7 @@ async fn main() {
     // - Register broadcast channels (pub/sub for internal message passing)
     // - Register strategy modules
     // - Register WebSocket tasks
-    let mediator = EnvBuilder::new()
+    let env = EnvBuilder::new()
         .with_board_cast_channel(BoardCastChannel::default_cex_event())
         .with_board_cast_channel(BoardCastChannel::default_account_order())
         .with_board_cast_channel(BoardCastChannel::default_order_execution())
@@ -320,5 +320,5 @@ async fn main() {
         .build();
 
     // Execute environment (runs all tasks)
-    mediator.execute().await;
+    env.execute().await;
 }

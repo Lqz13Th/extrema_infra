@@ -195,7 +195,7 @@ async fn main() {
     // - Register broadcast channels (pub/sub message passing)
     // - Register strategy modules
     // - Register tasks
-    let mediator = EnvBuilder::new()
+    let env = EnvBuilder::new()
         .with_board_cast_channel(BoardCastChannel::default_cex_event())
         .with_board_cast_channel(BoardCastChannel::default_candle())
         .with_board_cast_channel(BoardCastChannel::default_candle()) // duplicated skip (can be removed)
@@ -207,5 +207,5 @@ async fn main() {
         .build();
 
     // Start event loop (spawns all tasks, connects strategies, begins message flow)
-    mediator.execute().await;
+    env.execute().await;
 }

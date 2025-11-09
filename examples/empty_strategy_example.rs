@@ -48,11 +48,11 @@ async fn main() {
         task_id: None,
     };
 
-    let mediator = EnvBuilder::new()
+    let env = EnvBuilder::new()
         .with_board_cast_channel(BoardCastChannel::default_scheduler())
         .with_strategy_module(EmptyStrategy)
         .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
         .build();
 
-    mediator.execute().await;
+    env.execute().await;
 }
