@@ -306,6 +306,7 @@ async fn main() {
     // - Register strategy modules
     // - Register WebSocket tasks
     let env = EnvBuilder::new()
+        .with_board_cast_channel(BoardCastChannel::default_alt_event())
         .with_board_cast_channel(BoardCastChannel::default_cex_event())
         .with_board_cast_channel(BoardCastChannel::default_account_order())
         .with_board_cast_channel(BoardCastChannel::default_order_execution())

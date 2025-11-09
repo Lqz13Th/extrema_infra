@@ -196,6 +196,7 @@ async fn main() {
     // - Register strategy modules
     // - Register tasks
     let env = EnvBuilder::new()
+        .with_board_cast_channel(BoardCastChannel::default_alt_event())
         .with_board_cast_channel(BoardCastChannel::default_cex_event())
         .with_board_cast_channel(BoardCastChannel::default_candle())
         .with_board_cast_channel(BoardCastChannel::default_candle()) // duplicated skip (can be removed)
