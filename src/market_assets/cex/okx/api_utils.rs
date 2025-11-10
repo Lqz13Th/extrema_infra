@@ -7,13 +7,6 @@ use crate::market_assets::base_data::{
     SUBSCRIBE_LOWER
 };
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct RestResOkx<T> {
-    pub code: String,
-    pub data: Option<Vec<T>>,
-    pub msg: Option<String>,
-}
-
 pub fn ws_subscribe_msg_okx(
     channel: &str,
     insts: Option<&[String]>

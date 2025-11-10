@@ -40,7 +40,8 @@ use super::{
         market_ticker::RestMarketTickerOkx,
         public_instruments::RestInstrumentsOkx,
         trade_order::RestOrderAckOkx,
-    }
+    },
+    okx_rest_msg::RestResOkx,
 };
 
 fn create_okx_cli_with_key(

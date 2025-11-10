@@ -7,3 +7,4 @@ pub mod okx_ws_msg;
 pub mod okx_cli;
 pub(crate) mod ws;
 mod rest;
+mod okx_rest_msg;
