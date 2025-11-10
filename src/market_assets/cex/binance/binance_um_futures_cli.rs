@@ -220,7 +220,7 @@ impl BinanceUmCli {
         let mut url = format!("{}/fapi/v1/fundingRate?", BINANCE_UM_FUTURES_BASE_URL);
 
         if let Some(s) = inst {
-            url.push_str(&format!("symbol={}", s));
+            url.push_str(&format!("symbol={}", cli_perp_to_pure_uppercase(s)));
         }
         if let Some(l) = limit {
             url.push_str(&format!("&limit={}", l));
@@ -257,7 +257,7 @@ impl BinanceUmCli {
         let mut url = format!(
             "{}/futures/data/openInterestHist?symbol={}&period={}",
             BINANCE_UM_FUTURES_BASE_URL,
-            inst,
+            cli_perp_to_pure_uppercase(inst),
             period,
         );
 

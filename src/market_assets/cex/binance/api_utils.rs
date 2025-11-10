@@ -85,3 +85,11 @@ pub fn cli_perp_to_pure_uppercase(symbol: &str) -> String {
     let cleaned = symbol.strip_suffix("_PERP").unwrap_or(symbol);
     cleaned.replace("_", "").to_uppercase()
 }
+
+pub fn cli_perp_to_binance_cm(symbol: &str) -> String {
+    symbol
+        .strip_suffix("_PERP")
+        .unwrap_or(symbol)
+        .replace("_USDT", "USD")
+        .to_string()
+}

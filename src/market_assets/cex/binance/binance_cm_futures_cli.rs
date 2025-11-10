@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use simd_json::from_slice;
 use reqwest::Client;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
@@ -151,12 +151,12 @@ impl BinanceCmCli {
         end_time: Option<u64>,
     ) -> InfraResult<Vec<OpenInterest>> {
         let mut url = format!(
-            "{}/futures/data/openInterestHist?symbol={}&period={}",
+            "{}/futures/data/openInterestHist?pair={}&contractType=PERPETUAL&period={}",
             BINANCE_CM_FUTURES_BASE_URL,
-            inst,
+            cli_perp_to_binance_cm(inst),
             period,
         );
-
+        println!("url: {}", url);
         if let Some(l) = limit {
             url.push_str(&format!("&limit={}", l));
         }
@@ -169,6 +169,13 @@ impl BinanceCmCli {
 
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
+
+        if let Ok(text) = std::str::from_utf8(&res_bytes) {
+            println!("Response text:\n{}", text);
+        } else {
+            println!("Response contains non-UTF8 bytes: {:?}", res_bytes);
+        }
+
         let res: Vec<RestOpenInterestBinanceCM> = from_slice(&mut res_bytes)?;
 
         let data = res
