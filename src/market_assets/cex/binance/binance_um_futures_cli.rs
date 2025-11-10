@@ -11,10 +11,13 @@ use crate::market_assets::{
         price_data::*,
         utils_data::*,
     },
-    api_general::RequestMethod,
+    api_general::{RequestMethod, value_to_f64},
     base_data::*,
 };
 use crate::market_assets::api_general::ts_to_micros;
+use crate::market_assets::cex::binance::binance_rest_msg::RestResBinance;
+use crate::market_assets::cex::binance::cm_futures_rest::open_interest_statistics::RestOpenInterestBinanceCM;
+use crate::prelude::IntoInfraVec;
 use crate::task_execution::task_ws::*;
 use crate::traits::market_cex::{
     CexPrivateRest, 
@@ -175,22 +178,21 @@ impl BinanceUmCli {
 
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: Vec<Vec<Value>> = from_slice(&mut res_bytes)?;
+        let res: RestResBinance<Vec<Value>> = from_slice(&mut res_bytes)?;
 
-        let mut candles = Vec::with_capacity(res.len());
-        for entry in res {
-            if entry.len() < 5 {
-                continue;
-            }
-
-            let open_time = ts_to_micros(entry[0].as_u64().unwrap_or_default());
-            let open = entry[1].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
-            let high = entry[2].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
-            let low = entry[3].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
-            let close = entry[4].as_str().unwrap_or("0").parse::<f64>().unwrap_or_default();
-
-            candles.push(CandleData::new(inst, open_time, open, high, low, close));
-        }
+        let candles = res
+            .into_vec()?
+            .into_iter()
+            .filter(|entry| entry.len() >= 5)
+            .map(|entry| {
+                let open_time = ts_to_micros(entry[0].as_u64().unwrap_or_default());
+                let open = value_to_f64(&entry[1]);
+                let high = value_to_f64(&entry[2]);
+                let low = value_to_f64(&entry[3]);
+                let close = value_to_f64(&entry[4]);
+                CandleData::new(inst, open_time, open, high, low, close)
+            })
+            .collect();
 
         Ok(candles)
     }
@@ -200,9 +202,10 @@ impl BinanceUmCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: Vec<RestFundingInfoBinanceUM> = from_slice(&mut res_bytes)?;
+        let res: RestResBinance<RestFundingInfoBinanceUM> = from_slice(&mut res_bytes)?;
 
         let data = res
+            .into_vec()?
             .into_iter()
             .map(FundingRateInfo::from)
             .collect();
@@ -236,9 +239,10 @@ impl BinanceUmCli {
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
 
-        let res: Vec<RestFundingRateBinanceUM> = from_slice(&mut res_bytes)?;
+        let res: RestResBinance<RestFundingRateBinanceUM> = from_slice(&mut res_bytes)?;
 
         let data = res
+            .into_vec()?
             .into_iter()
             .map(FundingRateData::from)
             .collect();
@@ -273,9 +277,10 @@ impl BinanceUmCli {
 
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: Vec<RestOpenInterestBinanceUM> = from_slice(&mut res_bytes)?;
+        let res: RestResBinance<RestOpenInterestBinanceUM> = from_slice(&mut res_bytes)?;
 
         let data = res
+            .into_vec()?
             .into_iter()
             .map(OpenInterest::from)
             .collect();
@@ -289,7 +294,7 @@ impl BinanceUmCli {
     ) -> InfraResult<Vec<BalanceData>> {
         let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
 
-        let bal_res: Vec<RestAccountBalBinanceUM> = api_key.send_signed_request(
+        let bal_res: RestResBinance<RestAccountBalBinanceUM> = api_key.send_signed_request(
             &self.client,
             RequestMethod::Get,
             None,
@@ -300,14 +305,15 @@ impl BinanceUmCli {
         let filtered_res = match assets {
             Some(list) if !list.is_empty() => {
                 bal_res
+                    .into_vec()?
                     .into_iter()
                     .filter(|b| list.contains(&b.asset))
                     .collect()
             },
-            _ => bal_res,
+            _ => bal_res.into_vec()?,
         };
 
-        let data: Vec<BalanceData> = filtered_res
+        let data = filtered_res
             .into_iter()
             .map(BalanceData::from)
             .collect();

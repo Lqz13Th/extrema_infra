@@ -18,11 +18,14 @@ use crate::market_assets::{
     base_data::*,
 };
 use crate::task_execution::task_ws::*;
-use crate::traits::market_cex::{
-    CexPrivateRest,
-    CexPublicRest,
-    CexWebsocket,
-    MarketCexApi
+use crate::traits::{
+    conversion::IntoInfraVec,
+    market_cex::{
+        CexPrivateRest,
+        CexPublicRest,
+        CexWebsocket,
+        MarketCexApi
+    }
 };
 
 use super::{
@@ -250,13 +253,8 @@ impl OkxCli {
             )
             .await?;
 
-        if res.code != "0" {
-            let msg = res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
-        }
-
-        let data: Vec<CurrentLeadtrader> = res.data
-            .unwrap_or_default()
+        let data: Vec<CurrentLeadtrader> = res
+            .into_vec()?
             .into_iter()
             .map(CurrentLeadtrader::from)
             .collect();
@@ -320,17 +318,11 @@ impl OkxCli {
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestPubLeadTradersOkx> = from_slice(&mut res_bytes)?;
 
-        if res.code != "0" {
-            let msg = res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
-        };
-
         let data = res
-            .data
-            .unwrap_or_default()
+            .into_vec()?
             .into_iter()
             .next()
-            .ok_or(InfraError::ApiError("No data returned".into()))?;
+            .ok_or(InfraError::ApiError("No public lead traders data returned".into()))?;
 
         Ok(PubLeadtraderInfo::from(data))
     }
@@ -360,22 +352,12 @@ impl OkxCli {
             last_days,
         );
 
-
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-
         let res: RestResOkx<RestPubLeadTraderStatsOkx> = from_slice(&mut res_bytes)?;
 
-        if res.code != "0" {
-            let msg = res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!(
-                "code {}: {}",
-                res.code, msg
-            )));
-        }
-
-        let data: Vec<PubLeadtraderStats> = res.data
-            .unwrap_or_default()
+        let data = res
+            .into_vec()?
             .into_iter()
             .map(PubLeadtraderStats::from)
             .collect();
@@ -415,13 +397,8 @@ impl OkxCli {
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestSubPositionOkx> = from_slice(&mut res_bytes)?;
 
-        if res.code != "0" {
-            let msg = res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
-        }
-
-        let data: Vec<LeadtraderSubposition> = res.data
-            .unwrap_or_default()
+        let data = res
+            .into_vec()?
             .into_iter()
             .map(LeadtraderSubposition::from)
             .collect();
@@ -469,13 +446,8 @@ impl OkxCli {
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestSubPositionHistoryOkx> = from_slice(&mut res_bytes)?;
 
-        if res.code != "0" {
-            let msg = res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
-        }
-
-        let data: Vec<LeadtraderSubpositionHistory> = res.data
-            .unwrap_or_default()
+        let data: Vec<LeadtraderSubpositionHistory> = res
+            .into_vec()?
             .into_iter()
             .map(LeadtraderSubpositionHistory::from)
             .collect();
@@ -498,17 +470,12 @@ impl OkxCli {
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestMarketTickerOkx> = from_slice(&mut res_bytes)?;
 
-        if res.code != "0" {
-            let msg = res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
-        }
-
-        let data: TickerData = res.data
-            .unwrap_or_default()
+        let data: TickerData = res
+            .into_vec()?
             .into_iter()
             .next()
             .map(TickerData::from)
-            .ok_or_else(|| InfraError::ApiError("Empty market tick data".into()))?;
+            .ok_or(InfraError::ApiError("No tick data returned".into()))?;
 
         Ok(data)
     }
@@ -538,13 +505,8 @@ impl OkxCli {
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestInstrumentsOkx> = from_slice(&mut res_bytes)?;
 
-        if res.code != "0" {
-            let msg = res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", res.code, msg)));
-        }
-
-        let data: Vec<InstrumentInfo> = res.data
-            .unwrap_or_default()
+        let data: Vec<InstrumentInfo> = res
+            .into_vec()?
             .into_iter()
             .map(InstrumentInfo::from)
             .collect();
@@ -620,18 +582,13 @@ impl OkxCli {
             .await?;
 
         warn!("{:?}", res);
-        if res.code != "0" {
-            return Err(InfraError::ApiError(res.msg.unwrap_or_default()));
-        }
-
 
         let data: OrderAckData = res
-            .data
-            .unwrap_or_default()
+            .into_vec()?
             .into_iter()
             .map(OrderAckData::from)
             .next()
-            .ok_or_else(|| InfraError::ApiError("Empty order ack data".into()))?;
+            .ok_or(InfraError::ApiError("No order ack data returned".into()))?;
 
         Ok(data)
     }
@@ -649,7 +606,7 @@ impl OkxCli {
             _ => "{}".into(),
         };
 
-        let bal_res: RestResOkx<RestAccountBalOkx> = self.api_key
+        let res: RestResOkx<RestAccountBalOkx> = self.api_key
             .as_ref()
             .ok_or(InfraError::ApiNotInitialized)?
             .send_signed_request(
@@ -661,14 +618,8 @@ impl OkxCli {
             )
             .await?;
 
-        if bal_res.code != "0" {
-            let msg = bal_res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", bal_res.code, msg)));
-        }
-
-        let data: Vec<BalanceData> = bal_res
-            .data
-            .unwrap_or_default()
+        let data: Vec<BalanceData> = res
+            .into_vec()?
             .into_iter()
             .flat_map(|account| account.details)
             .map(BalanceData::from)
@@ -689,7 +640,7 @@ impl OkxCli {
             _ => "{}".into(),
         };
 
-        let pos_res: RestResOkx<RestAccountPosOkx> = self.api_key
+        let res: RestResOkx<RestAccountPosOkx> = self.api_key
             .as_ref()
             .ok_or(InfraError::ApiNotInitialized)?
             .send_signed_request(
@@ -701,14 +652,8 @@ impl OkxCli {
             )
             .await?;
 
-        if pos_res.code != "0" {
-            let msg = pos_res.msg.unwrap_or_default();
-            return Err(InfraError::ApiError(format!("code {}: {}", pos_res.code, msg)));
-        }
-
-        let data: Vec<PositionData> = pos_res
-            .data
-            .unwrap_or_default()
+        let data: Vec<PositionData> = res
+            .into_vec()?
             .into_iter()
             .map(PositionData::from) // 你可以像 BalanceData 一样实现 From
             .collect();

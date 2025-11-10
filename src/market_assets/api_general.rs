@@ -10,6 +10,7 @@ use serde::{
     Deserialize, 
     Serialize,
 };
+use serde_json::Value;
 
 use crate::errors::InfraResult;
 use crate::market_assets::base_data::{
@@ -61,6 +62,11 @@ pub fn ts_to_micros(ts: u64) -> u64 {
         _ => ts,
     }
 }
+
+pub fn value_to_f64(v: &Value) -> f64 {
+    v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok())).unwrap_or(0.0)
+}
+
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OrderParams {

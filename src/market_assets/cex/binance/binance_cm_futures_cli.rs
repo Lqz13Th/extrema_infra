@@ -1,10 +1,11 @@
 use std::sync::Arc;
 use simd_json::from_slice;
 use reqwest::Client;
-use tracing::{error, info};
+use tracing::{error, warn};
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
+    cex::binance::binance_rest_msg::RestResBinance,
     api_data::{
         account_data::*,
         utils_data::*,
@@ -12,13 +13,15 @@ use crate::market_assets::{
     api_general::RequestMethod,
     base_data::*,
 };
-use crate::market_assets::cex::binance::cm_futures_rest::account_balance::RestAccountBalBinanceCM;
 use crate::task_execution::task_ws::*;
-use crate::traits::market_cex::{
-    CexPrivateRest,
-    CexPublicRest,
-    CexWebsocket,
-    MarketCexApi,
+use crate::traits::{
+    conversion::IntoInfraVec,
+    market_cex::{
+        CexPrivateRest,
+        CexPublicRest,
+        CexWebsocket,
+        MarketCexApi,
+    }
 };
 
 use super::{
@@ -26,6 +29,7 @@ use super::{
     api_utils::*,
     config_assets::*,
     cm_futures_rest::{
+        account_balance::RestAccountBalBinanceCM,
         exchange_info::RestExchangeInfoBinanceCM,
         open_interest_statistics::RestOpenInterestBinanceCM,
     },
@@ -146,17 +150,29 @@ impl BinanceCmCli {
         &self,
         inst: &str,
         period: &str,
+        inst_type: InstrumentType,
         limit: Option<u32>,
         start_time: Option<u64>,
         end_time: Option<u64>,
     ) -> InfraResult<Vec<OpenInterest>> {
+        let contract_type_str = match inst_type {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Futures => "CURRENT_QUARTER",
+            InstrumentType::Perpetual => "PERPETUAL",
+            InstrumentType::Options => "OPTION",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiError("Unknown instrument type".into()))
+            },
+        };
+
         let mut url = format!(
-            "{}/futures/data/openInterestHist?pair={}&contractType=PERPETUAL&period={}",
+            "{}/futures/data/openInterestHist?pair={}&contractType={}&period={}",
             BINANCE_CM_FUTURES_BASE_URL,
             cli_perp_to_binance_cm(inst),
+            contract_type_str,
             period,
         );
-        println!("url: {}", url);
+
         if let Some(l) = limit {
             url.push_str(&format!("&limit={}", l));
         }
@@ -169,16 +185,10 @@ impl BinanceCmCli {
 
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-
-        if let Ok(text) = std::str::from_utf8(&res_bytes) {
-            println!("Response text:\n{}", text);
-        } else {
-            println!("Response contains non-UTF8 bytes: {:?}", res_bytes);
-        }
-
-        let res: Vec<RestOpenInterestBinanceCM> = from_slice(&mut res_bytes)?;
+        let res: RestResBinance<RestOpenInterestBinanceCM> = from_slice(&mut res_bytes)?;
 
         let data = res
+            .into_vec()?
             .into_iter()
             .map(OpenInterest::from)
             .collect();
@@ -192,7 +202,7 @@ impl BinanceCmCli {
     ) -> InfraResult<Vec<BalanceData>> {
         let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
 
-        let bal_res: Vec<RestAccountBalBinanceCM> = api_key.send_signed_request(
+        let res: RestResBinance<RestAccountBalBinanceCM> = api_key.send_signed_request(
             &self.client,
             RequestMethod::Get,
             None,
@@ -202,15 +212,16 @@ impl BinanceCmCli {
 
         let filtered_res = match assets {
             Some(list) if !list.is_empty() => {
-                bal_res
+                res
+                    .into_vec()?
                     .into_iter()
                     .filter(|b| list.contains(&b.asset))
                     .collect()
             },
-            _ => bal_res,
+            _ => res.into_vec()?,
         };
 
-        let data: Vec<BalanceData> = filtered_res
+        let data = filtered_res
             .into_iter()
             .map(BalanceData::from)
             .collect();
