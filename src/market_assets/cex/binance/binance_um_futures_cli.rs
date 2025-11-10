@@ -6,24 +6,24 @@ use tracing::error;
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
+    cex::binance::binance_rest_msg::RestResBinance,
     api_data::{
         account_data::*,
         price_data::*,
         utils_data::*,
     },
-    api_general::{RequestMethod, value_to_f64},
+    api_general::*,
     base_data::*,
 };
-use crate::market_assets::api_general::ts_to_micros;
-use crate::market_assets::cex::binance::binance_rest_msg::RestResBinance;
-use crate::market_assets::cex::binance::cm_futures_rest::open_interest_statistics::RestOpenInterestBinanceCM;
-use crate::prelude::IntoInfraVec;
 use crate::task_execution::task_ws::*;
-use crate::traits::market_cex::{
-    CexPrivateRest, 
-    CexPublicRest, 
-    CexWebsocket, 
-    MarketCexApi,
+use crate::traits::{
+    conversion::IntoInfraVec,
+    market_cex::{
+        CexPrivateRest,
+        CexPublicRest,
+        CexWebsocket,
+        MarketCexApi,
+    }
 };
 
 use super::{

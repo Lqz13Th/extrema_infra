@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use simd_json::from_slice;
 use reqwest::Client;
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::errors::{InfraError, InfraResult};
 use crate::market_assets::{
