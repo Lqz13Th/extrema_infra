@@ -217,3 +217,86 @@ with each task focusing on a single role to maintain clarity and modularity.
 
 © 2025 **Extrema Intelligence**. Licensed under the [Apache License 2.0](LICENSE).
 
+```mermaid
+flowchart TB
+    %% ========= Websocket Tasks =========
+    subgraph WS_Public["Websocket Task - Public Trades"]
+        WS_Public_WS["Websocket channel"]
+        WS_Public_BC["Tokio broadcast channels tx"]
+        WS_Public_CMD["Command handle rx"]
+        WS_Public_WS --> WS_Public_BC --> WS_Public_CMD
+    end
+
+    subgraph WS_Account["Websocket Task - Account Order"]
+        WS_Acc_WS["Websocket channel"]
+        WS_Acc_BC["Tokio broadcast channels tx"]
+        WS_Acc_CMD["Command handle rx"]
+        WS_Acc_WS --> WS_Acc_BC --> WS_Acc_CMD
+    end
+
+    %% ========= Strategy Modules =========
+    subgraph Strategy_Core["Strategy Module - Core"]
+        SCore_RX["Tokio broadcast channels rx"]
+        SCore_Feature["Feature generation"]
+        SCore_CMD["Command handle tx"]
+        SCore_RX --> SCore_Feature --> SCore_CMD
+    end
+
+    subgraph Strategy_Account["Strategy Module - Account"]
+        SAcc_RX["Tokio broadcast channels rx"]
+        SAcc_CMD["Command handle tx"]
+        SAcc_Order["Place order"]
+        SAcc_API["Exchange API"]
+        SAcc_RX --> SAcc_CMD --> SAcc_Order --> SAcc_API
+    end
+
+    %% ========= Alt Tasks =========
+    subgraph Alt_ModelA["Alt Task - Model A (ZMQ)"]
+        A_ZMQ["Zeromq channel"]
+        A_BC["Tokio broadcast channels tx"]
+        A_CMD["Command handle rx"]
+        A_ZMQ --> A_BC --> A_CMD
+    end
+
+    subgraph Alt_ModelB["Alt Task - Model B (ZMQ)"]
+        B_ZMQ["Zeromq channel"]
+        B_BC["Tokio broadcast channels tx"]
+        B_CMD["Command handle rx"]
+        B_ZMQ --> B_BC --> B_CMD
+    end
+
+    subgraph Alt_Order["Alt Task - Place Order"]
+        AO_BC["Tokio broadcast channels tx"]
+        AO_CMD["Command handle rx"]
+        AO_BC --> AO_CMD
+    end
+
+    %% ========= Python Models =========
+    subgraph Py_LGBM["Python LightGBM Model"]
+        PyL_ZMQ["Zeromq channel"]
+        PyL_Pred["Model Predict"]
+        PyL_ZMQ --> PyL_Pred
+    end
+
+    subgraph Py_Torch["Python Torch Model"]
+        PyT_ZMQ["Zeromq channel"]
+        PyT_Pred["Model Predict"]
+        PyT_ZMQ --> PyT_Pred
+    end
+
+    %% ========= Connections =========
+    WS_Public_BC -->|raw trade| SCore_RX
+    WS_Acc_BC -->|order responds| SAcc_RX
+
+    SCore_CMD -->|Sending Feat| A_CMD
+    SCore_CMD -->|Sending Feat| B_CMD
+
+    A_BC -->|Model Feat| SCore_RX
+    B_BC -->|Model Feat| SCore_RX
+
+    A_ZMQ -->|Model preds| PyL_ZMQ
+    B_ZMQ -->|Model preds| PyT_ZMQ
+
+    SAcc_CMD -->|Order instruction| AO_CMD
+    AO_BC -->|Order result| SAcc_RX
+```
