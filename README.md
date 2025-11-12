@@ -212,7 +212,8 @@ Meanwhile, support logic can also be split into dedicated tasks,
 with each task focusing on a single role to maintain clarity and modularity.
 
 ---
-![Extrema Infra Architecture](complex_example.svg)
+
+![Extrema Infra Architecture](complex_example.png)
 
 © 2025 **Extrema Intelligence**. Licensed under the [Apache License 2.0](LICENSE).
 
