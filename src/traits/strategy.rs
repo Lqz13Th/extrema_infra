@@ -18,72 +18,13 @@ use crate::task_execution::{
     task_ws::{WsChannel, WsTaskInfo},
 };
 
-pub trait Strategy: EventHandler + CommandEmitter {
+pub trait Strategy: CommandEmitter + EventHandler {
     fn initialize(&mut self) -> impl Future<Output=()> + Send;
     fn strategy_name(&self) -> &'static str { std::any::type_name::<Self>() }
     fn _spawn_strategy_tasks(
         &self,
         _channels: &Arc<Vec<BoardCastChannel>>
     )  -> impl Future<Output=()> + Send { ready(()) }
-}
-
-pub trait EventHandler: AltEventHandler + CexEventHandler + DexEventHandler {}
-
-pub trait AltEventHandler: Clone + Send + Sync + 'static {
-    fn on_alt_event(
-        &mut self,
-        _msg: InfraMsg<AltTaskInfo>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-
-    fn on_order_execution(
-        &mut self,
-        _msg: InfraMsg<Vec<OrderParams>>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-
-    fn on_schedule(
-        &mut self, 
-        _msg: InfraMsg<AltScheduleEvent>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-
-    fn on_preds(
-        &mut self,
-        _msg: InfraMsg<AltMatrix>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-}
-
-pub trait CexEventHandler: Clone + Send + Sync + 'static {
-    fn on_cex_event(
-        &mut self,
-        _msg: InfraMsg<WsTaskInfo>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-
-    fn on_trade(
-        &mut self, 
-        _msg: InfraMsg<Vec<WsTrade>>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-    
-    fn on_lob(
-        &mut self, 
-        _msg: InfraMsg<Vec<WsLob>>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-    
-    fn on_candle(
-        &mut self, 
-        _msg: InfraMsg<Vec<WsCandle>>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-    
-    fn on_acc_order(
-        &mut self, 
-        _msg: InfraMsg<Vec<WsAccOrder>>
-    ) -> impl Future<Output=()> + Send { ready(()) }
-
-}
-
-pub trait DexEventHandler: Clone + Send + Sync + 'static {
-    fn on_dex_event(
-        &mut self,
-        _msg: InfraMsg<WsTaskInfo>
-    ) -> impl Future<Output=()> + Send { ready(()) }
 }
 
 pub trait CommandEmitter: Clone + Send + Sync + 'static {
@@ -120,3 +61,53 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
         })
     }
 }
+
+pub trait EventHandler {
+    // Alt Event
+    fn on_alt_event(
+        &mut self,
+        _msg: InfraMsg<AltTaskInfo>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_order_execution(
+        &mut self,
+        _msg: InfraMsg<Vec<OrderParams>>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_schedule(
+        &mut self,
+        _msg: InfraMsg<AltScheduleEvent>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_preds(
+        &mut self,
+        _msg: InfraMsg<AltMatrix>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    // Ws Event
+    fn on_ws_event(
+        &mut self,
+        _msg: InfraMsg<WsTaskInfo>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_trade(
+        &mut self,
+        _msg: InfraMsg<Vec<WsTrade>>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_lob(
+        &mut self,
+        _msg: InfraMsg<Vec<WsLob>>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_candle(
+        &mut self,
+        _msg: InfraMsg<Vec<WsCandle>>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+
+    fn on_acc_order(
+        &mut self,
+        _msg: InfraMsg<Vec<WsAccOrder>>
+    ) -> impl Future<Output=()> + Send { ready(()) }
+}
+

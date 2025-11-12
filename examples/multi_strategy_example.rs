@@ -19,32 +19,12 @@ use extrema_infra::market_assets::cex::prelude::*;
 #[derive(Clone)]
 struct EmptyStrategy;
 
-impl EventHandler for EmptyStrategy {}
-impl DexEventHandler for EmptyStrategy {}
-
 impl Strategy for EmptyStrategy {
     async fn initialize(&mut self) {
         info!("[EmptyStrategy] Executing init strategy...");
     }
 
     fn strategy_name(&self) -> &'static str { "EmptyStrategy" }
-}
-
-impl AltEventHandler for EmptyStrategy {
-    /// Called periodically if scheduled tasks are configured.
-    async fn on_schedule(
-        &mut self,
-        msg: InfraMsg<AltScheduleEvent>,
-    ) {
-        info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
-    }
-}
-
-impl CexEventHandler for EmptyStrategy {
-    /// Called when new candles are broadcasted.
-    async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
-        info!("[EmptyStrategy] Candle event: {:?}", msg);
-    }
 }
 
 impl CommandEmitter for EmptyStrategy {
@@ -59,6 +39,20 @@ impl CommandEmitter for EmptyStrategy {
     }
 }
 
+impl EventHandler for EmptyStrategy {
+    /// Called periodically if scheduled tasks are configured.
+    async fn on_schedule(
+        &mut self,
+        msg: InfraMsg<AltScheduleEvent>,
+    ) {
+        info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
+    }
+
+    /// Called when new candles are broadcasted.
+    async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
+        info!("[EmptyStrategy] Candle event: {:?}", msg);
+    }
+}
 
 ///---------------------------------------------------------
 /// Binance Strategy
@@ -116,38 +110,10 @@ impl BinanceStrategy {
     }
 }
 
-impl EventHandler for BinanceStrategy {}
-impl DexEventHandler for BinanceStrategy {}
 
 impl Strategy for BinanceStrategy {
     async fn initialize(&mut self) {
         info!("[BinanceStrategy] Starting strategy");
-    }
-}
-
-impl AltEventHandler for BinanceStrategy {
-    async fn on_schedule(
-        &mut self,
-        msg: InfraMsg<AltScheduleEvent>,
-    ) {
-        info!("[BinanceStrategy] AltEventHandler: {:?}", msg);
-    }
-}
-
-impl CexEventHandler for BinanceStrategy {
-    /// Triggered when a new WebSocket task is ready.
-    /// Example: After creating WsTaskInfo for Binance Candle, this event will be fired
-    /// and connect_channel() will be executed.
-    async fn on_cex_event(&mut self, msg: InfraMsg<WsTaskInfo>)  {
-        info!("[BinanceStrategy] Triggering connect for channel: {:?}", msg.data.ws_channel);
-        if let Err(e) = self.connect_channel(&msg.data.ws_channel).await {
-            error!("[BinanceStrategy] connect failed: {:?}", e);
-        }
-    }
-
-    /// Handle incoming Binance candle data (1-minute candles here).
-    async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
-        info!("[BinanceStrategy] Candle event: {:?}", msg);
     }
 }
 
@@ -159,6 +125,30 @@ impl CommandEmitter for BinanceStrategy {
 
     fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
         self.command_handles.clone()
+    }
+}
+
+impl EventHandler for BinanceStrategy {
+    async fn on_schedule(
+        &mut self,
+        msg: InfraMsg<AltScheduleEvent>,
+    ) {
+        info!("[BinanceStrategy] AltEventHandler: {:?}", msg);
+    }
+
+    /// Triggered when a new WebSocket task is ready.
+    /// Example: After creating WsTaskInfo for Binance Candle, this event will be fired
+    /// and connect_channel() will be executed.
+    async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>)  {
+        info!("[BinanceStrategy] Triggering connect for channel: {:?}", msg.data.ws_channel);
+        if let Err(e) = self.connect_channel(&msg.data.ws_channel).await {
+            error!("[BinanceStrategy] connect failed: {:?}", e);
+        }
+    }
+
+    /// Handle incoming Binance candle data (1-minute candles here).
+    async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
+        info!("[BinanceStrategy] Candle event: {:?}", msg);
     }
 }
 
@@ -197,7 +187,7 @@ async fn main() {
     // - Register tasks
     let env = EnvBuilder::new()
         .with_board_cast_channel(BoardCastChannel::default_alt_event())
-        .with_board_cast_channel(BoardCastChannel::default_cex_event())
+        .with_board_cast_channel(BoardCastChannel::default_ws_event())
         .with_board_cast_channel(BoardCastChannel::default_candle())
         .with_board_cast_channel(BoardCastChannel::default_candle()) // duplicated skip (can be removed)
         .with_board_cast_channel(BoardCastChannel::default_scheduler())

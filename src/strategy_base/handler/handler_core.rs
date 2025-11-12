@@ -23,8 +23,7 @@ pub struct InfraMsg<T> {
 #[derive(Clone, Debug)]
 pub enum BoardCastChannel {
     Alt(broadcast::Sender<InfraMsg<AltTaskInfo>>),
-    Cex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
-    Dex(broadcast::Sender<InfraMsg<WsTaskInfo>>),
+    Ws(broadcast::Sender<InfraMsg<WsTaskInfo>>),
     OrderExecute(broadcast::Sender<InfraMsg<Vec<OrderParams>>>),
     Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
     ModelPreds(broadcast::Sender<InfraMsg<AltMatrix>>),
@@ -39,12 +38,8 @@ impl BoardCastChannel {
         BoardCastChannel::Alt(broadcast::channel(2048).0)
     }
 
-    pub fn default_cex_event() -> Self {
-        BoardCastChannel::Cex(broadcast::channel(2048).0)
-    }
-
-    pub fn default_dex_event() -> Self {
-        BoardCastChannel::Dex(broadcast::channel(2048).0)
+    pub fn default_ws_event() -> Self {
+        BoardCastChannel::Ws(broadcast::channel(2048).0)
     }
 
     pub fn default_order_execution() -> Self {
@@ -94,8 +89,7 @@ where
     S: Strategy,
 {
     let mut rx_alt_event = find_alt_event(channels).map(|tx| tx.subscribe());
-    let mut rx_cex_event = find_cex_event(channels).map(|tx| tx.subscribe());
-    let mut rx_dex_event = find_dex_event(channels).map(|tx| tx.subscribe());
+    let mut rx_ws_event = find_ws_event(channels).map(|tx| tx.subscribe());
 
     let mut rx_order_execute = find_order_execution(channels).map(|tx| tx.subscribe());
     let mut rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
@@ -185,23 +179,14 @@ where
                     },
                 };
             },
-            msg = recv_or_pending(&mut rx_cex_event) => {
+            msg = recv_or_pending(&mut rx_ws_event) => {
                 match msg {
                     Ok(msg) => {
-                        strategies.on_cex_event(msg).await
+                        strategies.on_ws_event(msg).await
                     },
                     Err(e) => {
                         error!("rx_cex_event err: {:?}, reconnecting...", e);
-                        rx_cex_event = find_cex_event(channels).map(|tx| tx.subscribe());
-                    },
-                };
-            },
-            msg = recv_or_pending(&mut rx_dex_event) => {
-                match msg {
-                    Ok(msg) => strategies.on_dex_event(msg).await,
-                    Err(e) => {
-                        error!("rx_dex_event err: {:?}, reconnecting...", e);
-                        rx_dex_event = find_dex_event(channels).map(|tx| tx.subscribe());
+                        rx_ws_event = find_ws_event(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -221,23 +206,11 @@ pub(crate) fn find_alt_event(
     })
 }
 
-pub(crate) fn find_cex_event(
+pub(crate) fn find_ws_event(
     channels: &Arc<Vec<BoardCastChannel>>
 ) -> Option<broadcast::Sender<InfraMsg<WsTaskInfo>>> {
     channels.iter().find_map(|ch| {
-        if let BoardCastChannel::Cex(tx) = ch {
-            Some(tx.clone())
-        } else {
-            None
-        }
-    })
-}
-
-pub(crate) fn find_dex_event(
-    channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<InfraMsg<WsTaskInfo>>> {
-    channels.iter().find_map(|ch| {
-        if let BoardCastChannel::Dex(tx) = ch {
+        if let BoardCastChannel::Ws(tx) = ch {
             Some(tx.clone())
         } else {
             None

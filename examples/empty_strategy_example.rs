@@ -7,24 +7,12 @@ use extrema_infra::prelude::*;
 
 #[derive(Clone)]
 struct EmptyStrategy;
-impl EventHandler for EmptyStrategy {}
-impl CexEventHandler for EmptyStrategy {}
-impl DexEventHandler for EmptyStrategy {}
 
 impl Strategy for EmptyStrategy {
     async fn initialize(&mut self) {
         info!("[EmptyStrategy] Executing...");
     }
     fn strategy_name(&self) -> &'static str { "EmptyStrategy" }
-}
-
-impl AltEventHandler for EmptyStrategy {
-    async fn on_schedule(
-        &mut self,
-        msg: InfraMsg<AltScheduleEvent>,
-    ) {
-        info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
-    }
 }
 
 impl CommandEmitter for EmptyStrategy {
@@ -34,6 +22,15 @@ impl CommandEmitter for EmptyStrategy {
 
     fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
         Vec::new()
+    }
+}
+
+impl EventHandler for EmptyStrategy {
+    async fn on_schedule(
+        &mut self,
+        msg: InfraMsg<AltScheduleEvent>,
+    ) {
+        info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
     }
 }
 

@@ -20,23 +20,18 @@ use crate::traits::strategy::*;
 #[derive(Clone)]
 pub struct HNil;
 
+impl Strategy for HNil { async fn initialize(&mut self) {} }
+impl CommandEmitter for HNil {
+    fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {}
+    fn command_registry(&self) -> Vec<Arc<CommandHandle>> { Vec::new() }
+}
+impl EventHandler for HNil {}
+
 #[derive(Clone)]
 pub struct HCons<Head, Tail> {
     pub head: Head,
     pub tail: Tail,
 }
-
-
-impl Strategy for HNil { async fn initialize(&mut self) {} }
-impl EventHandler for HNil {}
-impl AltEventHandler for HNil {}
-impl DexEventHandler for HNil {}
-impl CexEventHandler for HNil {}
-impl CommandEmitter for HNil {
-    fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {}
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> { Vec::new() }
-}
-
 
 impl<Head, Tail> Strategy for HCons<Head, Tail>
 where
@@ -62,14 +57,28 @@ where
         tail._spawn_strategy_tasks(channels).await;
     }
 }
-
-impl<Head, Tail> EventHandler for HCons<Head, Tail> where Head: Strategy, Tail: Strategy {}
-
-
-impl<Head, Tail> AltEventHandler for HCons<Head, Tail>
+impl<Head, Tail> CommandEmitter for HCons<Head, Tail>
 where
-    Head: AltEventHandler,
-    Tail: AltEventHandler,
+    Head: CommandEmitter,
+    Tail: CommandEmitter,
+{
+    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
+        self.head.command_init(command_handle.clone());
+        self.tail.command_init(command_handle);
+    }
+
+    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
+        let mut all = Vec::new();
+        all.extend(self.head.command_registry());
+        all.extend(self.tail.command_registry());
+        all
+    }
+}
+
+impl<Head, Tail> EventHandler for HCons<Head, Tail>
+where
+    Head: Strategy,
+    Tail: Strategy,
 {
     async fn on_alt_event(&mut self, task_info: InfraMsg<AltTaskInfo>) {
         let fut_head = self.head.on_alt_event(task_info.clone());
@@ -94,16 +103,10 @@ where
         let fut_tail = self.tail.on_preds(msg);
         tokio::join!(fut_head, fut_tail);
     }
-}
 
-impl<Head, Tail> CexEventHandler for HCons<Head, Tail>
-where
-    Head: CexEventHandler,
-    Tail: CexEventHandler,
-{
-    async fn on_cex_event(&mut self, task_info: InfraMsg<WsTaskInfo>) {
-        let fut_head = self.head.on_cex_event(task_info.clone());
-        let fut_tail = self.tail.on_cex_event(task_info);
+    async fn on_ws_event(&mut self, task_info: InfraMsg<WsTaskInfo>) {
+        let fut_head = self.head.on_ws_event(task_info.clone());
+        let fut_tail = self.tail.on_ws_event(task_info);
         tokio::join!(fut_head, fut_tail);
     }
 
@@ -132,25 +135,6 @@ where
     }
 }
 
-impl<Head, Tail> DexEventHandler for HCons<Head, Tail> where Head: Strategy, Tail: Strategy {}
 
-
-impl<Head, Tail> CommandEmitter for HCons<Head, Tail>
-where
-    Head: CommandEmitter,
-    Tail: CommandEmitter,
-{
-    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
-        self.head.command_init(command_handle.clone());
-        self.tail.command_init(command_handle);
-    }
-
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        let mut all = Vec::new();
-        all.extend(self.head.command_registry());
-        all.extend(self.tail.command_registry());
-        all
-    }
-}
 
 

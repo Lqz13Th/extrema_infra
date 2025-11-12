@@ -96,16 +96,22 @@ impl HFTStrategy {
     }
 }
 
-impl EventHandler for HFTStrategy {}
-impl DexEventHandler for HFTStrategy {}
-
 impl Strategy for HFTStrategy {
     async fn initialize(&mut self) {
         info!("Initializing strategy");
     }
 }
+impl CommandEmitter for HFTStrategy {
+    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
+        self.command_handles.push(command_handle);
+    }
 
-impl AltEventHandler for HFTStrategy {
+    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
+        self.command_handles.clone()
+    }
+}
+
+impl EventHandler for HFTStrategy {
     /// Handle predictions from models
     async fn on_preds(&mut self, msg: InfraMsg<AltMatrix>) {
         info!("Received model prediction, task id: {}", msg.task_id);
@@ -122,9 +128,7 @@ impl AltEventHandler for HFTStrategy {
             error!("Error sending order: {:?}", e);
         }
     }
-}
 
-impl CexEventHandler for HFTStrategy {
     /// Subscribe and react to trades via WebSocket
     async fn on_trade(&mut self, msg: InfraMsg<Vec<WsTrade>>) {
         if let Err(e) = self.generate_signal(msg).await {
@@ -132,17 +136,6 @@ impl CexEventHandler for HFTStrategy {
         }
     }
 }
-
-impl CommandEmitter for HFTStrategy {
-    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
-        self.command_handles.push(command_handle);
-    }
-
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        self.command_handles.clone()
-    }
-}
-
 
 /// -------------------------------------
 /// Account Module
@@ -210,9 +203,6 @@ impl AccountModule {
     }
 }
 
-impl EventHandler for AccountModule {}
-impl DexEventHandler for AccountModule {}
-
 impl Strategy for AccountModule {
     async fn initialize(&mut self) {
         self.api_cli.init_api_key();
@@ -220,7 +210,18 @@ impl Strategy for AccountModule {
     }
 }
 
-impl AltEventHandler for AccountModule {
+
+impl CommandEmitter for AccountModule {
+    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
+        self.command_handles.push(command_handle);
+    }
+
+    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
+        self.command_handles.clone()
+    }
+}
+
+impl EventHandler for AccountModule {
     /// Handle incoming order execution requests from strategies.
     /// This places the order on OKX via REST/WebSocket API.
     async fn on_order_execution(&mut self, msg: InfraMsg<Vec<OrderParams>>) {
@@ -231,11 +232,9 @@ impl AltEventHandler for AccountModule {
                 .expect("order place failed");
         }
     }
-}
 
-impl CexEventHandler for AccountModule {
     /// Handle private account WebSocket events (like order channel connect).
-    async fn on_cex_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
+    async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         if let Err(e) = self.connect_channel(&msg.data.ws_channel).await {
             error!("connect ws private account order channel failed: {:?}", e);
         }
@@ -244,16 +243,6 @@ impl CexEventHandler for AccountModule {
     /// Handle account/order updates from exchange
     async fn on_acc_order(&mut self, msg: InfraMsg<Vec<WsAccOrder>>) {
         info!("Updating account status: {:?}", msg);
-    }
-}
-
-impl CommandEmitter for AccountModule {
-    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
-        self.command_handles.push(command_handle);
-    }
-
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        self.command_handles.clone()
     }
 }
 
@@ -307,7 +296,7 @@ async fn main() {
     // - Register WebSocket tasks
     let env = EnvBuilder::new()
         .with_board_cast_channel(BoardCastChannel::default_alt_event())
-        .with_board_cast_channel(BoardCastChannel::default_cex_event())
+        .with_board_cast_channel(BoardCastChannel::default_ws_event())
         .with_board_cast_channel(BoardCastChannel::default_account_order())
         .with_board_cast_channel(BoardCastChannel::default_order_execution())
         .with_board_cast_channel(BoardCastChannel::default_model_preds())

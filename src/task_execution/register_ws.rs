@@ -297,7 +297,7 @@ impl WsTaskBuilder {
     }
 
     fn ws_cex_event(&self) {
-        if let Some(tx) = find_cex_event(&self.board_cast_channel) {
+        if let Some(tx) = find_ws_event(&self.board_cast_channel) {
             let msg = InfraMsg {
                 task_id: self.task_id,
                 data: self.ws_info.clone(),
