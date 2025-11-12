@@ -10,6 +10,6 @@ pub struct AltTaskInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AltTaskType {
     OrderExecution,
-    TimeScheduler(Duration),
     ModelPreds(u16),
+    TimeScheduler(Duration),
 }

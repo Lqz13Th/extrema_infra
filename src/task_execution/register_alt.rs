@@ -75,38 +75,6 @@ impl AltTaskBuilder {
         }
     }
 
-    async fn time_scheduler(
-        &mut self,
-        tx: broadcast::Sender<InfraMsg<AltScheduleEvent>>,
-        duration: Duration,
-    ) {
-        let mut interval = interval(duration);
-        loop {
-            select! {
-                _ = interval.tick() => {
-                    let _ = tx.send(
-                        InfraMsg {
-                            task_id: self.task_id,
-                            data: Arc::new(AltScheduleEvent {
-                                timestamp: get_micros_timestamp(),
-                                duration,
-                            }),
-                        }
-                    );
-                },
-                result = self.cmd_rx.recv() => {
-                    match result {
-                        Some(cmd) => self.handle_cmd(cmd),
-                        None => {
-                            self.log(LogLevel::Error, "Command channel closed");
-                            break;
-                        },
-                    };
-                },
-            }
-        }
-    }
-
     async fn model_preds(
         &mut self,
         tx: broadcast::Sender<InfraMsg<AltMatrix>>,
@@ -175,6 +143,38 @@ impl AltTaskBuilder {
         }
     }
 
+    async fn time_scheduler(
+        &mut self,
+        tx: broadcast::Sender<InfraMsg<AltScheduleEvent>>,
+        duration: Duration,
+    ) {
+        let mut interval = interval(duration);
+        loop {
+            select! {
+                _ = interval.tick() => {
+                    let _ = tx.send(
+                        InfraMsg {
+                            task_id: self.task_id,
+                            data: Arc::new(AltScheduleEvent {
+                                timestamp: get_micros_timestamp(),
+                                duration,
+                            }),
+                        }
+                    );
+                },
+                result = self.cmd_rx.recv() => {
+                    match result {
+                        Some(cmd) => self.handle_cmd(cmd),
+                        None => {
+                            self.log(LogLevel::Error, "Command channel closed");
+                            break;
+                        },
+                    };
+                },
+            }
+        }
+    }
+
     async fn alt_task_distribution(&mut self) {
         match self.alt_info.alt_task_type {
             AltTaskType::OrderExecution => {
@@ -187,16 +187,6 @@ impl AltTaskBuilder {
                     );
                 }
             },
-            AltTaskType::TimeScheduler(duration) => {
-                if let Some(tx) = find_scheduler(&self.board_cast_channel) {
-                    self.time_scheduler(tx, duration).await
-                } else {
-                    self.log(
-                        LogLevel::Error,
-                        "No broadcast channel found for time scheduler",
-                    );
-                }
-            },
             AltTaskType::ModelPreds(port) => {
                 if let Some(tx) = find_model_preds(&self.board_cast_channel) {
                     self.model_preds(tx, port).await
@@ -204,6 +194,16 @@ impl AltTaskBuilder {
                     self.log(
                         LogLevel::Error,
                         "No broadcast channel found for model preds",
+                    );
+                }
+            },
+            AltTaskType::TimeScheduler(duration) => {
+                if let Some(tx) = find_scheduler(&self.board_cast_channel) {
+                    self.time_scheduler(tx, duration).await
+                } else {
+                    self.log(
+                        LogLevel::Error,
+                        "No broadcast channel found for time scheduler",
                     );
                 }
             },

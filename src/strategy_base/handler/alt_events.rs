@@ -7,6 +7,12 @@ pub struct AltScheduleEvent {
     pub duration: Duration,
 }
 
+#[derive(Clone, Debug)]
+pub struct AltResample {
+    pub timestamp: u64,
+    pub inst: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AltMatrix {
     pub timestamp: u64,
