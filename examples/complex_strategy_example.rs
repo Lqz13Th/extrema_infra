@@ -4,8 +4,8 @@ use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
 use extrema_infra::prelude::*;
-use extrema_infra::market_assets::{
-    cex::prelude::OkxCli,
+use extrema_infra::arch::market_assets::{
+    exchange::prelude::OkxCli,
     api_general::OrderParams,
     base_data::{OrderSide, OrderType}
 };

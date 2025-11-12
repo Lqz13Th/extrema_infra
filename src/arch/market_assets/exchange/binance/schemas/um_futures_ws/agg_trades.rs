@@ -1,0 +1,43 @@
+use serde::Deserialize;
+
+use crate::arch::{
+    market_assets::{
+        api_general::ts_to_micros,
+        exchange::binance::api_utils::binance_inst_to_cli,
+        base_data::*,
+        market_core::Market,
+    },
+    strategy_base::handler::cex_events::WsTrade,
+    traits::conversion::IntoWsData,
+};
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct WsAggTradeBinanceUM {
+    pub e: String,      // Event type
+    pub E: u64,         // Event time
+    pub a: u64,         // Aggregate trade ID
+    pub s: String,      // Symbol
+    pub p: String,      // Price
+    pub q: String,      // Quantity
+    pub f: u64,         // First trade ID
+    pub l: u64,         // Last trade ID
+    pub T: u64,         // Trade time
+    pub m: bool,        // Is the buyer the market maker?
+}
+
+impl IntoWsData for WsAggTradeBinanceUM {
+    type Output = WsTrade;
+    fn into_ws(self) -> WsTrade {
+        WsTrade {
+            timestamp: ts_to_micros(self.T),
+            market: Market::BinanceUmFutures,
+            inst: binance_inst_to_cli(&self.s),
+            price: self.p.parse().unwrap_or_default(),
+            size: self.q.parse().unwrap_or_default(),
+            side: if self.m { OrderSide::SELL } else { OrderSide::BUY },
+            trade_id: self.a,
+        }
+    }
+}
+

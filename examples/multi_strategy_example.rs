@@ -6,7 +6,7 @@ use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
 use extrema_infra::prelude::*;
-use extrema_infra::market_assets::cex::prelude::*;
+use extrema_infra::arch::market_assets::exchange::prelude::*;
 
 ///---------------------------------------------------------
 /// Empty Strategy
