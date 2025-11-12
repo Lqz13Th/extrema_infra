@@ -68,7 +68,7 @@ With **HList**:
 ---
 
 ## Strategy Execution Model
-- Trait-driven: `on_tick`, `on_bar`, `on_lob`.
+- Trait-driven: `on_trade`, `on_candle`, `on_lob`.
 - HList ensures safe registration of multiple strategy types.
 - All infra timestamps are unified to microseconds (µs).
 - All instrument names returned by the internal API are automatically normalized.
