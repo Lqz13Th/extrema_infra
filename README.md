@@ -146,7 +146,6 @@ impl Strategy for EmptyStrategy {
   async fn initialize(&mut self) {
     info!("[EmptyStrategy] Executing...");
   }
-  
   fn strategy_name(&self) -> &'static str { "EmptyStrategy" }
 }
 
@@ -177,16 +176,19 @@ async fn main() {
   let alt_task = AltTaskInfo {
     alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
     chunk: 1,
+    task_id: None,
   };
 
-  let mediator = EnvBuilder::new()
+  let env = EnvBuilder::new()
+          .with_board_cast_channel(BoardCastChannel::default_alt_event())
           .with_board_cast_channel(BoardCastChannel::default_scheduler())
           .with_strategy_module(EmptyStrategy)
           .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
           .build();
 
-  mediator.execute().await;
+  env.execute().await;
 }
+
 ```
 
 ---
