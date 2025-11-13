@@ -87,15 +87,15 @@ The extrema_infra crate provides the core traits to implement trading strategies
 - **Strategy**  
   Entry point of your strategy. Defines how it executes and spawns tasks.
 
-- **EventHandler** (composed of):
-  - **AltEventHandler** — handle timer or alternative task events.
-  - **CexEventHandler** — handle centralized exchange (CEX) events like trades, orderbook (LOB), candles, account orders.
-  - **DexEventHandler** — handle decentralized exchange (DEX) events.
+- **EventHandler**
+  -  handle timer or alternative task events.
+  -  handle centralized exchange (CEX) events like trades, orderbook (LOB), candles, account orders.
+  -  handle decentralized exchange (DEX) events.
 
 - **CommandEmitter**  
   Used to initialize and register command handles for communication with tasks.
 
-A minimal strategy must implement at least `Strategy` + `AltEventHandler` + `CommandEmitter`.
+A minimal strategy must implement at least `Strategy` + `CommandEmitter` + `EventHandler`.
 
 ---
 
@@ -149,7 +149,6 @@ impl Strategy for EmptyStrategy {
   async fn initialize(&mut self) {
     info!("[EmptyStrategy] Executing...");
   }
-  fn strategy_name(&self) -> &'static str { "EmptyStrategy" }
 }
 
 impl CommandEmitter for EmptyStrategy {

@@ -12,7 +12,6 @@ impl Strategy for EmptyStrategy {
     async fn initialize(&mut self) {
         info!("[EmptyStrategy] Executing...");
     }
-    fn strategy_name(&self) -> &'static str { "EmptyStrategy" }
 }
 
 impl CommandEmitter for EmptyStrategy {
