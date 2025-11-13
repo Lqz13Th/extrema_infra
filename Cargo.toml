@@ -18,7 +18,7 @@ futures-util = "0.3.31"
 zeromq = "0.4.1"
 
 # Data & Feature processing
-polars = { version = "0.51.0", default-features = false }
+polars = { version = "0.52.0", default-features = false }
 
 # Parsing & Serialization
 serde = { version = "1.0.228", features = ["derive"] }
