@@ -48,7 +48,7 @@ impl HFTStrategy {
 
         let matrix_a = AltMatrix {
             timestamp: 1234567890,
-            preds: feats,
+            flat_matrix: feats,
             n_rows,
             n_cols,
         }.clone();

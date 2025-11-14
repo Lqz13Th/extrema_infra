@@ -16,7 +16,7 @@ pub struct AltResample {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AltMatrix {
     pub timestamp: u64,
-    pub preds: Vec<f32>,
+    pub flat_matrix: Vec<f32>,
     pub n_rows: usize,
     pub n_cols: usize,
 }
