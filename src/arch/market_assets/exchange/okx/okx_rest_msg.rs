@@ -18,7 +18,7 @@ impl<T> IntoInfraVec<T> for RestResOkx<T> {
     fn into_vec(self) -> InfraResult<Vec<T>> {
         if self.code != "0" {
             warn!("OKX REST error {}: {:?}", self.code, self.msg);
-            return Err(InfraError::ApiError(format!(
+            return Err(InfraError::ApiCliError(format!(
                 "OKX REST error (code={}): {:?}",
                 self.code, self.msg
             )));

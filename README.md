@@ -10,6 +10,15 @@ At its core: **One unified framework for multiple exchanges, multiple strategies
 
 ---
 
+## SOTA Usages
+
+Explore state-of-the-art example usages, architecture walkthroughes, and community Q&A—no need to run it, just see how strategies and data flows are structured.
+
+👉 **Join the discussion & explore examples:**  
+[GitHub Discussions – SOTA Usages](https://github.com/Lqz13Th/extrema_infra/discussions)
+
+---
+
 ## Key Features
 - **Machine Learning Integration Across Languages**
   - Rust generates high-throughput features for low-latency trading.

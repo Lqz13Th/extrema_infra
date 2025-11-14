@@ -206,7 +206,7 @@ impl OkxCli {
     }
 
     pub fn ws_login_msg(&self) -> InfraResult<String> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
 
         let timestamp = get_okx_timestamp();
         let raw_sign = format!("{}{}", timestamp, OKX_WS_LOGIN);
@@ -235,7 +235,7 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
             },
         };
 
@@ -245,7 +245,7 @@ impl OkxCli {
 
         let res: RestResOkx<RestLeadtraderOkx> = self.api_key
             .as_ref()
-            .ok_or(InfraError::ApiNotInitialized)?
+            .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
                 &self.client,
                 RequestMethod::Get,
@@ -274,7 +274,7 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
             },
         };
 
@@ -324,7 +324,7 @@ impl OkxCli {
             .into_vec()?
             .into_iter()
             .next()
-            .ok_or(InfraError::ApiError("No public lead traders data returned".into()))?;
+            .ok_or(InfraError::ApiCliError("No public lead traders data returned".into()))?;
 
         Ok(PubLeadtraderInfo::from(data))
     }
@@ -341,7 +341,7 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
             },
         };
 
@@ -379,7 +379,7 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
             },
         };
 
@@ -422,7 +422,7 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
             },
         };
 
@@ -477,7 +477,7 @@ impl OkxCli {
             .into_iter()
             .next()
             .map(TickerData::from)
-            .ok_or(InfraError::ApiError("No tick data returned".into()))?;
+            .ok_or(InfraError::ApiCliError("No tick data returned".into()))?;
 
         Ok(data)
     }
@@ -492,7 +492,7 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
             },
         };
 
@@ -573,7 +573,7 @@ impl OkxCli {
 
         let res: RestResOkx<RestOrderAckOkx> = self.api_key
             .as_ref()
-            .ok_or(InfraError::ApiNotInitialized)?
+            .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
                 &self.client,
                 RequestMethod::Post,
@@ -590,7 +590,7 @@ impl OkxCli {
             .into_iter()
             .map(OrderAckData::from)
             .next()
-            .ok_or(InfraError::ApiError("No order ack data returned".into()))?;
+            .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
 
         Ok(data)
     }
@@ -610,7 +610,7 @@ impl OkxCli {
 
         let res: RestResOkx<RestAccountBalOkx> = self.api_key
             .as_ref()
-            .ok_or(InfraError::ApiNotInitialized)?
+            .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
                 &self.client,
                 RequestMethod::Get,
@@ -644,7 +644,7 @@ impl OkxCli {
 
         let res: RestResOkx<RestAccountPosOkx> = self.api_key
             .as_ref()
-            .ok_or(InfraError::ApiNotInitialized)?
+            .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
                 &self.client,
                 RequestMethod::Get,

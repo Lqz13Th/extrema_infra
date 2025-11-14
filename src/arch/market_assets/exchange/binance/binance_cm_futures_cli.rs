@@ -121,7 +121,7 @@ impl BinanceCmCli {
     }
 
     pub async fn create_listen_key(&self) -> InfraResult<BinanceListenKey> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
 
         let listen_key: BinanceListenKey = api_key.send_signed_request(
             &self.client,
@@ -135,7 +135,7 @@ impl BinanceCmCli {
     }
 
     pub async fn renew_listen_key(&self) -> InfraResult<BinanceListenKey> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
 
         let listen_key: BinanceListenKey = api_key.send_signed_request(
             &self.client,
@@ -163,7 +163,7 @@ impl BinanceCmCli {
             InstrumentType::Perpetual => "PERPETUAL",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
             },
         };
 
@@ -202,7 +202,7 @@ impl BinanceCmCli {
         &self,
         assets: Option<&[String]>
     ) -> InfraResult<Vec<BalanceData>> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
 
         let res: RestResBinance<RestAccountBalBinanceCM> = api_key.send_signed_request(
             &self.client,

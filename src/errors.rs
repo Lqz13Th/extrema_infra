@@ -18,50 +18,23 @@ pub enum InfraError {
     SimdJson(#[from] simd_json::Error),
 
     #[error("Polars error: {0}")]
-    Polars(#[from] polars::prelude::PolarsError),
+    Polars(#[from] polars::error::PolarsError),
 
-    #[error("API returned error: {0}")]
-    ApiError(String),
+    #[error("API cli error: {0}")]
+    ApiCliError(String),
 
-    #[error("Failed to parse received data: {0}")]
-    ParseData(String),
-
-    #[error("API transfer data error: {0}")]
-    ApiTransferData(String),
-
-    #[error("Empty response from API")]
-    EmptyResponse,
-
+    #[error("API cli not initialized")]
+    ApiCliNotInitialized,
+    
     #[error("Invalid secret key length")]
     SecretKeyLength,
-
-    #[error("API not initialized")]
-    ApiNotInitialized,
-
-    #[error("Chunk distribution error")]
-    ChunkDistribution,
-
-    #[error("Unknown WebSocket subscription")]
-    UnknownWsSubscription,
-
-    #[error("Unimplemented method")]
-    Unimplemented,
-
-    #[error("Rate limit exceeded: {0}")]
-    RateLimit(String),
-
-    #[error("Authentication error: {0}")]
-    Auth(String),
-
-    #[error("Request timed out")]
-    Timeout,
-
-    #[error("WebSocket disconnected, need reconnect")]
-    WsDisconnected,
 
     #[error("Environment variable missing: {0}")]
     EnvVarMissing(String),
 
+    #[error("Unimplemented method")]
+    Unimplemented,
+    
     #[error("Other error: {0}")]
     Other(String),
 }

@@ -125,7 +125,7 @@ impl BinanceUmCli {
     }
 
     pub async fn create_listen_key(&self) -> InfraResult<BinanceListenKey> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
 
         let listen_key: BinanceListenKey = api_key.send_signed_request(
             &self.client,
@@ -139,7 +139,7 @@ impl BinanceUmCli {
     }
 
     pub async fn renew_listen_key(&self) -> InfraResult<BinanceListenKey> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
 
         let listen_key: BinanceListenKey = api_key.send_signed_request(
             &self.client,
@@ -294,7 +294,7 @@ impl BinanceUmCli {
         &self,
         assets: Option<&[String]>
     ) -> InfraResult<Vec<BalanceData>> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiNotInitialized)?;
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
 
         let bal_res: RestResBinance<RestAccountBalBinanceUM> = api_key.send_signed_request(
             &self.client,

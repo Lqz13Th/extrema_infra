@@ -20,7 +20,7 @@ impl<T> IntoInfraVec<T> for RestResBinance<T> {
             Self::Object(o) => Ok(vec![o]),
             Self::Error { code, msg } => {
                 warn!("Binance REST error {}: {}", code, msg);
-                Err(InfraError::ApiError(format!(
+                Err(InfraError::ApiCliError(format!(
                     "Binance REST error (code={}): {}",
                     code, msg
                 )))
