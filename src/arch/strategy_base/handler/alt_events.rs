@@ -7,16 +7,10 @@ pub struct AltScheduleEvent {
     pub duration: Duration,
 }
 
-#[derive(Clone, Debug)]
-pub struct AltResample {
-    pub timestamp: u64,
-    pub inst: String,
-}
-
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AltMatrix {
-    pub timestamp: u64,
-    pub flat_matrix: Vec<f32>,
-    pub n_rows: usize,
-    pub n_cols: usize,
+    pub timestamp: u64,    // Timestamp of the data (e.g., UNIX epoch)
+    pub data: Vec<f32>,    // Flattened matrix stored as a 1D vector
+    pub shape: Vec<usize>, // Shape of the matrix, length = number of dimensions (N-D)
 }
+

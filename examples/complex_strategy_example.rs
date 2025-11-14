@@ -40,6 +40,7 @@ impl HFTStrategy {
         // Build feature matrix
         let n_rows = msg.data.len();
         let n_cols = 3;
+
         let feats: Vec<f32> = msg
             .data
             .iter()
@@ -48,9 +49,8 @@ impl HFTStrategy {
 
         let matrix_a = AltMatrix {
             timestamp: 1234567890,
-            flat_matrix: feats,
-            n_rows,
-            n_cols,
+            data: feats,
+            shape: vec![n_rows, n_cols],
         }.clone();
 
         let matrix_b = matrix_a.clone();
