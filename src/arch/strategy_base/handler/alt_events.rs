@@ -8,9 +8,9 @@ pub struct AltScheduleEvent {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct AltMatrix {
-    pub timestamp: u64,    // Timestamp of the data (e.g., UNIX epoch)
-    pub data: Vec<f32>,    // Flattened matrix stored as a 1D vector
-    pub shape: Vec<usize>, // Shape of the matrix, length = number of dimensions (N-D)
+pub struct AltTensor {
+    pub timestamp: u64,    // Timestamp of the data
+    pub data: Vec<f32>,    // Flattened N-dimensional array stored as a 1D vector
+    pub shape: Vec<usize>, // Shape of the tensor, length = number of dimensions (N-D)
 }
 

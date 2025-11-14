@@ -29,7 +29,7 @@ use crate::arch::{
             command_core::TaskCommand
         },
         handler::{
-            alt_events::{AltMatrix, AltScheduleEvent},
+            alt_events::{AltTensor, AltScheduleEvent},
             handler_core::*,
         }
     },
@@ -80,7 +80,7 @@ impl AltTaskBuilder {
 
     async fn model_preds(
         &mut self,
-        tx: broadcast::Sender<InfraMsg<AltMatrix>>,
+        tx: broadcast::Sender<InfraMsg<AltTensor>>,
         port: u16,
     ) {
         let mut zmq_socket = ReqSocket::new();
@@ -96,7 +96,7 @@ impl AltTaskBuilder {
                     Ok(msg) => {
                         if let Some(bytes) = msg.get(0) {
                             let mut de = Deserializer::new(&bytes[..]);
-                            match AltMatrix::deserialize(&mut de) {
+                            match AltTensor::deserialize(&mut de) {
                                 Ok(matrix) => {
                                     let _ = tx.send(InfraMsg {
                                         task_id: self.task_id,

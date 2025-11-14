@@ -8,7 +8,7 @@ use crate::arch::{
     market_assets::api_general::OrderParams,
     strategy_base::{
         command::ack_handle::{AckHandle, AckStatus},
-        handler::alt_events::AltMatrix,
+        handler::alt_events::AltTensor,
     },
     task_execution::task_general::TaskInfo,
 };
@@ -57,7 +57,7 @@ pub enum TaskCommand {
     Login { msg: String, ack: AckHandle },
 
     OrderExecute(Vec<OrderParams>),
-    FeatInput(AltMatrix),
+    FeatInput(AltTensor),
 }
 
 impl TaskCommand {

@@ -47,7 +47,7 @@ impl HFTStrategy {
             .map(|trade| (trade.price * trade.size) as f32)
             .collect();
 
-        let matrix_a = AltMatrix {
+        let matrix_a = AltTensor {
             timestamp: 1234567890,
             data: feats,
             shape: vec![n_rows, n_cols],
@@ -62,7 +62,7 @@ impl HFTStrategy {
     }
 
     /// Send feature matrix to model A
-    async fn send_feat_to_model_a(&mut self, feat: AltMatrix) -> InfraResult<()> {
+    async fn send_feat_to_model_a(&mut self, feat: AltTensor) -> InfraResult<()> {
         if let Some(handle) = self.find_alt_handle(&AltTaskType::ModelPreds(1111), 1111) {
             let cmd = TaskCommand::FeatInput(feat);
             handle.send_command(cmd, None).await?;
@@ -73,7 +73,7 @@ impl HFTStrategy {
     }
 
     /// Send feature matrix to model B
-    async fn send_feat_to_model_b(&mut self, feat: AltMatrix) -> InfraResult<()> {
+    async fn send_feat_to_model_b(&mut self, feat: AltTensor) -> InfraResult<()> {
         if let Some(handle) = self.find_alt_handle(&AltTaskType::ModelPreds(2222), 2222) {
             let cmd = TaskCommand::FeatInput(feat);
             handle.send_command(cmd, None).await?;
@@ -113,7 +113,7 @@ impl CommandEmitter for HFTStrategy {
 
 impl EventHandler for HFTStrategy {
     /// Handle predictions from models
-    async fn on_preds(&mut self, msg: InfraMsg<AltMatrix>) {
+    async fn on_preds(&mut self, msg: InfraMsg<AltTensor>) {
         info!("Received model prediction, task id: {}", msg.task_id);
 
         let order_params = OrderParams {

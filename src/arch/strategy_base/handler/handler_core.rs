@@ -28,7 +28,7 @@ pub enum BoardCastChannel {
     Ws(broadcast::Sender<InfraMsg<WsTaskInfo>>),
     OrderExecute(broadcast::Sender<InfraMsg<Vec<OrderParams>>>),
     Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
-    ModelPreds(broadcast::Sender<InfraMsg<AltMatrix>>),
+    ModelPreds(broadcast::Sender<InfraMsg<AltTensor>>),
     Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
     Lob(broadcast::Sender<InfraMsg<Vec<WsLob>>>),
     Candle(broadcast::Sender<InfraMsg<Vec<WsCandle>>>),
@@ -246,7 +246,7 @@ pub(crate) fn find_scheduler(
 
 pub(crate) fn find_model_preds(
     channels: &Arc<Vec<BoardCastChannel>>
-) -> Option<broadcast::Sender<InfraMsg<AltMatrix>>> {
+) -> Option<broadcast::Sender<InfraMsg<AltTensor>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::ModelPreds(tx) = ch {
             Some(tx.clone())

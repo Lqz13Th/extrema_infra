@@ -83,7 +83,7 @@ pub trait EventHandler {
 
     fn on_preds(
         &mut self,
-        _msg: InfraMsg<AltMatrix>
+        _msg: InfraMsg<AltTensor>
     ) -> impl Future<Output=()> + Send { ready(()) }
 
     // Ws Event
