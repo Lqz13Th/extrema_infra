@@ -81,7 +81,7 @@ impl AltTaskBuilder {
     async fn model_preds(
         &mut self,
         tx: broadcast::Sender<InfraMsg<AltTensor>>,
-        port: u16,
+        port: u64,
     ) {
         let mut zmq_socket = ReqSocket::new();
         let address = format!("tcp://127.0.0.1:{}", port);
@@ -118,9 +118,9 @@ impl AltTaskBuilder {
                     },
                 },
                 cmd = self.cmd_rx.recv() => match cmd {
-                    Some(TaskCommand::FeatInput(matrix)) => {
+                    Some(TaskCommand::FeatInput(tensor)) => {
                         let mut buf = Vec::new();
-                        if let Err(e) = matrix.serialize(&mut Serializer::new(&mut buf)) {
+                        if let Err(e) = tensor.serialize(&mut Serializer::new(&mut buf)) {
                             self.log(
                                 LogLevel::Error,
                                 &format!("Failed to serialize matrix: {:?}", e)
