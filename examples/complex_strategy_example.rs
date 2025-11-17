@@ -51,6 +51,7 @@ impl HFTStrategy {
             timestamp: 1234567890,
             data: feats,
             shape: vec![n_rows, n_cols],
+            metadata: Default::default(),
         }.clone();
 
         let matrix_b = matrix_a.clone();
