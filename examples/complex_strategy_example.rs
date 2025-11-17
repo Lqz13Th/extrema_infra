@@ -300,13 +300,13 @@ async fn main() {
         .with_board_cast_channel(BoardCastChannel::default_account_order())
         .with_board_cast_channel(BoardCastChannel::default_order_execution())
         .with_board_cast_channel(BoardCastChannel::default_model_preds())
-        .with_strategy_module(strategy_account_module)
-        .with_strategy_module(strategy_logic)
         .with_task(TaskInfo::WsTask(Arc::new(acc_order_task)))
         .with_task(TaskInfo::WsTask(Arc::new(okx_trade_task)))
         .with_task(TaskInfo::AltTask(Arc::new(model_a_task)))
         .with_task(TaskInfo::AltTask(Arc::new(model_b_task)))
         .with_task(TaskInfo::AltTask(Arc::new(place_order_task)))
+        .with_strategy_module(strategy_account_module)
+        .with_strategy_module(strategy_logic)
         .build();
 
     // Execute environment (runs all tasks)

@@ -15,17 +15,17 @@ use crate::arch::{
 };
 
 pub struct EnvBuilder<Strategies = HNil> {
-    strategies: Strategies,
     board_cast_channels: Vec<BoardCastChannel>,
     tasks: Vec<TaskInfo>,
+    strategies: Strategies,
 }
 
 impl EnvBuilder<HNil> {
     pub fn new() -> Self {
         Self {
-            strategies: HNil,
             board_cast_channels: Vec::new(),
             tasks: vec![],
+            strategies: HNil,
         }
     }
 }
@@ -51,6 +51,12 @@ impl<HeadList> EnvBuilder<HeadList> {
 
         self
     }
+
+    pub fn with_task(mut self, task: TaskInfo) -> Self {
+        info!("Adding task: {:?}", task);
+        self.tasks.push(task);
+        self
+    }
     
     pub fn with_strategy_module<S>(self, strategy: S) -> EnvBuilder<HCons<S, HeadList>>
     where
@@ -67,11 +73,6 @@ impl<HeadList> EnvBuilder<HeadList> {
         }
     }
 
-    pub fn with_task(mut self, task: TaskInfo) -> Self {
-        info!("Adding task: {:?}", task);
-        self.tasks.push(task);
-        self
-    }
 }
 
 impl<Strategies> EnvBuilder<Strategies>
@@ -81,8 +82,8 @@ where
     pub fn build(self) -> EnvMediator<Strategies> {
         EnvMediator {
             core: EnvCore {
-                strategy: self.strategies,
                 channel: Arc::new(self.board_cast_channels),
+                strategy: self.strategies,
             },
             tasks: self.tasks,
         }

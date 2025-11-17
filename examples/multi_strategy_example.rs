@@ -191,10 +191,10 @@ async fn main() {
         .with_board_cast_channel(BoardCastChannel::default_candle())
         .with_board_cast_channel(BoardCastChannel::default_candle()) // duplicated skip (can be removed)
         .with_board_cast_channel(BoardCastChannel::default_scheduler())
-        .with_strategy_module(EmptyStrategy)
-        .with_strategy_module(BinanceStrategy::new())
         .with_task(TaskInfo::WsTask(Arc::new(binance_ws_candle)))
         .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
+        .with_strategy_module(EmptyStrategy)
+        .with_strategy_module(BinanceStrategy::new())
         .build();
 
     // Start event loop (spawns all tasks, connects strategies, begins message flow)
