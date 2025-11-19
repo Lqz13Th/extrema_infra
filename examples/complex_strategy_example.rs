@@ -164,10 +164,9 @@ impl EventHandler for HFTStrategy {
     }
 
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
-        if msg.data.ws_channel == WsChannel::Trades(Some(TradesParam::AggTrades)) {
-            if let Err(e) = self.connect_trade_channel(&msg.data.ws_channel).await {
-                error!("connect ws public trade channel failed: {:?}", e);
-            }
+        if msg.data.ws_channel == WsChannel::Trades(Some(TradesParam::AggTrades))
+            && let Err(e) = self.connect_trade_channel(&msg.data.ws_channel).await {
+            error!("connect ws public trade channel failed: {:?}", e);
         }
     }
 
@@ -278,10 +277,9 @@ impl EventHandler for AccountModule {
 
     /// Handle private account WebSocket events.
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
-        if msg.data.ws_channel == WsChannel::AccountOrder {
-            if let Err(e) = self.connect_acc_channel(&msg.data.ws_channel).await {
-                error!("connect ws private account order channel failed: {:?}", e);
-            }
+        if msg.data.ws_channel == WsChannel::AccountOrder
+            && let Err(e) = self.connect_acc_channel(&msg.data.ws_channel).await {
+            error!("connect ws private account order channel failed: {:?}", e);
         }
     }
 
