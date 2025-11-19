@@ -34,9 +34,9 @@ pub enum InfraError {
 
     #[error("Unimplemented method")]
     Unimplemented,
-    
-    #[error("Other error: {0}")]
-    Other(String),
+
+    #[error("{0}")]
+    Msg(String),
 }
 
 pub type InfraResult<T> = Result<T, InfraError>;

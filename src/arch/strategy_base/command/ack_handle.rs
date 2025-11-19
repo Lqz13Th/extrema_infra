@@ -2,11 +2,9 @@ use tokio::sync::oneshot::Sender;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AckStatus {
-    Login,
-    Connect,
-    Subscribe,
-    Unsubscribe,
-    Shutdown,
+    WsConnect,
+    WsMessage,
+    WsShutdown,
     AltTask,
     Unknown,
 }

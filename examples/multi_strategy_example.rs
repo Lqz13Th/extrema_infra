@@ -5,8 +5,10 @@ use std::{
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
-use extrema_infra::prelude::*;
-use extrema_infra::arch::market_assets::exchange::prelude::*;
+use extrema_infra::{
+    prelude::*,
+    arch::market_assets::exchange::prelude::*,
+};
 
 ///---------------------------------------------------------
 /// Empty Strategy
@@ -86,18 +88,18 @@ impl BinanceStrategy {
             // Step 1: Request connection URL
             let ws_url = self.binance_um_cli.get_public_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
-            let cmd = TaskCommand::Connect {
+            let cmd = TaskCommand::WsConnect {
                 msg: ws_url,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::Connect, rx))).await?;
+            handle.send_command(cmd, Some((AckStatus::WsConnect, rx))).await?;
 
             // Step 2: Subscribe to BTC/USDT perpetual candle updates
             let ws_msg = self.binance_um_cli
                 .get_public_sub_msg(channel, Some(&["BTC_USDT_PERP".into()]))
                 .await?;
 
-            let cmd = TaskCommand::Subscribe {
+            let cmd = TaskCommand::WsMessage {
                 msg: ws_msg,
                 ack: AckHandle::none(), // no need to wait for ack
             };

@@ -162,17 +162,11 @@ impl WsTaskBuilder {
     ) -> bool {
         if let Some(cmd) = cmd {
             match cmd {
-                TaskCommand::Login { msg, ack } => {
-                    self.send_cmd(ws_stream, msg, ack, AckStatus::Login).await
+                TaskCommand::WsMessage { msg, ack } => {
+                    self.send_cmd(ws_stream, msg, ack, AckStatus::WsMessage).await
                 },
-                TaskCommand::Subscribe { msg, ack } => {
-                    self.send_cmd(ws_stream, msg, ack, AckStatus::Subscribe).await
-                },
-                TaskCommand::Unsubscribe { msg, ack } => {
-                    self.send_cmd(ws_stream, msg, ack, AckStatus::Unsubscribe).await
-                },
-                TaskCommand::Shutdown { msg, ack } => {
-                    self.send_cmd(ws_stream, msg, ack, AckStatus::Shutdown).await;
+                TaskCommand::WsShutdown { msg, ack } => {
+                    self.send_cmd(ws_stream, msg, ack, AckStatus::WsShutdown).await;
                     return true;
                 },
                 _ => self.log(LogLevel::Warn, "Unexpected command"),
@@ -326,7 +320,7 @@ impl WsTaskBuilder {
 
             let initial_command = self.cmd_rx.recv().await;
             let (url, ack) = match initial_command {
-                Some(TaskCommand::Connect { msg, ack }) => (msg, ack),
+                Some(TaskCommand::WsConnect { msg, ack }) => (msg, ack),
                 Some(cmd) => {
                     self.log(
                         LogLevel::Warn,
@@ -349,7 +343,7 @@ impl WsTaskBuilder {
                 }
             };
 
-            ack.respond(AckStatus::Connect);
+            ack.respond(AckStatus::WsConnect);
             self.ws_channel_distribution(&mut ws_stream).await;
 
         }

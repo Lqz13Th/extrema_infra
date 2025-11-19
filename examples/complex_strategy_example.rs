@@ -3,11 +3,13 @@ use tokio::sync::oneshot;
 
 use tracing::{error, info, warn};
 
-use extrema_infra::prelude::*;
-use extrema_infra::arch::market_assets::{
-    exchange::prelude::OkxCli,
-    api_general::OrderParams,
-    base_data::{OrderSide, OrderType}
+use extrema_infra::{
+    prelude::*,
+    arch::market_assets::{
+        exchange::prelude::OkxCli,
+        api_general::OrderParams,
+        base_data::{OrderSide, OrderType}
+    }
 };
 
 /// -------------------------------------
@@ -21,12 +23,14 @@ use extrema_infra::arch::market_assets::{
 #[derive(Clone)]
 struct HFTStrategy {
     command_handles: Vec<Arc<CommandHandle>>,
+    api_cli: OkxCli,
 }
 
 impl HFTStrategy {
     pub fn new() -> Self {
         Self {
             command_handles: Vec::new(),
+            api_cli: OkxCli::default(),
         }
     }
 
@@ -34,12 +38,12 @@ impl HFTStrategy {
     /// In this example, it creates a simple AltMatrix.
     async fn generate_signal(&mut self, msg: InfraMsg<Vec<WsTrade>>) -> InfraResult<()> {
         if msg.data.is_empty() {
-            return Err(InfraError::Other("empty infra data".to_string()));
+            return Err(InfraError::Msg("empty infra data".to_string()));
         }
 
         // Build feature matrix
         let n_rows = msg.data.len();
-        let n_cols = 3;
+        let n_cols = 1;
 
         let feats: Vec<f32> = msg
             .data
@@ -95,6 +99,35 @@ impl HFTStrategy {
         }
         Ok(())
     }
+
+    async fn connect_trade_channel(&self, channel: &WsChannel) -> InfraResult<()> {
+        if let Some(handle) = self.find_ws_handle(channel, 1) {
+            info!("Sending connect to {:?}", handle);
+
+            // Step 1: Request connection URL
+            let ws_url = self.api_cli.get_public_connect_msg(channel).await?;
+            let (tx, rx) = oneshot::channel();
+            let cmd = TaskCommand::WsConnect {
+                msg: ws_url,
+                ack: AckHandle::new(tx),
+            };
+            handle.send_command(cmd, Some((AckStatus::WsConnect, rx))).await?;
+
+            // Step 2: Subscribe to BTC/USDT perpetual trade updates
+            let ws_msg = self.api_cli
+                .get_public_sub_msg(channel, Some(&["BTC_USDT_PERP".into()]))
+                .await?;
+            let cmd = TaskCommand::WsMessage {
+                msg: ws_msg,
+                ack: AckHandle::none(), // no need to wait for ack
+            };
+            handle.send_command(cmd, None).await?;
+        } else {
+            warn!("No handle found for channel {:?}", channel);
+        }
+
+        Ok(())
+    }
 }
 
 impl Strategy for HFTStrategy {
@@ -113,7 +146,7 @@ impl CommandEmitter for HFTStrategy {
 }
 
 impl EventHandler for HFTStrategy {
-    /// Handle predictions from models
+    /// Handle predictions from models and generate orders.
     async fn on_preds(&mut self, msg: InfraMsg<AltTensor>) {
         info!("Received model prediction, task id: {}", msg.task_id);
 
@@ -130,7 +163,15 @@ impl EventHandler for HFTStrategy {
         }
     }
 
-    /// Subscribe and react to trades via WebSocket
+    async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
+        if msg.data.ws_channel == WsChannel::Trades(Some(TradesParam::AggTrades)) {
+            if let Err(e) = self.connect_trade_channel(&msg.data.ws_channel).await {
+                error!("connect ws public trade channel failed: {:?}", e);
+            }
+        }
+    }
+
+    /// Subscribe and react to public trades via WebSocket
     async fn on_trade(&mut self, msg: InfraMsg<Vec<WsTrade>>) {
         if let Err(e) = self.generate_signal(msg).await {
             error!("Error generating signal: {:?}", e);
@@ -165,37 +206,35 @@ impl AccountModule {
     /// - Login
     /// - Subscribe to account/order updates
     ///
-    /// NOTE: This is an async/IO-heavy function, so it should be separated
-    /// from latency-critical paths like signal processing.
-    pub async fn connect_channel(&mut self, channel: &WsChannel) -> InfraResult<()> {
+    /// This is an IO-heavy path and should not block signal-processing tasks.
+    pub async fn connect_acc_channel(&mut self, channel: &WsChannel) -> InfraResult<()> {
         if let Some(handle) = self.find_ws_handle(channel, 1) {
             // Step 1: Connect
             let ws_url = self.api_cli.get_private_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
-            let cmd = TaskCommand::Connect {
+            let cmd = TaskCommand::WsConnect {
                 msg: ws_url,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::Connect, rx))).await?;
+            handle.send_command(cmd, Some((AckStatus::WsConnect, rx))).await?;
 
             // Step 2: Login
-            warn!("okx api: {:?}", self.api_cli.api_key);
             let login_msg = self.api_cli.ws_login_msg()?;
             let (tx, rx) = oneshot::channel();
-            let cmd = TaskCommand::Login {
+            let cmd = TaskCommand::WsMessage {
                 msg: login_msg,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::Login, rx))).await?;
+            handle.send_command(cmd, Some((AckStatus::WsMessage, rx))).await?;
 
             // Step 3: Subscribe to private account/order updates
             let ws_msg = self.api_cli.get_private_sub_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
-            let cmd = TaskCommand::Subscribe {
+            let cmd = TaskCommand::WsMessage {
                 msg: ws_msg,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::Subscribe, rx))).await?;
+            handle.send_command(cmd, Some((AckStatus::WsMessage, rx))).await?;
 
         } else {
             warn!("No handle found for channel {:?}", channel);
@@ -226,18 +265,23 @@ impl EventHandler for AccountModule {
     /// Handle incoming order execution requests from strategies.
     /// This places the order on OKX via REST/WebSocket API.
     async fn on_order_execution(&mut self, msg: InfraMsg<Vec<OrderParams>>) {
-        for order in msg.data.iter() {
-            self.api_cli
-                .place_order(order.clone())
-                .await
-                .expect("order place failed");
-        }
+        info!("Received model order execution, task id: {}", msg.task_id);
+        // Then use api_cli to sending order to exchange
+        // 1. REST API order placement
+        //    Using `api_cli` to asynchronously send a REST order request
+        //    (non-blocking; the task awaits the exchange's REST response).
+        //
+        // 2. WebSocket order placement
+        //    Constructing a WS order message.
+        //    Using Task command to send ws message to private ws channel.
     }
 
-    /// Handle private account WebSocket events (like order channel connect).
+    /// Handle private account WebSocket events.
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
-        if let Err(e) = self.connect_channel(&msg.data.ws_channel).await {
-            error!("connect ws private account order channel failed: {:?}", e);
+        if msg.data.ws_channel == WsChannel::AccountOrder {
+            if let Err(e) = self.connect_acc_channel(&msg.data.ws_channel).await {
+                error!("connect ws private account order channel failed: {:?}", e);
+            }
         }
     }
 
@@ -298,6 +342,7 @@ async fn main() {
     let env = EnvBuilder::new()
         .with_board_cast_channel(BoardCastChannel::default_alt_event())
         .with_board_cast_channel(BoardCastChannel::default_ws_event())
+        .with_board_cast_channel(BoardCastChannel::default_trade())
         .with_board_cast_channel(BoardCastChannel::default_account_order())
         .with_board_cast_channel(BoardCastChannel::default_order_execution())
         .with_board_cast_channel(BoardCastChannel::default_model_preds())

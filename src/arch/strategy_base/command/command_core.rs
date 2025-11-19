@@ -29,14 +29,14 @@ impl CommandHandle {
         self.cmd_tx
             .send(cmd)
             .await
-            .map_err(|e| InfraError::Other(format!("Failed to send Command: {}", e)))?;
+            .map_err(|e| InfraError::Msg(format!("Failed to send Command: {}", e)))?;
 
         if let Some((expected, rx)) = expected_ack {
-            let ack = rx.await.map_err(|_| InfraError::Other("Ack channel closed".into()))?;
+            let ack = rx.await.map_err(|_| InfraError::Msg("Ack channel closed".into()))?;
             if ack == expected {
                 Ok(())
             } else {
-                Err(InfraError::Other(format!(
+                Err(InfraError::Msg(format!(
                     "Unexpected ack: {:?}, expected: {:?}",
                     ack, expected
                 )))
@@ -50,11 +50,9 @@ impl CommandHandle {
 
 #[derive(Debug)]
 pub enum TaskCommand {
-    Connect { msg: String, ack: AckHandle },
-    Subscribe { msg: String, ack: AckHandle },
-    Unsubscribe { msg: String, ack: AckHandle },
-    Shutdown { msg: String, ack: AckHandle },
-    Login { msg: String, ack: AckHandle },
+    WsConnect { msg: String, ack: AckHandle },
+    WsMessage { msg: String, ack: AckHandle },
+    WsShutdown { msg: String, ack: AckHandle },
 
     OrderExecute(Vec<OrderParams>),
     FeatInput(AltTensor),
@@ -63,10 +61,8 @@ pub enum TaskCommand {
 impl TaskCommand {
     pub fn get_ack(self) -> Option<AckHandle> {
         match self {
-            TaskCommand::Connect { ack, .. }
-            | TaskCommand::Subscribe { ack, .. }
-            | TaskCommand::Unsubscribe { ack, .. }
-            | TaskCommand::Shutdown { ack, .. } => Some(ack),
+            TaskCommand::WsMessage { ack, .. }
+            | TaskCommand::WsShutdown { ack, .. } => Some(ack),
             _ => None,
         }
     }

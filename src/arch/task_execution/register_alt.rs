@@ -8,6 +8,7 @@ use tokio::{
     select,
     time::{
         sleep,
+        timeout,
         interval,
     },
     sync::{
@@ -89,60 +90,71 @@ impl AltTaskBuilder {
             self.log(LogLevel::Error, &format!("ZMQ connect failed: {:?}", e));
             return;
         }
+        println!("address: {}", address);
+
+        let model_inference_timeout = Duration::from_secs(5);
 
         loop {
-            select! {
-                recv_res = zmq_socket.recv() => match recv_res {
-                    Ok(msg) => {
-                        if let Some(bytes) = msg.get(0) {
-                            let mut de = Deserializer::new(&bytes[..]);
-                            match AltTensor::deserialize(&mut de) {
-                                Ok(matrix) => {
-                                    let _ = tx.send(InfraMsg {
-                                        task_id: self.task_id,
-                                        data: Arc::new(matrix),
-                                    });
-                                },
-                                Err(e) => {
-                                    self.log(
-                                        LogLevel::Error,
-                                        &format!("Failed to deserialize ZMQ msg: {:?}", e)
-                                    )
-                                },
-                            };
-                        }
-                    },
-                    Err(e) => {
-                        self.log(LogLevel::Error, &format!("ZMQ recv error: {:?}", e));
-                        break;
-                    },
-                },
-                cmd = self.cmd_rx.recv() => match cmd {
-                    Some(TaskCommand::FeatInput(tensor)) => {
-                        let mut buf = Vec::new();
-                        if let Err(e) = tensor.serialize(&mut Serializer::new(&mut buf)) {
-                            self.log(
-                                LogLevel::Error,
-                                &format!("Failed to serialize matrix: {:?}", e)
-                            );
-                            break;
-                        }
-
-                        if let Err(e) = zmq_socket.send(buf.into()).await {
-                            self.log(
-                                LogLevel::Error,
-                                &format!("ZMQ send error: {:?}", e)
-                            );
-                            break;
-                        }
-                    },
-                    Some(cmd) => self.handle_cmd(cmd),
-                    None => {
-                        self.log(LogLevel::Error, "Command channel closed");
-                        break;
-                    },
+            let tensor = match self.cmd_rx.recv().await {
+                Some(TaskCommand::FeatInput(t)) => t,
+                Some(cmd) => {
+                    self.handle_cmd(cmd);
+                    continue;
                 }
+                None => {
+                    self.log(LogLevel::Error, "Command channel closed");
+                    break;
+                }
+            };
+
+            let mut buf = Vec::new();
+            if let Err(e) = tensor.serialize(&mut Serializer::new(&mut buf)) {
+                self.log(
+                    LogLevel::Error,
+                    &format!("Failed to serialize tensor: {:?}", e)
+                );
+                break;
             }
+
+            if let Err(e) = zmq_socket.send(buf.into()).await {
+                self.log(
+                    LogLevel::Error,
+                    &format!("ZMQ send error: {:?}", e)
+                );
+                break;
+            }
+
+            match timeout(model_inference_timeout, zmq_socket.recv()).await {
+                Ok(Ok(msg)) => {
+                    if let Some(bytes) = msg.get(0) {
+                        let mut de = Deserializer::new(&bytes[..]);
+                        match AltTensor::deserialize(&mut de) {
+                            Ok(matrix) => {
+                                let _ = tx.send(InfraMsg {
+                                    task_id: self.task_id,
+                                    data: Arc::new(matrix),
+                                });
+                            },
+                            Err(e) => {
+                                self.log(
+                                    LogLevel::Error,
+                                    &format!("Failed to deserialize ZMQ msg: {:?}", e),
+                                );
+                            },
+                        };
+                    } else {
+                        self.log(LogLevel::Error, "ZMQ msg had no frame");
+                    }
+                },
+                Ok(Err(e)) => {
+                    self.log(LogLevel::Error, &format!("ZMQ recv error: {:?}", e));
+                    break;
+                },
+                Err(_) => {
+                    self.log(LogLevel::Warn, "Model prediction TIMEOUT - skipping this tick");
+                    continue;
+                },
+            };
         }
     }
 
