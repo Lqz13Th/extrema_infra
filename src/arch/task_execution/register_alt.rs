@@ -86,14 +86,15 @@ impl AltTaskBuilder {
     ) {
         let mut zmq_socket = ReqSocket::new();
         let address = format!("tcp://127.0.0.1:{}", port);
+
+        self.log(LogLevel::Info, &format!("Connecting to model ZMQ server at {address}..."));
         if let Err(e) = zmq_socket.connect(&address).await {
             self.log(LogLevel::Error, &format!("ZMQ connect failed: {:?}", e));
             return;
         }
-        println!("address: {}", address);
+        self.log(LogLevel::Info, &format!("Connected to model ZMQ server at {address}."));
 
         let model_inference_timeout = Duration::from_secs(5);
-
         loop {
             let tensor = match self.cmd_rx.recv().await {
                 Some(TaskCommand::FeatInput(t)) => t,

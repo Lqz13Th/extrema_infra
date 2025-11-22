@@ -169,7 +169,12 @@ impl WsTaskBuilder {
                     self.send_cmd(ws_stream, msg, ack, AckStatus::WsShutdown).await;
                     return true;
                 },
-                _ => self.log(LogLevel::Warn, "Unexpected command"),
+                _ => {
+                    self.log(
+                        LogLevel::Warn,
+                        &format!("Unexpected command, auto-ack: {:?}", cmd),
+                    )
+                },
             };
         }
 
