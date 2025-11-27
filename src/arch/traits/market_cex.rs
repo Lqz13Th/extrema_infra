@@ -14,37 +14,6 @@ use crate::arch::{
     task_execution::task_ws::{CandleParam, WsChannel},
 };
 
-pub trait CexWebsocket: Send + Sync {
-    fn get_public_sub_msg(
-        &self,
-        _channel: &WsChannel,
-        _insts: Option<&[String]>,
-    ) -> impl Future<Output = InfraResult<String>> + Send {
-        ready(Err(InfraError::Unimplemented))
-    }
-
-    fn get_private_sub_msg(
-        &self,
-        _channel: &WsChannel,
-    ) -> impl Future<Output = InfraResult<String>> + Send {
-        ready(Err(InfraError::Unimplemented))
-    }
-
-    fn get_public_connect_msg(
-        &self,
-        _channel: &WsChannel,
-    ) -> impl Future<Output = InfraResult<String>> + Send {
-        ready(Err(InfraError::Unimplemented))
-    }
-
-    fn get_private_connect_msg(
-        &self,
-        _channel: &WsChannel,
-    ) -> impl Future<Output = InfraResult<String>> + Send {
-        ready(Err(InfraError::Unimplemented))
-    }
-}
-
 pub trait MarketCexApi: CexPublicRest + CexPrivateRest {}
 
 pub trait CexPublicRest: Send + Sync {
@@ -113,6 +82,37 @@ pub trait CexPrivateRest: Send + Sync {
         &self,
         _insts: Option<&[String]>,
     ) -> impl Future<Output = InfraResult<Vec<PositionData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+}
+
+pub trait CexWebsocket: Send + Sync {
+    fn get_public_sub_msg(
+        &self,
+        _channel: &WsChannel,
+        _insts: Option<&[String]>,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    fn get_private_sub_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    fn get_public_connect_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    fn get_private_connect_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 }
