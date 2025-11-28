@@ -55,11 +55,11 @@ pub struct WsAccOrder {
     pub cli_order_id: Option<String>,
 }
 
-
 #[derive(Clone, Debug)]
 pub struct WsAccBalPos {
     pub timestamp: u64,
     pub market: Market,
+    pub event: String,
     pub balances: Vec<WsAccBalance>,
     pub positions: Vec<WsAccPosition>,
 }
@@ -67,7 +67,7 @@ pub struct WsAccBalPos {
 #[derive(Clone, Debug)]
 pub struct WsAccBalance {
     pub inst: String,
-    pub cash_bal: f64,
+    pub balance: f64,
 }
 
 #[derive(Clone, Debug)]

@@ -32,6 +32,7 @@ use crate::arch::{
             binance::{
                 binance_ws_msg::BinanceWsData,
                 schemas::um_futures_ws::{
+                    account_bal_and_pos::WsBalAndPosBinanceUM,
                     agg_trades::WsAggTradeBinanceUM,
                     candles::WsCandleBinanceUM,
                 }
@@ -39,6 +40,7 @@ use crate::arch::{
             okx::{
                 okx_ws_msg::OkxWsData,
                 schemas::ws::{
+                    account_bal_and_pos::WsBalAndPosOkx,
                     account_order::WsAccountOrderOkx,
                     trades::WsTradesOkx,
                 },
@@ -69,6 +71,7 @@ pub(crate) struct WsTaskBuilder{
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
     pub ws_info: Arc<WsTaskInfo>,
+    pub filter_channels: bool,
     pub task_id: u64,
 }
 
@@ -105,9 +108,13 @@ impl WsTaskBuilder {
                         });
                     },
                     Err(e) => {
+                        if self.filter_channels {
+                            return false;
+                        }
+
                         self.log(
                             LogLevel::Warn,
-                            &format!("Failed to deserialize WS text: {}", e)
+                            &format!("Failed to deserialize WS: {}, text: {}", e, text),
                         );
                     },
                 };
@@ -121,9 +128,13 @@ impl WsTaskBuilder {
                         });
                     },
                     Err(e) => {
+                        if self.filter_channels {
+                            return false;
+                        }
+
                         self.log(
                             LogLevel::Warn,
-                            &format!("Failed to deserialize WS binary: {:?}", e)
+                            &format!("Failed to deserialize WS binary: {:?}", e),
                         );
                     },
                 };
@@ -191,11 +202,11 @@ impl WsTaskBuilder {
         if ws_stream.send(Message::text(msg.clone())).await.is_err() {
             self.log(
                 LogLevel::Error,
-                &format!("Failed to send {:?}: {}", ack_status, msg)
+                &format!("Failed to send {:?}: {}", ack_status, msg),
             );
         } else {
             self.log(LogLevel::Info,
-                &format!("{:?}: {}", ack_status, msg)
+                &format!("{:?}: {}", ack_status, msg),
             );
         }
 
@@ -235,65 +246,92 @@ impl WsTaskBuilder {
         ws_stream: &mut WsStream,
     ) {
         match (&self.ws_info.market, &self.ws_info.ws_channel) {
+
+            // BinanceUmFutures
             (Market::BinanceUmFutures, WsChannel::Trades(..)) => {
                 if let Some(tx) = find_trade(&self.board_cast_channel) {
                     self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(
                         tx,
-                        ws_stream
+                        ws_stream,
                     ).await;
                 } else {
                     self.log(
                         LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Trades"
+                        "No broadcast channel found for Binance UmFutures Trades",
                     );
                 }
             },
-            (Market::BinanceUmFutures, WsChannel::Candle(..)) => {
+            (Market::BinanceUmFutures, WsChannel::Candles(..)) => {
                 if let Some(tx) = find_candle(&self.board_cast_channel) {
                     self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(
                         tx,
-                        ws_stream
+                        ws_stream,
                     ).await;
                 } else {
                     self.log(
                         LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Candles"
+                        "No broadcast channel found for Binance UmFutures Candles",
                     );
                 }
             },
-            (Market::Okx, WsChannel::AccountOrder) => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsAccountOrderOkx>>(
+            (Market::BinanceUmFutures, WsChannel::AccountBalAndPos) => {
+                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
+                    self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(
                         tx,
-                        ws_stream
+                        ws_stream,
                     ).await;
                 } else {
                     self.log(
                         LogLevel::Warn,
-                        "No broadcast channel found for OKX Acc Order"
+                        "No broadcast channel found for Binance UmFutures Acc Bal and Pos",
                     );
                 }
             },
+
+            // Okx
             (Market::Okx, WsChannel::Trades(..)) => {
                 if let Some(tx) = find_trade(&self.board_cast_channel) {
                     self.ws_loop::<OkxWsData<WsTradesOkx>>(
                         tx,
-                        ws_stream
+                        ws_stream,
                     ).await;
                 } else {
                     self.log(
                         LogLevel::Warn,
-                        "No broadcast channel found for OKX Trades"
+                        "No broadcast channel found for Okx Trades",
                     );
                 }
             },
-            (Market::SolPumpFun, WsChannel::Other(..)) => {
-
+            (Market::Okx, WsChannel::AccountOrders) => {
+                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<WsAccountOrderOkx>>(
+                        tx,
+                        ws_stream,
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Okx Acc Order",
+                    );
+                }
             },
-            (market, _) => {
+            (Market::Okx, WsChannel::AccountBalAndPos) => {
+                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<WsBalAndPosOkx>>(
+                        tx,
+                        ws_stream,
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Okx Acc Bal and Pos",
+                    );
+                }
+            },
+            (m, c) => {
                 self.log(
                     LogLevel::Warn,
-                    &format!("Unknown channel for the market: {:?}", market)
+                    &format!("Unknown channel for the market: {:?}, channel: {:?}", m, c),
                 );
             },
         };
@@ -315,7 +353,7 @@ impl WsTaskBuilder {
     }
 
     pub(crate) async fn ws_mid_relay(&mut self) {
-        let sleep_interval = Duration::from_secs(5 + 3 * self.task_id);
+        let sleep_interval = Duration::from_secs(5);
         self.log(LogLevel::Info, "Spawned ws task");
 
         loop {

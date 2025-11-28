@@ -277,7 +277,7 @@ impl EventHandler for AccountModule {
 
     /// Handle private account WebSocket events.
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
-        if msg.data.ws_channel == WsChannel::AccountOrder
+        if msg.data.ws_channel == WsChannel::AccountOrders
             && let Err(e) = self.connect_acc_channel(&msg.data.ws_channel).await {
             error!("connect ws private account order channel failed: {:?}", e);
         }
@@ -303,7 +303,8 @@ async fn main() {
     // WebSocket tasks: account order updates & market trades
     let acc_order_task = WsTaskInfo {
         market: Market::Okx,
-        ws_channel: WsChannel::AccountOrder,
+        ws_channel: WsChannel::AccountOrders,
+        filter_channels: false,
         chunk: 1,
         task_id: None,
     };
@@ -311,6 +312,7 @@ async fn main() {
     let okx_trade_task = WsTaskInfo {
         market: Market::Okx,
         ws_channel: WsChannel::Trades(Some(TradesParam::AggTrades)),
+        filter_channels: false,
         chunk: 10, // Run 10 independent WebSocket connections for parallel trade feeds
         task_id: None,
     };

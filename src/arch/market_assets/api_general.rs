@@ -1,18 +1,15 @@
 use std::{
-    fs::File,
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},
 };
 use hmac::Hmac;
 use sha2::Sha256;
 use serde::{
-    de::DeserializeOwned,
     Deserialize, 
     Serialize,
 };
 use serde_json::Value;
 
-use crate::errors::InfraResult;
 use crate::arch::market_assets::base_data::{
     MarginMode, 
     OrderSide, 
@@ -33,12 +30,6 @@ pub enum RequestMethod {
     Get,
     Put,
     Post,
-}
-
-pub fn read_keys_from_json<T: DeserializeOwned>(path: &str) -> InfraResult<HashMap<String, T>> {
-    let file = File::open(path)?;
-    let keys: HashMap<String, T> = serde_json::from_reader(file)?;
-    Ok(keys)
 }
 
 pub fn get_mills_timestamp() -> u64 {

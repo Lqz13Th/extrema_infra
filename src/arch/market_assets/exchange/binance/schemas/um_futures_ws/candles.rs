@@ -14,22 +14,22 @@ use crate::arch::{
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct WsCandleBinanceUM {
-    pub s: String,       // Pair
-    pub k: KlineDetails,
+    s: String,       // Pair
+    k: KlineDetailsBinanceUM,
 }
 
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct KlineDetails {
-    pub t: u64,           // Kline start time
-    pub i: String,        // Interval
-    pub o: String,        // Open price
-    pub c: String,        // Close price
-    pub h: String,        // High price
-    pub l: String,        // Low price
-    pub v: String,        // Volume
-    pub x: bool,          // Is this kline closed?
+struct KlineDetailsBinanceUM {
+    t: u64,           // Kline start time
+    i: String,        // Interval
+    o: String,        // Open price
+    c: String,        // Close price
+    h: String,        // High price
+    l: String,        // Low price
+    v: String,        // Volume
+    x: bool,          // Is this kline closed?
 }
 
 impl IntoWsData for WsCandleBinanceUM {

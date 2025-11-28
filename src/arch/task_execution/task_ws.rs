@@ -4,15 +4,17 @@ use crate::arch::market_assets::market_core::Market;
 pub struct WsTaskInfo {
     pub market: Market,
     pub ws_channel: WsChannel,
+    pub filter_channels: bool,
     pub chunk: u64,
     pub task_id: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WsChannel {
-    AccountOrder,
-    AccountPosition,
-    Candle(Option<CandleParam>),
+    AccountOrders,
+    AccountPositions,
+    AccountBalAndPos,
+    Candles(Option<CandleParam>),
     Trades(Option<TradesParam>),
     Tick,
     Lob,

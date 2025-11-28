@@ -171,7 +171,8 @@ async fn main() {
     // WebSocket Task: Binance Candle (1-minute)
     let binance_ws_candle = WsTaskInfo {
         market: Market::BinanceUmFutures,
-        ws_channel: WsChannel::Candle(Some(CandleParam::OneMinute)),
+        ws_channel: WsChannel::Candles(Some(CandleParam::OneMinute)),
+        filter_channels: false, // false for debug msg
         chunk: 1, // number of websocket connections for this task
         task_id: None,
     };

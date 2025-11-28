@@ -345,7 +345,7 @@ impl BinanceUmCli {
         insts: Option<&[String]>
     ) -> InfraResult<String> {
         match ws_channel {
-            WsChannel::Candle(channel) => {
+            WsChannel::Candles(channel) => {
                 self._ws_subscribe_candle(channel, insts)
             },
             WsChannel::Trades(_) => {

@@ -37,7 +37,7 @@ pub struct HCons<Head, Tail> {
 impl<Head, Tail> Strategy for HCons<Head, Tail>
 where
     Head: Strategy + Send + Sync + Clone + 'static,
-    Tail: Strategy + Send + Sync + Clone + 'static
+    Tail: Strategy + Send + Sync + Clone + 'static,
 {
     async fn initialize(&mut self) {
         let fut_head = self.head.initialize();
@@ -132,6 +132,12 @@ where
     async fn on_acc_order(&mut self, msg: InfraMsg<Vec<WsAccOrder>>) {
         let fut_head = self.head.on_acc_order(msg.clone());
         let fut_tail = self.tail.on_acc_order(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_acc_bal_pos(&mut self, msg: InfraMsg<Vec<WsAccBalPos>>) {
+        let fut_head = self.head.on_acc_bal_pos(msg.clone());
+        let fut_tail = self.tail.on_acc_bal_pos(msg);
         tokio::join!(fut_head, fut_tail);
     }
 }

@@ -4,23 +4,23 @@ use serde::Deserialize;
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct RestExchangeInfoBinanceUM {
-    pub symbols: Vec<InstrumentInfo>,
+    pub symbols: Vec<InstrumentInfoBinanceUM>,
 }
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct InstrumentInfo {
+pub(crate) struct InstrumentInfoBinanceUM {
     pub symbol: String,
     pub contractType: String,
     pub status: String,
     pub pricePrecision: i32,
     pub quantityPrecision: i32,
-    pub filters: Vec<Filter>
+    filters: Vec<Filter>
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) enum Filter {
+enum Filter {
     PRICE_FILTER(PriceFilter),
     // LOT_SIZE,
     // MARKET_LOT_SIZE,
@@ -32,7 +32,7 @@ pub(crate) enum Filter {
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct PriceFilter {
+struct PriceFilter {
     pub minPrice: String,
     pub tickSize: String,
     pub maxPrice: String,
@@ -40,7 +40,7 @@ pub(crate) struct PriceFilter {
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct LotSizeFilter {
+struct LotSizeFilter {
     pub stepSize: String,
     pub tickSize: String,
     pub maxPrice: String,

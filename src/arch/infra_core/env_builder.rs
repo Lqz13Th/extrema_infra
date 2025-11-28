@@ -57,6 +57,14 @@ impl<HeadList> EnvBuilder<HeadList> {
         self.tasks.push(task);
         self
     }
+
+    pub fn with_tasks(mut self, tasks: Vec<TaskInfo>) -> Self {
+        for task in tasks {
+            info!("Adding task: {:?}", task);
+            self.tasks.push(task);
+        }
+        self
+    }
     
     pub fn with_strategy_module<S>(self, strategy: S) -> EnvBuilder<HCons<S, HeadList>>
     where
@@ -72,7 +80,6 @@ impl<HeadList> EnvBuilder<HeadList> {
             tasks: self.tasks,
         }
     }
-
 }
 
 impl<Strategies> EnvBuilder<Strategies>

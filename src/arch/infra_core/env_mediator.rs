@@ -61,6 +61,7 @@ where
                     cmd_rx,
                     board_cast_channel: self.core.channel.clone(),
                     ws_info: ws_task_info.clone(),
+                    filter_channels: ws_task_info.filter_channels,
                     task_id,
                 };
 

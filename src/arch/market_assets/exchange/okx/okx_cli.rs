@@ -144,28 +144,7 @@ impl CexWebsocket for OkxCli {
         &self,
         channel: &WsChannel
     ) -> InfraResult<String> {
-        let args = match channel {
-            WsChannel::AccountOrder => {
-                vec![json!({
-                    "channel": "orders",
-                    "instType": "ANY",
-                })]
-            },
-            WsChannel::AccountPosition => {
-                vec![json!({
-                    "channel": "positions",
-                    "instType": "ANY",
-                })]
-            },
-            _ => return Err(InfraError::Unimplemented),
-        };
-
-        let msg = json!({
-            "op": "subscribe",
-            "args": args
-        });
-
-        Ok(msg.to_string())
+        self._get_private_sub_msg(channel)
     }
 
     async fn get_public_connect_msg(
@@ -177,7 +156,7 @@ impl CexWebsocket for OkxCli {
                 TradesParam::AggTrades => OKX_WS_PUB,
                 TradesParam::AllTrades => OKX_WS_BUS,
             },
-            WsChannel::Candle(_)
+            WsChannel::Candles(_)
             | WsChannel::Tick
             | WsChannel::Lob
             | WsChannel::Trades(None) => OKX_WS_PUB,
@@ -669,7 +648,7 @@ impl OkxCli {
         insts: Option<&[String]>
     ) -> InfraResult<String> {
         match ws_channel {
-            WsChannel::Candle(channel) => {
+            WsChannel::Candles(channel) => {
                 self._ws_subscribe_candle(channel, insts)
             },
             WsChannel::Trades(trades_param) => {
@@ -713,6 +692,39 @@ impl OkxCli {
         };
 
         Ok(ws_subscribe_msg_okx(channel, insts))
+    }
+
+    fn _get_private_sub_msg(
+        &self,
+        channel: &WsChannel
+    ) -> InfraResult<String> {
+        let args = match channel {
+            WsChannel::AccountOrders => {
+                vec![json!({
+                    "channel": "orders",
+                    "instType": "ANY",
+                })]
+            },
+            WsChannel::AccountPositions => {
+                vec![json!({
+                    "channel": "positions",
+                    "instType": "ANY",
+                })]
+            },
+            WsChannel::AccountBalAndPos => {
+                vec![json!({
+                    "channel": "balance_and_position",
+                })]
+            },
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        let msg = json!({
+            "op": "subscribe",
+            "args": args
+        });
+
+        Ok(msg.to_string())
     }
 }
 

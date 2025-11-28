@@ -18,7 +18,7 @@ use crate::arch::{
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub struct WsAccountOrderOkx {
+pub(crate) struct WsAccountOrderOkx {
     pub ordId: String,
     pub clOrdId: String,
     pub instId: String,
