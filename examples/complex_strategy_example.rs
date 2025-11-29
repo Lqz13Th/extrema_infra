@@ -306,7 +306,7 @@ async fn main() {
         ws_channel: WsChannel::AccountOrders,
         filter_channels: false,
         chunk: 1,
-        task_id: None,
+        task_base_id: None,
     };
 
     let okx_trade_task = WsTaskInfo {
@@ -314,25 +314,25 @@ async fn main() {
         ws_channel: WsChannel::Trades(Some(TradesParam::AggTrades)),
         filter_channels: false,
         chunk: 10, // Run 10 independent WebSocket connections for parallel trade feeds
-        task_id: None,
+        task_base_id: None,
     };
 
     let place_order_task = AltTaskInfo {
         alt_task_type: AltTaskType::OrderExecution,
         chunk: 1,
-        task_id: None,
+        task_base_id: None,
     };
 
     let model_a_task = AltTaskInfo {
         alt_task_type: AltTaskType::ModelPreds(1111), // Zeromq port
         chunk: 1,
-        task_id: Some(1111), // Custom task ID
+        task_base_id: Some(1111), // Custom task ID
     };
 
     let model_b_task = AltTaskInfo {
         alt_task_type: AltTaskType::ModelPreds(2222), // Zeromq port
         chunk: 1,
-        task_id: Some(2222), // Custom task ID
+        task_base_id: Some(2222), // Custom task ID
     };
 
     // EnvBuilder sets up the environment:

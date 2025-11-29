@@ -116,7 +116,7 @@ impl EventHandler for AccountModule {
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         info!("WS Task Info: {:?}", msg);
         if msg.data.ws_channel == WsChannel::AccountBalAndPos {
-            println!("task id: {:?}", msg.data.task_id);
+            println!("task id: {:?}", msg.data.task_base_id);
             match msg.task_id {
                 1001 => {
                     if let Err(e) = self.connect_binance_um_acc_channel(
@@ -151,7 +151,7 @@ async fn main() {
     let alt_task = AltTaskInfo {
         alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(1800)),
         chunk: 1,
-        task_id: None,
+        task_base_id: None,
     };
 
     let binance_um_acc_bal_pos_task = WsTaskInfo {
@@ -159,7 +159,7 @@ async fn main() {
         ws_channel: WsChannel::AccountBalAndPos,
         filter_channels: true,
         chunk: 1,
-        task_id: Some(1001),
+        task_base_id: Some(1001),
     };
 
     let okx_acc_bal_pos_task = WsTaskInfo {
@@ -167,7 +167,7 @@ async fn main() {
         ws_channel: WsChannel::AccountBalAndPos,
         filter_channels: false,
         chunk: 1,
-        task_id: Some(1002),
+        task_base_id: Some(1002),
     };
 
     let env = EnvBuilder::new()

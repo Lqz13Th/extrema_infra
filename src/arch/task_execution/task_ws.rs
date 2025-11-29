@@ -6,7 +6,7 @@ pub struct WsTaskInfo {
     pub ws_channel: WsChannel,
     pub filter_channels: bool,
     pub chunk: u64,
-    pub task_id: Option<u64>,
+    pub task_base_id: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
