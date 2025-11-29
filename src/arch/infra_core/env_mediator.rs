@@ -48,7 +48,10 @@ where
     fn spawn_ws_tasks(&self, ws_task_info: &Arc<WsTaskInfo>) -> Vec<Arc<CommandHandle>> {
         (1..=ws_task_info.chunk)
             .map(|chunk_numb| {
-                let task_id = ws_task_info.task_id.unwrap_or(chunk_numb);
+                let task_id = match ws_task_info.task_id {
+                    Some(base) => base + chunk_numb - 1,
+                    None => chunk_numb,
+                };
 
                 let (cmd_tx, cmd_rx) = mpsc::channel::<TaskCommand>(2048);
                 let handle = Arc::new(CommandHandle {
@@ -75,7 +78,10 @@ where
     fn spawn_alt_tasks(&self, alt_task_info: &Arc<AltTaskInfo>) -> Vec<Arc<CommandHandle>> {
         (1..=alt_task_info.chunk)
             .map(|chunk_numb| {
-                let task_id = alt_task_info.task_id.unwrap_or(chunk_numb);
+                let task_id = match alt_task_info.task_id {
+                    Some(base) => base + chunk_numb - 1,
+                    None => chunk_numb,
+                };
 
                 let (cmd_tx, cmd_rx) = mpsc::channel::<TaskCommand>(2048);
                 let handle = Arc::new(CommandHandle {
