@@ -1,4 +1,5 @@
 pub mod account_balance;
+pub mod account_position_risk;
 pub mod exchange_info;
 pub mod funding_rate;
 pub mod funding_rate_info;

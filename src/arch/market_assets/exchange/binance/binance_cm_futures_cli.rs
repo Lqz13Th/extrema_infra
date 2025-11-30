@@ -67,8 +67,8 @@ impl CexPrivateRest for BinanceCmCli {
             },
             Err(e) => {
                 error!("Failed to read BINANCE env key: {:?}", e);
-            }
-        }
+            },
+        };
     }
 
     async fn get_balance(

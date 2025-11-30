@@ -21,7 +21,7 @@ impl From<RestFundingRateBinanceUM> for FundingRateData {
         FundingRateData {
             timestamp: get_micros_timestamp(),
             inst: binance_inst_to_cli(&d.symbol),
-            funding_rate: d.fundingRate.parse::<f64>().unwrap_or_default(),
+            funding_rate: d.fundingRate.parse().unwrap_or_default(),
             funding_time: ts_to_micros(d.fundingTime),
         }
     }

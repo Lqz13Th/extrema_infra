@@ -20,12 +20,12 @@ pub struct RestOpenInterestBinanceUM {
 impl From<RestOpenInterestBinanceUM> for OpenInterest {
     fn from(d: RestOpenInterestBinanceUM) -> Self {
         OpenInterest {
-            timestamp: ts_to_micros(d.timestamp.parse::<u64>().unwrap_or_default()),
+            timestamp: ts_to_micros(d.timestamp.parse().unwrap_or_default()),
             inst: binance_inst_to_cli(&d.symbol),
-            sum_open_interest: d.sumOpenInterest.parse::<f64>().unwrap_or_default(),
+            sum_open_interest: d.sumOpenInterest.parse().unwrap_or_default(),
             sum_open_interest_value: Some(d
                 .sumOpenInterestValue
-                .parse::<f64>()
+                .parse()
                 .unwrap_or_default()
             ),
         }

@@ -2,9 +2,9 @@ use serde::Deserialize;
 
 use crate::arch::market_assets::{
     api_data::account_data::PositionData,
-    exchange::okx::api_utils::okx_inst_to_cli,
     api_general::ts_to_micros,
     base_data::{InstrumentType, PositionSide},
+    exchange::okx::api_utils::okx_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
@@ -36,19 +36,19 @@ impl From<RestAccountPosOkx> for PositionData {
                 "LONG" => PositionSide::Long,
                 "SHORT" => PositionSide::Short,
                 "NET" => {
-                    let size = d.pos.parse::<f64>().unwrap_or(0.0);
+                    let size = d.pos.parse().unwrap_or(0.0);
                     if size >= 0.0 {
                         PositionSide::Long
                     } else {
                         PositionSide::Short
                     }
-                }
+                },
                 _ => PositionSide::Unknown,
             },
             size: d.pos.parse().unwrap_or_default(),
             avg_price: d.avgPx.parse().unwrap_or_default(),
             mark_price: d.markPx.parse().unwrap_or_default(),
-            margin: d.margin.and_then(|m| m.parse::<f64>().ok()).unwrap_or(0.0),
+            margin: d.margin.and_then(|m| m.parse().ok()).unwrap_or_default(),
             leverage: d.lever.parse().unwrap_or_default(),
         }
     }

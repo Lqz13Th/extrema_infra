@@ -34,6 +34,7 @@ use super::{
     config_assets::*,
     schemas::um_futures_rest::{
         account_balance::RestAccountBalBinanceUM,
+        account_position_risk::RestAccountPosRiskBinanceUM,
         exchange_info::RestExchangeInfoBinanceUM,
         funding_rate::RestFundingRateBinanceUM,
         funding_rate_info::RestFundingInfoBinanceUM,
@@ -71,8 +72,8 @@ impl CexPrivateRest for BinanceUmCli {
             },
             Err(e) => {
                 error!("Failed to read BINANCE env key: {:?}", e);
-            }
-        }
+            },
+        };
     }
 
     async fn get_balance(
@@ -80,6 +81,13 @@ impl CexPrivateRest for BinanceUmCli {
         assets: Option<&[String]>
     ) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
+    }
+
+    async fn get_positions(
+        &self,
+        insts: Option<&[String]>,
+    ) -> InfraResult<Vec<PositionData>> {
+        self._get_positions(insts).await
     }
 }
 
@@ -318,6 +326,39 @@ impl BinanceUmCli {
         let data = filtered_res
             .into_iter()
             .map(BalanceData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_positions(
+        &self,
+        insts: Option<&[String]>,
+    ) -> InfraResult<Vec<PositionData>> {
+        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let pos_res: RestResBinance<RestAccountPosRiskBinanceUM> = api_key.send_signed_request(
+            &self.client,
+            RequestMethod::Get,
+            None,
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_POSITION_RISK_INFO,
+        ).await?;
+
+        let filtered_res = match insts {
+            Some(list) if !list.is_empty() => {
+                pos_res
+                    .into_vec()?
+                    .into_iter()
+                    .filter(|p| list.contains(&p.symbol))
+                    .collect()
+            },
+            _ => pos_res.into_vec()?,
+        };
+
+        let data = filtered_res
+            .into_iter()
+            .map(PositionData::from)
             .collect();
 
         Ok(data)

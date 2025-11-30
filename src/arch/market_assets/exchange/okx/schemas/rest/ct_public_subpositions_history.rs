@@ -70,16 +70,16 @@ impl From<RestSubPositionHistoryOkx> for LeadtraderSubpositionHistory {
             close_ts: d
                 .closeTime
                 .map(|t| ts_to_micros(t.parse().unwrap_or_default()))
-                .unwrap_or(0),
+                .unwrap_or_default(),
             close_avg_price: d
                 .closeAvgPx
                 .map(|p| p.parse().unwrap_or_default())
-                .unwrap_or(0.0),
-            pnl: d.pnl.map(|p| p.parse().unwrap_or_default()).unwrap_or(0.0),
+                .unwrap_or_default(),
+            pnl: d.pnl.map(|p| p.parse().unwrap_or_default()).unwrap_or_default(),
             pnl_ratio: d
                 .pnlRatio
                 .map(|r| r.parse().unwrap_or_default())
-                .unwrap_or(0.0),
+                .unwrap_or_default(),
         }
     }
 }

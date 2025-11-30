@@ -636,7 +636,7 @@ impl OkxCli {
         let data: Vec<PositionData> = res
             .into_vec()?
             .into_iter()
-            .map(PositionData::from) // 你可以像 BalanceData 一样实现 From
+            .map(PositionData::from)
             .collect();
 
         Ok(data)

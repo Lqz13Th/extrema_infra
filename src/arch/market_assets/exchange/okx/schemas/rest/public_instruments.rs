@@ -39,11 +39,11 @@ impl From<RestInstrumentsOkx> for InstrumentInfo {
             max_mkt_size: d.maxMktSz.parse().unwrap_or_default(),
             contract_value: d.ctVal
                 .as_ref()
-                .and_then(|p| p.parse::<f64>().ok())
+                .and_then(|p| p.parse().ok())
                 .unwrap_or(0.0),
             contract_multiplier: d.ctMult
                 .as_ref()
-                .and_then(|p| p.parse::<f64>().ok())
+                .and_then(|p| p.parse().ok())
                 .unwrap_or(1.0),
             state: match d.state.as_str() {
                 "live" => InstrumentStatus::Live,
