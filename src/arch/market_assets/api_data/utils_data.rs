@@ -9,6 +9,7 @@ use crate::arch::market_assets::base_data::{
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InstrumentInfo {
     pub inst: String,
+    pub inst_code: Option<String>,
     pub inst_type: InstrumentType,
     pub lot_size: f64,
     pub tick_size: f64,
@@ -16,8 +17,8 @@ pub struct InstrumentInfo {
     pub max_lmt_size: f64,
     pub min_mkt_size: f64,
     pub max_mkt_size: f64,
-    pub contract_value: f64,
-    pub contract_multiplier: f64,
+    pub contract_value: Option<f64>,
+    pub contract_multiplier: Option<f64>,
     pub state: InstrumentStatus,
 }
 

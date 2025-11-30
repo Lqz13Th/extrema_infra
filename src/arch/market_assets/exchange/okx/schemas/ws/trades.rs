@@ -13,13 +13,13 @@ use crate::arch::{
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub struct WsTradesOkx {
-    pub instId: String,
-    pub tradeId: String,
-    pub px: String,
-    pub sz: String,
-    pub side: String,
-    pub ts: String,
+pub(crate) struct WsTradesOkx {
+    instId: String,
+    tradeId: String,
+    px: String,
+    sz: String,
+    side: String,
+    ts: String,
 }
 
 impl IntoWsData for WsTradesOkx {

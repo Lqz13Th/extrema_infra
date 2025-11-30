@@ -58,6 +58,20 @@ pub fn value_to_f64(v: &Value) -> f64 {
     v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok())).unwrap_or(0.0)
 }
 
+pub fn normalize_to_string(value: f64, step: f64) -> String {
+    if step <= 0.0 {
+        return format!("{}", value);
+    }
+
+    let precision = step
+        .to_string()
+        .split('.')
+        .nth(1)
+        .map(|s| s.len())
+        .unwrap_or(0);
+
+    format!("{:.*}", precision, (value / step).floor() * step)
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OrderParams {

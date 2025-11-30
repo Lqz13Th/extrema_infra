@@ -19,17 +19,19 @@ pub struct RestInstrumentsOkx {
     pub ctVal: Option<String>,
     pub ctMult: Option<String>,
     pub state: String,
+    pub instIdCode: i64,
 }
 
 impl From<RestInstrumentsOkx> for InstrumentInfo {
     fn from(d: RestInstrumentsOkx) -> Self {
         InstrumentInfo {
             inst: okx_inst_to_cli(&d.instId),
+            inst_code: Some(d.instIdCode.to_string()),
             inst_type: match d.instType.as_str() {
-            "SWAP" => InstrumentType::Perpetual,
-            "FUTURES" => InstrumentType::Futures,
-            "SPOT" => InstrumentType::Spot,
-            _ => InstrumentType::Unknown,
+                "SWAP" => InstrumentType::Perpetual,
+                "FUTURES" => InstrumentType::Futures,
+                "SPOT" => InstrumentType::Spot,
+                _ => InstrumentType::Unknown,
             },
             lot_size: d.lotSz.parse().unwrap_or_default(),
             tick_size: d.tickSz.parse().unwrap_or_default(),
@@ -39,12 +41,10 @@ impl From<RestInstrumentsOkx> for InstrumentInfo {
             max_mkt_size: d.maxMktSz.parse().unwrap_or_default(),
             contract_value: d.ctVal
                 .as_ref()
-                .and_then(|p| p.parse().ok())
-                .unwrap_or(0.0),
+                .and_then(|p| p.parse().ok()),
             contract_multiplier: d.ctMult
                 .as_ref()
-                .and_then(|p| p.parse().ok())
-                .unwrap_or(1.0),
+                .and_then(|p| p.parse().ok()),
             state: match d.state.as_str() {
                 "live" => InstrumentStatus::Live,
                 "suspend" => InstrumentStatus::Suspend,

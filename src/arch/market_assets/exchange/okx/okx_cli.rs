@@ -295,7 +295,7 @@ impl OkxCli {
             url.push_str(&format!("&limit={}", limit));
         }
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestPubLeadTradersOkx> = from_slice(&mut res_bytes)?;
 
@@ -333,7 +333,7 @@ impl OkxCli {
             last_days,
         );
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestPubLeadTraderStatsOkx> = from_slice(&mut res_bytes)?;
 
@@ -374,7 +374,7 @@ impl OkxCli {
             url.push_str(&format!("&limit={}", l));
         }
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestSubPositionOkx> = from_slice(&mut res_bytes)?;
 
@@ -423,7 +423,7 @@ impl OkxCli {
             url.push_str(&format!("&after={}", a));
         }
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestSubPositionHistoryOkx> = from_slice(&mut res_bytes)?;
 
@@ -447,7 +447,7 @@ impl OkxCli {
             cli_perp_to_okx_inst(inst),
         );
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestMarketTickerOkx> = from_slice(&mut res_bytes)?;
 
@@ -482,7 +482,7 @@ impl OkxCli {
             inst_type_str,
         );
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestInstrumentsOkx> = from_slice(&mut res_bytes)?;
 

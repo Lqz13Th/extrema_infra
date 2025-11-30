@@ -50,7 +50,6 @@ pub fn cli_perp_to_okx_inst(symbol: &str) -> String {
     inst
 }
 
-
 pub fn okx_inst_to_cli(symbol: &str) -> String {
     let parts: Vec<&str> = symbol.split('-').collect();
     match parts.as_slice() {

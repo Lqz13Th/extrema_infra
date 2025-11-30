@@ -59,6 +59,13 @@ impl MarketCexApi for BinanceUmCli {}
 
 
 impl CexPublicRest for BinanceUmCli {
+    async fn get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        self._get_instrument_info(inst_type).await
+    }
+
     async fn get_live_instruments(&self) -> InfraResult<Vec<String>>{
         self._get_live_instruments().await
     }
@@ -186,7 +193,7 @@ impl BinanceUmCli {
             url.push_str(&format!("&endTime={}", end));
         }
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResBinance<Vec<Value>> = from_slice(&mut res_bytes)?;
 
@@ -246,7 +253,7 @@ impl BinanceUmCli {
         }
 
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
 
         let res: RestResBinance<RestFundingRateBinanceUM> = from_slice(&mut res_bytes)?;
@@ -285,7 +292,7 @@ impl BinanceUmCli {
             url.push_str(&format!("&endTime={}", e));
         }
 
-        let responds = self.client.get(&url).send().await?;
+        let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResBinance<RestOpenInterestBinanceUM> = from_slice(&mut res_bytes)?;
 
@@ -293,6 +300,42 @@ impl BinanceUmCli {
             .into_vec()?
             .into_iter()
             .map(OpenInterest::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO].concat();
+
+        let responds = self.client.get(&url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestExchangeInfoBinanceUM = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .symbols
+            .into_iter()
+            .map(InstrumentInfo::from)
+            .filter(|i| i.inst_type == inst_type)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_live_instruments(&self) -> InfraResult<Vec<String>> {
+        let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO].concat();
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestExchangeInfoBinanceUM = from_slice(&mut res_bytes)?;
+
+        let data: Vec<String> = res.symbols
+            .into_iter()
+            .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
+            .map(|s| binance_inst_to_cli(&s.symbol))
             .collect();
 
         Ok(data)
@@ -359,22 +402,6 @@ impl BinanceUmCli {
         let data = filtered_res
             .into_iter()
             .map(PositionData::from)
-            .collect();
-
-        Ok(data)
-    }
-
-    async fn _get_live_instruments(&self) -> InfraResult<Vec<String>> {
-        let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO].concat();
-
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestExchangeInfoBinanceUM = from_slice(&mut res_bytes)?;
-
-        let data: Vec<String> = res.symbols
-            .into_iter()
-            .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
-            .map(|s| binance_inst_to_cli(&s.symbol))
             .collect();
 
         Ok(data)
