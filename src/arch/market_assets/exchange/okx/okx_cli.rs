@@ -121,7 +121,7 @@ impl CexPrivateRest for OkxCli {
         self._get_balance(assets).await
     }
 
-    async fn get_position(
+    async fn get_positions(
         &self,
         insts: Option<&[String]>,
     ) -> InfraResult<Vec<PositionData>> {

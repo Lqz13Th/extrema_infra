@@ -135,14 +135,14 @@ impl CexPrivateRest for CexClients {
         }
     }
 
-    async fn get_position(
+    async fn get_positions(
         &self,
         insts: Option<&[String]>,
     ) -> InfraResult<Vec<PositionData>> {
         match self {
-            CexClients::BinanceCm(c) => c.get_position(insts).await,
-            CexClients::BinanceUm(c) => c.get_position(insts).await,
-            CexClients::Okx(c) => c.get_position(insts).await,
+            CexClients::BinanceCm(c) => c.get_positions(insts).await,
+            CexClients::BinanceUm(c) => c.get_positions(insts).await,
+            CexClients::Okx(c) => c.get_positions(insts).await,
         }
     }
 }

@@ -78,7 +78,7 @@ pub trait CexPrivateRest: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
-    fn get_position(
+    fn get_positions(
         &self,
         _insts: Option<&[String]>,
     ) -> impl Future<Output = InfraResult<Vec<PositionData>>> + Send {
