@@ -1,4 +1,4 @@
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub enum Market {
     BinanceCmFutures,
     BinanceUmFutures,

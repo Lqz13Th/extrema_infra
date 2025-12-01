@@ -187,7 +187,7 @@ async fn main() {
   let alt_task = AltTaskInfo {
     alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
     chunk: 1,
-    task_id: None,
+    task_base_id: None,
   };
 
   let env = EnvBuilder::new()
