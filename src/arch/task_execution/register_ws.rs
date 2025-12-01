@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+
 use std::sync::Arc;
 use serde::de::DeserializeOwned;
 use serde_json::from_slice;
@@ -241,99 +245,20 @@ impl WsTaskBuilder {
         }
     }
 
-    async fn ws_channel_distribution(
+    pub async fn ws_channel_distribution(
         &mut self,
         ws_stream: &mut WsStream,
     ) {
-        match (&self.ws_info.market, &self.ws_info.ws_channel) {
-
-            // BinanceUmFutures
-            (Market::BinanceUmFutures, WsChannel::Trades(..)) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(
-                        tx,
-                        ws_stream,
-                    ).await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Trades",
-                    );
-                }
+        match &self.ws_info.market {
+            #[cfg(feature = "binance_um")]
+            Market::BinanceUmFutures => {
+                self.ws_channel_binance_um(ws_stream).await;
             },
-            (Market::BinanceUmFutures, WsChannel::Candles(..)) => {
-                if let Some(tx) = find_candle(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(
-                        tx,
-                        ws_stream,
-                    ).await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Candles",
-                    );
-                }
+            #[cfg(feature = "okx")]
+            Market::Okx => {
+                self.ws_channel_okx(ws_stream).await;
             },
-            (Market::BinanceUmFutures, WsChannel::AccountBalAndPos) => {
-                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(
-                        tx,
-                        ws_stream,
-                    ).await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Acc Bal and Pos",
-                    );
-                }
-            },
-
-            // Okx
-            (Market::Okx, WsChannel::Trades(..)) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsTradesOkx>>(
-                        tx,
-                        ws_stream,
-                    ).await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Okx Trades",
-                    );
-                }
-            },
-            (Market::Okx, WsChannel::AccountOrders) => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsAccountOrderOkx>>(
-                        tx,
-                        ws_stream,
-                    ).await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Okx Acc Order",
-                    );
-                }
-            },
-            (Market::Okx, WsChannel::AccountBalAndPos) => {
-                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsBalAndPosOkx>>(
-                        tx,
-                        ws_stream,
-                    ).await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Okx Acc Bal and Pos",
-                    );
-                }
-            },
-            (m, c) => {
-                self.log(
-                    LogLevel::Warn,
-                    &format!("Unknown channel for the market: {:?}, channel: {:?}", m, c),
-                );
-            },
+            m => self.log(LogLevel::Warn, &format!("Unsupported market: {:?}", m)),
         };
     }
 
@@ -404,6 +329,102 @@ impl WsTaskBuilder {
                 error!("Ws task: {:?}, task id: {}. {}", self.ws_info, self.task_id, msg)
             },
         }
+    }
+
+    #[cfg(feature = "binance_um")]
+    async fn ws_channel_binance_um(&mut self, ws_stream: &mut WsStream) {
+        match &self.ws_info.ws_channel {
+            WsChannel::Trades(..) => {
+                if let Some(tx) = find_trade(&self.board_cast_channel) {
+                    self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(
+                        tx,
+                        ws_stream,
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Binance UmFutures Trades",
+                    );
+                }
+            },
+            WsChannel::Candles(..) => {
+                if let Some(tx) = find_candle(&self.board_cast_channel) {
+                    self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(
+                        tx,
+                        ws_stream,
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Binance UmFutures Candles",
+                    );
+                }
+            },
+            WsChannel::AccountBalAndPos => {
+                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
+                    self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(
+                        tx,
+                        ws_stream,
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Binance UmFutures Acc Bal and Pos",
+                    );
+                }
+            },
+            c => {
+                self.log(LogLevel::Warn, &format!("Unknown Binance UM channel: {:?}", c));
+            },
+        };
+    }
+
+    #[cfg(feature = "okx")]
+    async fn ws_channel_okx(&mut self, ws_stream: &mut WsStream) {
+        match &self.ws_info.ws_channel {
+            WsChannel::Trades(..) => {
+                if let Some(tx) = find_trade(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<WsTradesOkx>>(
+                        tx,
+                        ws_stream,
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Okx Trades",
+                    );
+                }
+            },
+            WsChannel::AccountOrders => {
+                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<WsAccountOrderOkx>>(
+                        tx,
+                        ws_stream,
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Okx Acc Order",
+                    );
+                }
+            },
+            WsChannel::AccountBalAndPos => {
+                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<WsBalAndPosOkx>>(
+                        tx,
+                        ws_stream,
+                    ).await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Okx Acc Bal and Pos",
+                    );
+                }
+            },
+            c => {
+                self.log(LogLevel::Warn, &format!("Unknown Okx channel: {:?}", c));
+            },
+        };
     }
 }
 

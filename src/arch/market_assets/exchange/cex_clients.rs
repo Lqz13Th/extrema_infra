@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use crate::errors::InfraResult;
 use crate::arch::{
     market_assets::{
@@ -18,20 +20,24 @@ use crate::arch::{
 use super::prelude::*;
 
 #[derive(Clone, Debug)]
+#[cfg(feature = "cex_clients")]
 pub enum CexClients {
     BinanceCm(BinanceCmCli),
     BinanceUm(BinanceUmCli),
     Okx(OkxCli),
 }
 
+#[cfg(feature = "cex_clients")]
 impl Default for CexClients {
     fn default() -> Self {
         CexClients::Okx(OkxCli::default())
     }
 }
 
+#[cfg(feature = "cex_clients")]
 impl MarketCexApi for CexClients {}
 
+#[cfg(feature = "cex_clients")]
 impl CexPublicRest for CexClients {
     async fn get_ticker(
         &self,
@@ -88,6 +94,7 @@ impl CexPublicRest for CexClients {
     }
 }
 
+#[cfg(feature = "cex_clients")]
 impl CexPrivateRest for CexClients {
     fn init_api_key(&mut self) {
         match self {
@@ -147,6 +154,7 @@ impl CexPrivateRest for CexClients {
     }
 }
 
+#[cfg(feature = "cex_clients")]
 impl CexWebsocket for CexClients {
     async fn get_public_sub_msg(
         &self,

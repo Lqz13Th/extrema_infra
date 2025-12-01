@@ -38,3 +38,15 @@ tracing-subscriber = "0.3.22"
 # Environment & Error handling
 dotenv = "0.15.0"
 thiserror = "2.0.17"
+
+[features]
+default = []
+
+cex_clients = [
+    "binance_um",
+    "binance_cm",
+    "okx",
+]
+binance_um = []
+binance_cm = []
+okx = []
