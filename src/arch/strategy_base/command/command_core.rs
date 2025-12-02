@@ -32,13 +32,17 @@ impl CommandHandle {
             .map_err(|e| InfraError::Msg(format!("Failed to send Command: {}", e)))?;
 
         if let Some((expected, rx)) = expected_ack {
-            let ack = rx.await.map_err(|_| InfraError::Msg("Ack channel closed".into()))?;
+            let ack = rx.await.map_err(|_| InfraError::Msg(format!(
+                "Ack channel closed, expected ack: {:?}",
+                expected,
+            )))?;
+
             if ack == expected {
                 Ok(())
             } else {
                 Err(InfraError::Msg(format!(
                     "Unexpected ack: {:?}, expected: {:?}",
-                    ack, expected
+                    ack, expected,
                 )))
             }
         } else {

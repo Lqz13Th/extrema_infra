@@ -43,10 +43,10 @@ thiserror = "2.0.17"
 default = []
 
 cex_clients = [
-    "binance_um",
     "binance_cm",
+    "binance_um",
     "okx",
 ]
-binance_um = []
 binance_cm = []
+binance_um = []
 okx = []

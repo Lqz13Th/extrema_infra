@@ -4,3 +4,4 @@ pub mod exchange_info;
 pub mod funding_rate;
 pub mod funding_rate_info;
 pub mod open_interest_statistics;
+pub mod trade_order;

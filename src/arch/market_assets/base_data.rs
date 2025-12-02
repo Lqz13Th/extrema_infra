@@ -33,6 +33,7 @@ pub enum OrderStatus {
     Live,
     PartiallyFilled,
     Filled,
+    Expired,
     Canceled,
     Rejected,
     #[default]

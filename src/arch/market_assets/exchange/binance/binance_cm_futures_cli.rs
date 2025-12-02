@@ -244,15 +244,16 @@ impl BinanceCmCli {
         &self,
         assets: Option<&[String]>
     ) -> InfraResult<Vec<BalanceData>> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
-
-        let res: RestResBinance<RestAccountBalBinanceCM> = api_key.send_signed_request(
-            &self.client,
-            RequestMethod::Get,
-            None,
-            BINANCE_CM_FUTURES_BASE_URL,
-            BINANCE_CM_FUTURES_BALANCE_INFO,
-        ).await?;
+        let res: RestResBinance<RestAccountBalBinanceCM> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                BINANCE_CM_FUTURES_BASE_URL,
+                BINANCE_CM_FUTURES_BALANCE_INFO,
+            ).await?;
 
         let filtered_res = match assets {
             Some(list) if !list.is_empty() => {

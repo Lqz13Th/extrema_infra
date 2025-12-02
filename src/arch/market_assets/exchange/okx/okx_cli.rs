@@ -562,7 +562,7 @@ impl OkxCli {
             )
             .await?;
 
-        warn!("{:?}", res);
+        warn!("{:#?}", res);
 
         let data: OrderAckData = res
             .into_vec()?

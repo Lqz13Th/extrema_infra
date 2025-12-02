@@ -27,7 +27,6 @@ use crate::arch::{
         },
     },
 };
-
 use super::{
     api_key::{read_binance_env_key, BinanceKey},
     api_utils::*,
@@ -39,6 +38,7 @@ use super::{
         funding_rate::RestFundingRateBinanceUM,
         funding_rate_info::RestFundingInfoBinanceUM,
         open_interest_statistics::RestOpenInterestBinanceUM,
+        trade_order::RestOrderAckBinanceUM,
     },
 };
 
@@ -81,6 +81,13 @@ impl CexPrivateRest for BinanceUmCli {
                 error!("Failed to read BINANCE env key: {:?}", e);
             },
         };
+    }
+
+    async fn place_order(
+        &self,
+        order_params: OrderParams,
+    ) -> InfraResult<OrderAckData> {
+        self._place_order(order_params).await
     }
 
     async fn get_balance(
@@ -341,19 +348,104 @@ impl BinanceUmCli {
         Ok(data)
     }
 
+    async fn _place_order(
+        &self,
+        order_params: OrderParams,
+    ) -> InfraResult<OrderAckData> {
+        let mut query_string = format!(
+            "symbol={}&side={}&type={}&quantity={}",
+            cli_perp_to_pure_uppercase(&order_params.inst),
+            match order_params.side {
+                OrderSide::BUY => "BUY",
+                OrderSide::SELL => "SELL",
+                _ => "BUY",
+            },
+            match order_params.order_type {
+                OrderType::Limit => "LIMIT",
+                OrderType::Market => "MARKET",
+                OrderType::PostOnly => "POST_ONLY",
+                OrderType::Fok => "FOK",
+                OrderType::Ioc => "IOC",
+                OrderType::Unknown => "MARKET",
+            },
+            order_params.size,
+        );
+
+        if let Some(price) = &order_params.price {
+            query_string.push_str(&format!("&price={}", price));
+        }
+
+        if let Some(ro) = order_params.reduce_only {
+            query_string.push_str(&format!("&reduceOnly={}", ro));
+        }
+
+        if let Some(ps) = &order_params.position_side {
+            let ps_str = match ps {
+                PositionSide::Long => "LONG",
+                PositionSide::Short => "SHORT",
+                PositionSide::Both => "BOTH",
+                PositionSide::Unknown => "BOTH",
+            };
+            query_string.push_str(&format!("&positionSide={}", ps_str));
+        }
+
+        if let Some(tif) = &order_params.time_in_force {
+            let tif_str = match tif {
+                TimeInForce::GTC => "GTC",
+                TimeInForce::IOC => "IOC",
+                TimeInForce::FOK => "FOK",
+                TimeInForce::GTD => "GTD",
+                TimeInForce::Unknown => "GTC",
+            };
+            query_string.push_str(&format!("&timeInForce={}", tif_str));
+        }
+
+        if let Some(cid) = &order_params.client_order_id {
+            query_string.push_str(&format!("&newClientOrderId={}", cid));
+        }
+
+        for (k, v) in &order_params.extra {
+            query_string.push_str(&format!("&{}={}", k, v));
+        }
+        println!("{}", query_string);
+        let res: RestResBinance<RestOrderAckBinanceUM> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_PLACE_ORDER_INFO,
+            )
+            .await?;
+
+        tracing::warn!("{:#?}", res);
+
+        let data: OrderAckData = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
+
+        Ok(data)
+    }
+
     async fn _get_balance(
         &self,
         assets: Option<&[String]>
     ) -> InfraResult<Vec<BalanceData>> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
-
-        let bal_res: RestResBinance<RestAccountBalBinanceUM> = api_key.send_signed_request(
-            &self.client,
-            RequestMethod::Get,
-            None,
-            BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_BALANCE_INFO,
-        ).await?;
+        let bal_res: RestResBinance<RestAccountBalBinanceUM> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_BALANCE_INFO,
+            ).await?;
 
         let filtered_res = match assets {
             Some(list) if !list.is_empty() => {
@@ -378,15 +470,16 @@ impl BinanceUmCli {
         &self,
         insts: Option<&[String]>,
     ) -> InfraResult<Vec<PositionData>> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
-
-        let pos_res: RestResBinance<RestAccountPosRiskBinanceUM> = api_key.send_signed_request(
-            &self.client,
-            RequestMethod::Get,
-            None,
-            BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_POSITION_RISK_INFO,
-        ).await?;
+        let pos_res: RestResBinance<RestAccountPosRiskBinanceUM> = self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_POSITION_RISK_INFO,
+            ).await?;
 
         let filtered_res = match insts {
             Some(list) if !list.is_empty() => {
