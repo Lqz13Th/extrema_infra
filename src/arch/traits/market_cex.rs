@@ -85,7 +85,7 @@ pub trait CexPrivateRest: Send + Sync {
         _end_time: Option<u64>,
         _limit: Option<u32>,
         _order_id: Option<u64>,
-    ) -> impl Future<Output = InfraResult<Vec<HistoricalOrder>>> + Send {
+    ) -> impl Future<Output = InfraResult<Vec<HistoOrderData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 }
