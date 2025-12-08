@@ -10,7 +10,7 @@ use crate::arch::{
     task_execution::task_ws::{CandleParam, WsChannel},
     traits::market_cex::*,
 };
-use crate::errors::InfraResult;
+use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug)]
 #[cfg(feature = "cex_clients")]
@@ -120,6 +120,23 @@ impl CexPrivateRest for CexClients {
             CexClients::BinanceCm(c) => c.get_positions(insts).await,
             CexClients::BinanceUm(c) => c.get_positions(insts).await,
             CexClients::Okx(c) => c.get_positions(insts).await,
+        }
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoricalOrder>> {
+        match self {
+            CexClients::BinanceUm(c) => {
+                c.get_order_history(inst, start_time, end_time, limit, order_id)
+                    .await
+            },
+            _ => Err(InfraError::Unimplemented),
         }
     }
 }

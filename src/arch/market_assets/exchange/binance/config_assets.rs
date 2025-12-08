@@ -16,6 +16,7 @@ pub const BINANCE_UM_FUTURES_POSITION_RISK_INFO: &str = "/fapi/v3/positionRisk";
 pub const BINANCE_UM_FUTURES_PREMIUM_INDEX_KLINES: &str = "/fapi/v1/premiumIndexKlines";
 pub const BINANCE_UM_FUTURES_FUNDING_INFO: &str = "/fapi/v1/fundingInfo";
 pub const BINANCE_UM_FUTURES_LISTEN_KEY: &str = "/fapi/v1/listenKey";
+pub const BINANCE_UM_FUTURES_ALL_ORDERS: &str = "/fapi/v1/allOrders";
 
 /// # CmFutures API
 pub const BINANCE_CM_FUTURES_WS: &str = "wss://dstream.binance.com/ws";

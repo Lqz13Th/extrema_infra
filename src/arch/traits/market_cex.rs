@@ -77,6 +77,17 @@ pub trait CexPrivateRest: Send + Sync {
     ) -> impl Future<Output = InfraResult<Vec<PositionData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
+
+    fn get_order_history(
+        &self,
+        _inst: &str,
+        _start_time: Option<u64>,
+        _end_time: Option<u64>,
+        _limit: Option<u32>,
+        _order_id: Option<u64>,
+    ) -> impl Future<Output = InfraResult<Vec<HistoricalOrder>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
 }
 
 pub trait CexWebsocket: Send + Sync {

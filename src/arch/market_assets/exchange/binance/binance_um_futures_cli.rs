@@ -13,7 +13,8 @@ use super::{
         account_position_risk::RestAccountPosRiskBinanceUM,
         exchange_info::RestExchangeInfoBinanceUM, funding_rate::RestFundingRateBinanceUM,
         funding_rate_info::RestFundingInfoBinanceUM,
-        open_interest_statistics::RestOpenInterestBinanceUM, trade_order::RestOrderAckBinanceUM,
+        open_interest_statistics::RestOpenInterestBinanceUM,
+        order_history::RestOrderHistoryBinanceUM, trade_order::RestOrderAckBinanceUM,
     },
 };
 use crate::arch::{
@@ -80,6 +81,18 @@ impl CexPrivateRest for BinanceUmCli {
 
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoricalOrder>> {
+        self._get_order_history(inst, start_time, end_time, limit, order_id)
+            .await
     }
 }
 
@@ -471,6 +484,54 @@ impl BinanceUmCli {
         };
 
         let data = filtered_res.into_iter().map(PositionData::from).collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoricalOrder>> {
+        let mut query_string = format!("symbol={}", cli_perp_to_pure_uppercase(inst));
+
+        if let Some(oid) = order_id {
+            query_string.push_str(&format!("&orderId={}", oid));
+        }
+
+        if let Some(start) = start_time {
+            query_string.push_str(&format!("&startTime={}", start));
+        }
+
+        if let Some(end) = end_time {
+            query_string.push_str(&format!("&endTime={}", end));
+        }
+
+        if let Some(l) = limit {
+            query_string.push_str(&format!("&limit={}", l));
+        }
+
+        let res: RestResBinance<RestOrderHistoryBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_ALL_ORDERS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(HistoricalOrder::from)
+            .collect();
 
         Ok(data)
     }
