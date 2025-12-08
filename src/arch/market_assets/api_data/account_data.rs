@@ -33,7 +33,7 @@ pub struct OrderAckData {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct HistoricalOrder {
+pub struct HistoOrderData {
     pub timestamp: u64,
     pub inst: String,
     pub order_id: String,
