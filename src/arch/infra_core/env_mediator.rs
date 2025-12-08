@@ -32,7 +32,7 @@ where
             .strategy
             ._spawn_strategy_tasks(&self.core.channel)
             .await;
-        
+
         pending::<()>().await;
     }
 
