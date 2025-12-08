@@ -130,7 +130,7 @@ impl CexPrivateRest for CexClients {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<u64>,
-    ) -> InfraResult<Vec<HistoricalOrder>> {
+    ) -> InfraResult<Vec<HistoOrderData>> {
         match self {
             CexClients::BinanceUm(c) => {
                 c.get_order_history(inst, start_time, end_time, limit, order_id)
