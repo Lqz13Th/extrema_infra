@@ -1,15 +1,9 @@
 use serde_json::json;
 use tracing::error;
 
-use crate::arch::market_assets::base_data::{
-    InstrumentType,
-    SUBSCRIBE_LOWER
-};
+use crate::arch::market_assets::base_data::{InstrumentType, SUBSCRIBE_LOWER};
 
-pub fn ws_subscribe_msg_okx(
-    channel: &str,
-    insts: Option<&[String]>
-) -> String {
+pub fn ws_subscribe_msg_okx(channel: &str, insts: Option<&[String]>) -> String {
     let args: Vec<_> = match insts {
         Some(list) => list
             .iter()
@@ -65,7 +59,6 @@ pub fn okx_inst_to_cli(symbol: &str) -> String {
     }
 }
 
-
 /// Query parameters for retrieving public lead traders from OKX.
 /// All fields are optional and can be used to filter or paginate results.
 #[derive(Clone, Debug, Default)]
@@ -93,4 +86,3 @@ pub struct PubLeadTraderQuery {
     /// Number of records per page
     pub limit: Option<u64>,
 }
-

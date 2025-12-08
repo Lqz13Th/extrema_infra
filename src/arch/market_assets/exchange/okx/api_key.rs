@@ -1,15 +1,11 @@
-use hmac::Mac;
 use data_encoding::BASE64;
-use serde::{
-    de::DeserializeOwned,
-    Deserialize,
-    Serialize,
-};
-use simd_json::from_slice;
+use hmac::Mac;
 use reqwest::Client;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use simd_json::from_slice;
 
-use crate::errors::{InfraError, InfraResult};
 use crate::arch::market_assets::api_general::*;
+use crate::errors::{InfraError, InfraResult};
 
 use super::api_utils::get_okx_timestamp;
 
@@ -42,11 +38,7 @@ impl OkxKey {
         }
     }
 
-    pub fn sign(
-        &self,
-        raw_sign: String,
-        timestamp: String,
-    ) -> InfraResult<Signature<String>> {
+    pub fn sign(&self, raw_sign: String, timestamp: String) -> InfraResult<Signature<String>> {
         let mut mac = HmacSha256::new_from_slice(self.secret_key.as_bytes())
             .map_err(|_| InfraError::SecretKeyLength)?;
         mac.update(raw_sign.as_bytes());
@@ -61,7 +53,7 @@ impl OkxKey {
         &self,
         method: &str,
         uri: &str,
-        body: Option<&str>
+        body: Option<&str>,
     ) -> InfraResult<Signature<String>> {
         let timestamp = get_okx_timestamp();
 

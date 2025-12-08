@@ -1,17 +1,11 @@
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
 use extrema_infra::{
+    arch::market_assets::exchange::prelude::{BinanceUmCli, OkxCli},
     prelude::*,
-    arch::market_assets::{
-        exchange::prelude::BinanceUmCli,
-    }
 };
-use extrema_infra::arch::market_assets::exchange::prelude::OkxCli;
 
 #[derive(Clone)]
 struct AccountModule {
@@ -29,10 +23,7 @@ impl AccountModule {
         }
     }
 
-    pub async fn connect_binance_um_acc_channel(
-        &mut self,
-        channel: &WsChannel,
-    ) -> InfraResult<()> {
+    pub async fn connect_binance_um_acc_channel(&mut self, channel: &WsChannel) -> InfraResult<()> {
         if let Some(handle) = self.find_ws_handle(channel, 1001) {
             let ws_url = self.binance_um_cli.get_private_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
@@ -40,7 +31,9 @@ impl AccountModule {
                 msg: ws_url,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsConnect, rx))).await?;
+            handle
+                .send_command(cmd, Some((AckStatus::WsConnect, rx)))
+                .await?;
         } else {
             warn!("No handle found for channel {:?}", channel);
         }
@@ -56,7 +49,9 @@ impl AccountModule {
                 msg: ws_url,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsConnect, rx))).await?;
+            handle
+                .send_command(cmd, Some((AckStatus::WsConnect, rx)))
+                .await?;
 
             // Step 2: Login
             let login_msg = self.okx_cli.ws_login_msg()?;
@@ -65,7 +60,9 @@ impl AccountModule {
                 msg: login_msg,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsMessage, rx))).await?;
+            handle
+                .send_command(cmd, Some((AckStatus::WsMessage, rx)))
+                .await?;
 
             // Step 3: Subscribe to private account/order updates
             let ws_msg = self.okx_cli.get_private_sub_msg(channel).await?;
@@ -74,8 +71,9 @@ impl AccountModule {
                 msg: ws_msg,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsMessage, rx))).await?;
-
+            handle
+                .send_command(cmd, Some((AckStatus::WsMessage, rx)))
+                .await?;
         } else {
             warn!("No handle found for channel {:?}", channel);
         }
@@ -102,10 +100,7 @@ impl CommandEmitter for AccountModule {
 }
 
 impl EventHandler for AccountModule {
-    async fn on_schedule(
-        &mut self,
-        msg: InfraMsg<AltScheduleEvent>,
-    ) {
+    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
         if let Err(e) = self.binance_um_cli.renew_listen_key().await {
             error!("Renew Listen key failed: {:?}", e);
         }
@@ -119,16 +114,18 @@ impl EventHandler for AccountModule {
             println!("task id: {:?}", msg.data.task_base_id);
             match msg.task_id {
                 1001 => {
-                    if let Err(e) = self.connect_binance_um_acc_channel(
-                        &msg.data.ws_channel,
-                    ).await {
-                        error!("connect BinanceUm ws private account channel failed: {:?}", e);
+                    if let Err(e) = self
+                        .connect_binance_um_acc_channel(&msg.data.ws_channel)
+                        .await
+                    {
+                        error!(
+                            "connect BinanceUm ws private account channel failed: {:?}",
+                            e
+                        );
                     }
                 },
                 1002 => {
-                    if let Err(e) = self.connect_okx_acc_channel(
-                        &msg.data.ws_channel,
-                    ).await {
+                    if let Err(e) = self.connect_okx_acc_channel(&msg.data.ws_channel).await {
                         error!("connect okx ws private account channel failed: {:?}", e);
                     }
                 },

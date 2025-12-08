@@ -1,8 +1,7 @@
 use serde::Deserialize;
 
 use crate::arch::market_assets::{
-    api_data::utils_data::FundingRateInfo,
-    api_general::get_micros_timestamp,
+    api_data::utils_data::FundingRateInfo, api_general::get_micros_timestamp,
     exchange::binance::api_utils::binance_inst_to_cli,
 };
 
@@ -15,8 +14,6 @@ pub struct RestFundingInfoBinanceUM {
     pub fundingIntervalHours: u64,
     pub disclaimer: Option<bool>,
 }
-
-
 
 impl From<RestFundingInfoBinanceUM> for FundingRateInfo {
     fn from(d: RestFundingInfoBinanceUM) -> Self {

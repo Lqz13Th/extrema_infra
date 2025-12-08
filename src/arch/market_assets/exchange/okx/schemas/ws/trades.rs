@@ -2,9 +2,7 @@ use serde::Deserialize;
 
 use crate::arch::{
     market_assets::{
-        api_general::ts_to_micros,
-        exchange::okx::api_utils::okx_inst_to_cli,
-        base_data::OrderSide,
+        api_general::ts_to_micros, base_data::OrderSide, exchange::okx::api_utils::okx_inst_to_cli,
         market_core::Market,
     },
     strategy_base::handler::cex_events::WsTrade,

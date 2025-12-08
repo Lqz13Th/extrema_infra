@@ -1,17 +1,12 @@
-use hmac::Mac;
 use data_encoding::HEXUPPER;
+use hmac::Mac;
 
-use serde::{
-    de::DeserializeOwned,
-    Deserialize,
-    Serialize,
-};
-use simd_json::from_slice;
 use reqwest::Client;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use simd_json::from_slice;
 
-use crate::errors::{InfraError, InfraResult};
 use crate::arch::market_assets::api_general::*;
-
+use crate::errors::{InfraError, InfraResult};
 
 #[allow(dead_code)]
 pub fn read_binance_env_key() -> InfraResult<BinanceKey> {
@@ -39,18 +34,14 @@ impl BinanceKey {
         }
     }
 
-    fn sign(
-        &self,
-        query_string: &str,
-        timestamp: u64,
-    ) -> InfraResult<Signature<u64>> {
+    fn sign(&self, query_string: &str, timestamp: u64) -> InfraResult<Signature<u64>> {
         let mut mac = HmacSha256::new_from_slice(self.secret_key.as_bytes())
             .map_err(|_| InfraError::SecretKeyLength)?;
         mac.update(query_string.as_bytes());
 
         Ok(Signature {
             signature: HEXUPPER.encode(&mac.finalize().into_bytes()),
-            timestamp
+            timestamp,
         })
     }
 
@@ -134,15 +125,9 @@ impl BinanceKey {
         let url = [base_url, endpoint].concat();
 
         let mut response = match method {
-            RequestMethod::Get => {
-                self.get_request(client, &signature, args, &url).await?
-            },
-            RequestMethod::Put => {
-                self.put_request(client, &signature, args, &url).await?
-            },
-            RequestMethod::Post => {
-                self.post_request(client, &signature, args, &url).await?
-            },
+            RequestMethod::Get => self.get_request(client, &signature, args, &url).await?,
+            RequestMethod::Put => self.put_request(client, &signature, args, &url).await?,
+            RequestMethod::Post => self.post_request(client, &signature, args, &url).await?,
         };
 
         let result: T = from_slice(&mut response)?;
@@ -153,22 +138,16 @@ impl BinanceKey {
 fn binance_build_full_url(
     url: &str,
     query_string: Option<&str>,
-    signature: &Signature<u64>
+    signature: &Signature<u64>,
 ) -> String {
     match query_string {
         Some(query) => format!(
             "{}?{}&timestamp={}&signature={}",
-            url,
-            query,
-            signature.timestamp,
-            signature.signature
+            url, query, signature.timestamp, signature.signature
         ),
         None => format!(
             "{}?{}timestamp={}&signature={}",
-            url,
-            "",
-            signature.timestamp,
-            signature.signature
+            url, "", signature.timestamp, signature.signature
         ),
     }
 }

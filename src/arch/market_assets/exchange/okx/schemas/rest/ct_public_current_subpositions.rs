@@ -2,16 +2,9 @@ use serde::Deserialize;
 
 use crate::arch::market_assets::{
     api_data::utils_data::LeadtraderSubposition,
+    api_general::{get_micros_timestamp, ts_to_micros},
+    base_data::{InstrumentType, MarginMode, PositionSide},
     exchange::okx::api_utils::okx_inst_to_cli,
-    api_general::{
-        get_micros_timestamp, 
-        ts_to_micros,
-    },
-    base_data::{
-        InstrumentType, 
-        MarginMode, 
-        PositionSide,
-    },
 };
 
 #[allow(non_snake_case)]
@@ -37,7 +30,7 @@ pub struct RestSubPositionOkx {
 impl From<RestSubPositionOkx> for LeadtraderSubposition {
     fn from(d: RestSubPositionOkx) -> Self {
         let size_val = d.subPos.parse().unwrap_or(0.0);
-        
+
         LeadtraderSubposition {
             timestamp: get_micros_timestamp(),
             unique_code: d.uniqueCode,
@@ -52,7 +45,7 @@ impl From<RestSubPositionOkx> for LeadtraderSubposition {
                     } else {
                         PositionSide::Short
                     }
-                }
+                },
             },
             margin_mode: match d.mgnMode.to_lowercase().as_str() {
                 "cross" => MarginMode::Cross,
@@ -63,7 +56,7 @@ impl From<RestSubPositionOkx> for LeadtraderSubposition {
             open_ts: ts_to_micros(d.openTime.parse().unwrap_or_default()),
             open_avg_price: d.openAvgPx.parse().unwrap_or_default(),
             size: size_val,
-            ins_type: match d.instType.to_uppercase().as_str() { 
+            ins_type: match d.instType.to_uppercase().as_str() {
                 "SWAP" => InstrumentType::Perpetual,
                 "SPOT" => InstrumentType::Spot,
                 _ => InstrumentType::Spot,

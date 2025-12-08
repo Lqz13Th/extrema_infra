@@ -1,10 +1,8 @@
 use serde::Deserialize;
 use tracing::warn;
 
-use crate::errors::{InfraError, InfraResult};
 use crate::arch::traits::conversion::IntoInfraVec;
-
-
+use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestResOkx<T> {
@@ -12,7 +10,6 @@ pub struct RestResOkx<T> {
     pub data: Option<Vec<T>>,
     pub msg: Option<String>,
 }
-
 
 impl<T> IntoInfraVec<T> for RestResOkx<T> {
     fn into_vec(self) -> InfraResult<Vec<T>> {

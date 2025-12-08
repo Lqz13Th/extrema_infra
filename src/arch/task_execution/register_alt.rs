@@ -1,46 +1,30 @@
-use std::{
-    sync::Arc,
-    time::Duration,
-};
-use rmp_serde::{Serializer, Deserializer};
-use serde::{Serialize, Deserialize};
+use rmp_serde::{Deserializer, Serializer};
+use serde::{Deserialize, Serialize};
+use std::{sync::Arc, time::Duration};
 use tokio::{
     select,
-    time::{
-        sleep,
-        timeout,
-        interval,
-    },
-    sync::{
-        mpsc,
-        broadcast,
-    },
+    sync::{broadcast, mpsc},
+    time::{interval, sleep, timeout},
 };
 use zeromq::{ReqSocket, Socket, SocketRecv, SocketSend};
+
 use tracing::{error, info, warn};
 
 use crate::arch::{
-    market_assets::api_general::{
-        get_micros_timestamp,
-        OrderParams,
-    },
+    market_assets::api_general::{OrderParams, get_micros_timestamp},
     strategy_base::{
-        command::{
-            ack_handle::AckStatus,
-            command_core::TaskCommand
-        },
+        command::{ack_handle::AckStatus, command_core::TaskCommand},
         handler::{
-            alt_events::{AltTensor, AltScheduleEvent},
+            alt_events::{AltScheduleEvent, AltTensor},
             handler_core::*,
-        }
+        },
     },
 };
 
 use super::{
+    task_alt::{AltTaskInfo, AltTaskType},
     task_general::LogLevel,
-    task_alt::{AltTaskInfo, AltTaskType}
 };
-
 
 #[derive(Debug)]
 pub(crate) struct AltTaskBuilder {
@@ -51,48 +35,47 @@ pub(crate) struct AltTaskBuilder {
     pub task_id: u64,
 }
 
-
 impl AltTaskBuilder {
     fn handle_cmd(&self, cmd: TaskCommand) {
-        self.log(LogLevel::Warn, &format!("Unexpected command, auto-ack: {:?}", cmd));
+        self.log(
+            LogLevel::Warn,
+            &format!("Unexpected command, auto-ack: {:?}", cmd),
+        );
         if let Some(ack_handle) = cmd.get_ack() {
             ack_handle.respond(AckStatus::AltTask);
         }
     }
 
-    async fn order_execution(
-        &mut self,
-        tx: broadcast::Sender<InfraMsg<Vec<OrderParams>>>,
-    ) {
+    async fn order_execution(&mut self, tx: broadcast::Sender<InfraMsg<Vec<OrderParams>>>) {
         while let Some(cmd) = self.cmd_rx.recv().await {
             match cmd {
                 TaskCommand::OrderExecute(order_params) => {
-                    let _ = tx.send(
-                        InfraMsg {
-                            task_id: self.task_id,
-                            data: Arc::new(order_params),
-                        }
-                    );
+                    let _ = tx.send(InfraMsg {
+                        task_id: self.task_id,
+                        data: Arc::new(order_params),
+                    });
                 },
                 _ => self.handle_cmd(cmd),
             };
         }
     }
 
-    async fn model_preds(
-        &mut self,
-        tx: broadcast::Sender<InfraMsg<AltTensor>>,
-        port: u64,
-    ) {
+    async fn model_preds(&mut self, tx: broadcast::Sender<InfraMsg<AltTensor>>, port: u64) {
         let mut zmq_socket = ReqSocket::new();
         let address = format!("tcp://127.0.0.1:{}", port);
 
-        self.log(LogLevel::Info, &format!("Connecting to model ZMQ server at {address}..."));
+        self.log(
+            LogLevel::Info,
+            &format!("Connecting to model ZMQ server at {address}..."),
+        );
         if let Err(e) = zmq_socket.connect(&address).await {
             self.log(LogLevel::Error, &format!("ZMQ connect failed: {:?}", e));
             return;
         }
-        self.log(LogLevel::Info, &format!("Connected to model ZMQ server at {address}."));
+        self.log(
+            LogLevel::Info,
+            &format!("Connected to model ZMQ server at {address}."),
+        );
 
         let model_inference_timeout = Duration::from_secs(5);
         loop {
@@ -101,27 +84,24 @@ impl AltTaskBuilder {
                 Some(cmd) => {
                     self.handle_cmd(cmd);
                     continue;
-                }
+                },
                 None => {
                     self.log(LogLevel::Error, "Command channel closed");
                     break;
-                }
+                },
             };
 
             let mut buf = Vec::new();
             if let Err(e) = tensor.serialize(&mut Serializer::new(&mut buf)) {
                 self.log(
                     LogLevel::Error,
-                    &format!("Failed to serialize tensor: {:?}", e)
+                    &format!("Failed to serialize tensor: {:?}", e),
                 );
                 break;
             }
 
             if let Err(e) = zmq_socket.send(buf.into()).await {
-                self.log(
-                    LogLevel::Error,
-                    &format!("ZMQ send error: {:?}", e)
-                );
+                self.log(LogLevel::Error, &format!("ZMQ send error: {:?}", e));
                 break;
             }
 
@@ -152,7 +132,10 @@ impl AltTaskBuilder {
                     break;
                 },
                 Err(_) => {
-                    self.log(LogLevel::Warn, "Model prediction TIMEOUT - skipping this tick");
+                    self.log(
+                        LogLevel::Warn,
+                        "Model prediction TIMEOUT - skipping this tick",
+                    );
                     continue;
                 },
             };
@@ -241,9 +224,7 @@ impl AltTaskBuilder {
         }
     }
 
-    pub(crate) async fn alt_mid_relay(
-        &mut self,
-    ) {
+    pub(crate) async fn alt_mid_relay(&mut self) {
         let sleep_interval = Duration::from_secs(5);
         self.log(LogLevel::Info, "Spawned alt task");
         loop {

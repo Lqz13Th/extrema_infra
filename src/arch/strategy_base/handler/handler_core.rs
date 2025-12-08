@@ -1,18 +1,12 @@
+use futures::future;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use futures::future;
 use tracing::error;
 
 use crate::arch::{
     market_assets::api_general::OrderParams,
-    strategy_base::handler::{
-        alt_events::*,
-        cex_events::*,
-    },
-    task_execution::{
-        task_alt::AltTaskInfo,
-        task_ws::WsTaskInfo,
-    },
+    strategy_base::handler::{alt_events::*, cex_events::*},
+    task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
     traits::strategy::Strategy,
 };
 
@@ -89,9 +83,8 @@ async fn recv_or_pending<T: Clone>(
 
 pub(crate) async fn strategy_handler_loop<S>(
     mut strategies: S,
-    channels: &Arc<Vec<BoardCastChannel>>
-)
-where
+    channels: &Arc<Vec<BoardCastChannel>>,
+) where
     S: Strategy,
 {
     // Event init
@@ -101,7 +94,7 @@ where
     // Alt event
     let mut rx_order_execute = find_order_execution(channels).map(|tx| tx.subscribe());
     let mut rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
-    let mut rx_preds= find_model_preds(channels).map(|tx| tx.subscribe());
+    let mut rx_preds = find_model_preds(channels).map(|tx| tx.subscribe());
 
     // Ws pub event
     let mut rx_trade = find_trade(channels).map(|tx| tx.subscribe());
@@ -211,7 +204,7 @@ where
 }
 
 pub(crate) fn find_alt_event(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<AltTaskInfo>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Alt(tx) = ch {
@@ -223,7 +216,7 @@ pub(crate) fn find_alt_event(
 }
 
 pub(crate) fn find_ws_event(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<WsTaskInfo>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Ws(tx) = ch {
@@ -235,7 +228,7 @@ pub(crate) fn find_ws_event(
 }
 
 pub(crate) fn find_order_execution(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<Vec<OrderParams>>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::OrderExecute(tx) = ch {
@@ -247,7 +240,7 @@ pub(crate) fn find_order_execution(
 }
 
 pub(crate) fn find_scheduler(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<AltScheduleEvent>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Schedule(tx) = ch {
@@ -259,7 +252,7 @@ pub(crate) fn find_scheduler(
 }
 
 pub(crate) fn find_model_preds(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<AltTensor>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::ModelPreds(tx) = ch {
@@ -271,7 +264,7 @@ pub(crate) fn find_model_preds(
 }
 
 pub(crate) fn find_trade(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<Vec<WsTrade>>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Trade(tx) = ch {
@@ -283,9 +276,8 @@ pub(crate) fn find_trade(
 }
 
 pub(crate) fn find_lob(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<Vec<WsLob>>>> {
-
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Lob(tx) = ch {
             Some(tx.clone())
@@ -296,7 +288,7 @@ pub(crate) fn find_lob(
 }
 
 pub(crate) fn find_candle(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<Vec<WsCandle>>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Candle(tx) = ch {
@@ -308,7 +300,7 @@ pub(crate) fn find_candle(
 }
 
 pub(crate) fn find_acc_order(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<Vec<WsAccOrder>>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::AccOrder(tx) = ch {
@@ -320,7 +312,7 @@ pub(crate) fn find_acc_order(
 }
 
 pub(crate) fn find_acc_bal_pos(
-    channels: &Arc<Vec<BoardCastChannel>>
+    channels: &Arc<Vec<BoardCastChannel>>,
 ) -> Option<broadcast::Sender<InfraMsg<Vec<WsAccBalPos>>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::AccBalPos(tx) = ch {
@@ -330,8 +322,3 @@ pub(crate) fn find_acc_bal_pos(
         }
     })
 }
-
-
-
-
-

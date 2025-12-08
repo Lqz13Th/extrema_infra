@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::errors::{InfraError, InfraResult};
 use crate::arch::traits::conversion::IntoInfraVec;
-
+use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(untagged)]
@@ -24,7 +23,7 @@ impl<T> IntoInfraVec<T> for RestResBinance<T> {
                     "Binance REST error (code={}): {}",
                     code, msg
                 )))
-            }
+            },
         }
     }
 }

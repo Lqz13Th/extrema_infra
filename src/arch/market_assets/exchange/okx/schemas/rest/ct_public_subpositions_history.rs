@@ -2,13 +2,9 @@ use serde::Deserialize;
 
 use crate::arch::market_assets::{
     api_data::utils_data::LeadtraderSubpositionHistory,
-    exchange::okx::api_utils::okx_inst_to_cli,
     api_general::{get_micros_timestamp, ts_to_micros},
-    base_data::{
-        InstrumentType, 
-        MarginMode, 
-        PositionSide,
-    },
+    base_data::{InstrumentType, MarginMode, PositionSide},
+    exchange::okx::api_utils::okx_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
@@ -75,7 +71,10 @@ impl From<RestSubPositionHistoryOkx> for LeadtraderSubpositionHistory {
                 .closeAvgPx
                 .map(|p| p.parse().unwrap_or_default())
                 .unwrap_or_default(),
-            pnl: d.pnl.map(|p| p.parse().unwrap_or_default()).unwrap_or_default(),
+            pnl: d
+                .pnl
+                .map(|p| p.parse().unwrap_or_default())
+                .unwrap_or_default(),
             pnl_ratio: d
                 .pnlRatio
                 .map(|r| r.parse().unwrap_or_default())

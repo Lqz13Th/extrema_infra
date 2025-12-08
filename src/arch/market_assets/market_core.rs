@@ -9,4 +9,3 @@ pub enum Market {
     #[default]
     HyperLiquid,
 }
-

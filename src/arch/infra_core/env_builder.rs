@@ -2,10 +2,7 @@ use std::sync::Arc;
 use tracing::info;
 
 use crate::arch::{
-    infra_core::{
-        env_core::EnvCore,
-        env_mediator::EnvMediator,
-    },
+    infra_core::{env_core::EnvCore, env_mediator::EnvMediator},
     strategy_base::{
         handler::handler_core::BoardCastChannel,
         hlist_core::{HCons, HNil},
@@ -38,9 +35,10 @@ impl Default for EnvBuilder<HNil> {
 
 impl<HeadList> EnvBuilder<HeadList> {
     pub fn with_board_cast_channel(mut self, channel: BoardCastChannel) -> Self {
-        let channel_type_exists = self.board_cast_channels.iter().any(|ch| {
-            std::mem::discriminant(ch) == std::mem::discriminant(&channel)
-        });
+        let channel_type_exists = self
+            .board_cast_channels
+            .iter()
+            .any(|ch| std::mem::discriminant(ch) == std::mem::discriminant(&channel));
 
         if !channel_type_exists {
             info!("Adding board cast channel: {:?}", channel);
@@ -65,7 +63,7 @@ impl<HeadList> EnvBuilder<HeadList> {
         }
         self
     }
-    
+
     pub fn with_strategy_module<S>(self, strategy: S) -> EnvBuilder<HCons<S, HeadList>>
     where
         S: Strategy + Clone,

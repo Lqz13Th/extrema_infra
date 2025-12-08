@@ -1,15 +1,14 @@
 use std::sync::Arc;
 use tokio::sync::oneshot;
-
 use tracing::{error, info, warn};
 
 use extrema_infra::{
-    prelude::*,
     arch::market_assets::{
-        exchange::prelude::OkxCli,
         api_general::OrderParams,
-        base_data::{OrderSide, OrderType}
-    }
+        base_data::{OrderSide, OrderType},
+        exchange::prelude::OkxCli,
+    },
+    prelude::*,
 };
 
 /// -------------------------------------
@@ -56,7 +55,8 @@ impl HFTStrategy {
             data: feats,
             shape: vec![n_rows, n_cols],
             metadata: Default::default(),
-        }.clone();
+        }
+        .clone();
 
         let matrix_b = matrix_a.clone();
 
@@ -111,10 +111,13 @@ impl HFTStrategy {
                 msg: ws_url,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsConnect, rx))).await?;
+            handle
+                .send_command(cmd, Some((AckStatus::WsConnect, rx)))
+                .await?;
 
             // Step 2: Subscribe to BTC/USDT perpetual trade updates
-            let ws_msg = self.api_cli
+            let ws_msg = self
+                .api_cli
                 .get_public_sub_msg(channel, Some(&["BTC_USDT_PERP".into()]))
                 .await?;
             let cmd = TaskCommand::WsMessage {
@@ -165,7 +168,8 @@ impl EventHandler for HFTStrategy {
 
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         if msg.data.ws_channel == WsChannel::Trades(Some(TradesParam::AggTrades))
-            && let Err(e) = self.connect_trade_channel(&msg.data.ws_channel).await {
+            && let Err(e) = self.connect_trade_channel(&msg.data.ws_channel).await
+        {
             error!("connect ws public trade channel failed: {:?}", e);
         }
     }
@@ -215,7 +219,9 @@ impl AccountModule {
                 msg: ws_url,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsConnect, rx))).await?;
+            handle
+                .send_command(cmd, Some((AckStatus::WsConnect, rx)))
+                .await?;
 
             // Step 2: Login
             let login_msg = self.api_cli.ws_login_msg()?;
@@ -224,7 +230,9 @@ impl AccountModule {
                 msg: login_msg,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsMessage, rx))).await?;
+            handle
+                .send_command(cmd, Some((AckStatus::WsMessage, rx)))
+                .await?;
 
             // Step 3: Subscribe to private account/order updates
             let ws_msg = self.api_cli.get_private_sub_msg(channel).await?;
@@ -233,8 +241,9 @@ impl AccountModule {
                 msg: ws_msg,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsMessage, rx))).await?;
-
+            handle
+                .send_command(cmd, Some((AckStatus::WsMessage, rx)))
+                .await?;
         } else {
             warn!("No handle found for channel {:?}", channel);
         }
@@ -248,7 +257,6 @@ impl Strategy for AccountModule {
         info!("Starting order module, init okx api key");
     }
 }
-
 
 impl CommandEmitter for AccountModule {
     fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
@@ -278,7 +286,8 @@ impl EventHandler for AccountModule {
     /// Handle private account WebSocket events.
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         if msg.data.ws_channel == WsChannel::AccountOrders
-            && let Err(e) = self.connect_acc_channel(&msg.data.ws_channel).await {
+            && let Err(e) = self.connect_acc_channel(&msg.data.ws_channel).await
+        {
             error!("connect ws private account order channel failed: {:?}", e);
         }
     }
@@ -288,7 +297,6 @@ impl EventHandler for AccountModule {
         info!("Updating account status: {:?}", msg);
     }
 }
-
 
 #[tokio::main]
 async fn main() {

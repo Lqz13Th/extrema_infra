@@ -1,21 +1,14 @@
+use hmac::Hmac;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sha2::Sha256;
 use std::{
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},
 };
-use hmac::Hmac;
-use sha2::Sha256;
-use serde::{
-    Deserialize, 
-    Serialize,
-};
-use serde_json::Value;
 
 use crate::arch::market_assets::base_data::{
-    MarginMode, 
-    OrderSide, 
-    OrderType, 
-    PositionSide, 
-    TimeInForce,
+    MarginMode, OrderSide, OrderType, PositionSide, TimeInForce,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -55,7 +48,9 @@ pub fn ts_to_micros(ts: u64) -> u64 {
 }
 
 pub fn value_to_f64(v: &Value) -> f64 {
-    v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok())).unwrap_or(0.0)
+    v.as_f64()
+        .or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok()))
+        .unwrap_or(0.0)
 }
 
 pub fn normalize_to_string(value: f64, step: f64) -> String {
@@ -83,7 +78,7 @@ pub struct OrderParams {
     pub reduce_only: Option<bool>,
     pub margin_mode: Option<MarginMode>,
     pub position_side: Option<PositionSide>,
-    pub time_in_force: Option<TimeInForce>,  // GTC, IOC, FOK, GTD
+    pub time_in_force: Option<TimeInForce>, // GTC, IOC, FOK, GTD
     pub client_order_id: Option<String>,
     pub extra: HashMap<String, String>, // general
 }

@@ -1,52 +1,38 @@
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
-use simd_json::from_slice;
-use serde_json::json;
 use reqwest::Client;
+use serde_json::json;
+use simd_json::from_slice;
+use std::{collections::HashMap, sync::Arc};
 use tracing::{error, warn};
 
-use crate::errors::{InfraError, InfraResult};
 use crate::arch::{
     market_assets::{
-        api_data::{
-            account_data::*,
-            price_data::*,
-            utils_data::*,
-        },
+        api_data::{account_data::*, price_data::*, utils_data::*},
         api_general::*,
         base_data::*,
     },
     task_execution::task_ws::*,
     traits::{
         conversion::IntoInfraVec,
-        market_cex::{
-            CexPrivateRest,
-            CexPublicRest,
-            CexWebsocket,
-            MarketCexApi,
-        },
+        market_cex::{CexPrivateRest, CexPublicRest, CexWebsocket, MarketCexApi},
     },
 };
+use crate::errors::{InfraError, InfraResult};
 
 use super::{
-    api_key::{read_okx_env_key, OkxKey},
+    api_key::{OkxKey, read_okx_env_key},
     api_utils::*,
     config_assets::*,
+    okx_rest_msg::RestResOkx,
     schemas::rest::{
-        account_balance::RestAccountBalOkx,
-        account_positions::RestAccountPosOkx,
+        account_balance::RestAccountBalOkx, account_positions::RestAccountPosOkx,
         ct_current_lead_traders::RestLeadtraderOkx,
         ct_public_current_subpositions::RestSubPositionOkx,
         ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
         ct_public_lead_traders::RestPubLeadTradersOkx,
         ct_public_subpositions_history::RestSubPositionHistoryOkx,
-        market_ticker::RestMarketTickerOkx,
-        public_instruments::RestInstrumentsOkx,
+        market_ticker::RestMarketTickerOkx, public_instruments::RestInstrumentsOkx,
         trade_order::RestOrderAckOkx,
     },
-    okx_rest_msg::RestResOkx,
 };
 
 fn create_okx_cli_with_key(
@@ -76,20 +62,16 @@ impl Default for OkxCli {
     }
 }
 
-
 impl MarketCexApi for OkxCli {}
 
 impl CexPublicRest for OkxCli {
-    async fn get_ticker(
-        &self,
-        insts: &str,
-    ) -> InfraResult<TickerData> {
+    async fn get_ticker(&self, insts: &str) -> InfraResult<TickerData> {
         self._get_ticker(insts).await
     }
 
     async fn get_instrument_info(
         &self,
-        inst_type: InstrumentType
+        inst_type: InstrumentType,
     ) -> InfraResult<Vec<InstrumentInfo>> {
         self._get_instrument_info(inst_type).await
     }
@@ -107,59 +89,41 @@ impl CexPrivateRest for OkxCli {
         };
     }
 
-    async fn place_order(
-        &self,
-        order_params: OrderParams,
-    ) -> InfraResult<OrderAckData> {
+    async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         self._place_order(order_params).await
     }
 
-    async fn get_balance(
-        &self,
-        assets: Option<&[String]>,
-    ) -> InfraResult<Vec<BalanceData>> {
+    async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
 
-    async fn get_positions(
-        &self,
-        insts: Option<&[String]>,
-    ) -> InfraResult<Vec<PositionData>> {
+    async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
     }
 }
-
-
 
 impl CexWebsocket for OkxCli {
     async fn get_public_sub_msg(
         &self,
         channel: &WsChannel,
-        insts: Option<&[String]>
+        insts: Option<&[String]>,
     ) -> InfraResult<String> {
         self._get_public_sub_msg(channel, insts)
     }
 
-    async fn get_private_sub_msg(
-        &self,
-        channel: &WsChannel
-    ) -> InfraResult<String> {
+    async fn get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         self._get_private_sub_msg(channel)
     }
 
-    async fn get_public_connect_msg(
-        &self,
-        channel: &WsChannel,
-    ) -> InfraResult<String> {
+    async fn get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         let url = match channel {
             WsChannel::Trades(Some(trades_param)) => match trades_param {
                 TradesParam::AggTrades => OKX_WS_PUB,
                 TradesParam::AllTrades => OKX_WS_BUS,
             },
-            WsChannel::Candles(_)
-            | WsChannel::Tick
-            | WsChannel::Lob
-            | WsChannel::Trades(None) => OKX_WS_PUB,
+            WsChannel::Candles(_) | WsChannel::Tick | WsChannel::Lob | WsChannel::Trades(None) => {
+                OKX_WS_PUB
+            },
             WsChannel::Other(s) if s == "instruments" || s == "funding-rate" => OKX_WS_BUS,
             _ => return Err(InfraError::Unimplemented),
         };
@@ -167,11 +131,7 @@ impl CexWebsocket for OkxCli {
         Ok(url.into())
     }
 
-
-    async fn get_private_connect_msg(
-        &self,
-        _channel: &WsChannel
-    ) -> InfraResult<String> {
+    async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
         Ok(OKX_WS_PRI.into())
     }
 }
@@ -180,12 +140,15 @@ impl OkxCli {
     pub fn new(shared_client: Arc<Client>) -> Self {
         Self {
             client: shared_client,
-            api_key: None
+            api_key: None,
         }
     }
 
     pub fn ws_login_msg(&self) -> InfraResult<String> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
 
         let timestamp = get_okx_timestamp();
         let raw_sign = format!("{}{}", timestamp, OKX_WS_LOGIN);
@@ -214,15 +177,17 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
             },
         };
 
         let body = json!({
             "instType": inst_type_str,
-        }).to_string();
+        })
+        .to_string();
 
-        let res: RestResOkx<RestLeadtraderOkx> = self.api_key
+        let res: RestResOkx<RestLeadtraderOkx> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -253,15 +218,13 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
             },
         };
 
         let mut url = format!(
             "{}{}?instType={}",
-            OKX_BASE_URL,
-            OKX_CT_PUBLIC_LEADTRADERS,
-            inst_type_str,
+            OKX_BASE_URL, OKX_CT_PUBLIC_LEADTRADERS, inst_type_str,
         );
 
         if let Some(sort) = query.sort_type {
@@ -303,7 +266,9 @@ impl OkxCli {
             .into_vec()?
             .into_iter()
             .next()
-            .ok_or(InfraError::ApiCliError("No public lead traders data returned".into()))?;
+            .ok_or(InfraError::ApiCliError(
+                "No public lead traders data returned".into(),
+            ))?;
 
         Ok(PubLeadtraderInfo::from(data))
     }
@@ -320,17 +285,13 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
             },
         };
 
         let url = format!(
             "{}{}?uniqueCode={}&instType={}&lastDays={}",
-            OKX_BASE_URL,
-            OKX_CT_PUBLIC_LEADTRADER_STATS,
-            unique_code,
-            inst_type_str,
-            last_days,
+            OKX_BASE_URL, OKX_CT_PUBLIC_LEADTRADER_STATS, unique_code, inst_type_str, last_days,
         );
 
         let responds = self.client.get(url).send().await?;
@@ -358,16 +319,13 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
             },
         };
 
         let mut url = format!(
             "{}{}?uniqueCode={}&instType={}",
-            OKX_BASE_URL,
-            OKX_CT_LEADTRADER_SUBPOSITIONS,
-            unique_code,
-            inst_type_str,
+            OKX_BASE_URL, OKX_CT_LEADTRADER_SUBPOSITIONS, unique_code, inst_type_str,
         );
 
         if let Some(l) = limit {
@@ -401,16 +359,13 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
             },
         };
 
         let mut url = format!(
             "{}{}?uniqueCode={}&instType={}",
-            OKX_BASE_URL,
-            OKX_CT_LEADTRADER_SUBPOSITIONS_HISTORY,
-            unique_code,
-            inst_type_str,
+            OKX_BASE_URL, OKX_CT_LEADTRADER_SUBPOSITIONS_HISTORY, unique_code, inst_type_str,
         );
 
         if let Some(l) = limit {
@@ -436,10 +391,7 @@ impl OkxCli {
         Ok(data)
     }
 
-    async fn _get_ticker(
-        &self,
-        inst: &str,
-    ) -> InfraResult<TickerData> {
+    async fn _get_ticker(&self, inst: &str) -> InfraResult<TickerData> {
         let url = format!(
             "{}{}?&instId={}",
             OKX_BASE_URL,
@@ -463,7 +415,7 @@ impl OkxCli {
 
     async fn _get_instrument_info(
         &self,
-        inst_type: InstrumentType
+        inst_type: InstrumentType,
     ) -> InfraResult<Vec<InstrumentInfo>> {
         let inst_type_str = match inst_type {
             InstrumentType::Spot => "SPOT",
@@ -471,15 +423,13 @@ impl OkxCli {
             InstrumentType::Perpetual => "SWAP",
             InstrumentType::Options => "OPTION",
             InstrumentType::Unknown => {
-                return Err(InfraError::ApiCliError("Unknown instrument type".into()))
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
             },
         };
 
         let url = format!(
             "{}{}?&instType={}",
-            OKX_BASE_URL,
-            OKX_PUBLIC_INSTRUMENTS,
-            inst_type_str,
+            OKX_BASE_URL, OKX_PUBLIC_INSTRUMENTS, inst_type_str,
         );
 
         let responds = self.client.get(url).send().await?;
@@ -495,10 +445,7 @@ impl OkxCli {
         Ok(data)
     }
 
-    async fn _place_order(
-        &self,
-        order_params: OrderParams,
-    ) -> InfraResult<OrderAckData> {
+    async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         let mut body = json!({
             "instId": cli_perp_to_okx_inst(&order_params.inst),
             "side": match order_params.side {
@@ -550,7 +497,8 @@ impl OkxCli {
             body[k] = json!(v);
         }
 
-        let res: RestResOkx<RestOrderAckOkx> = self.api_key
+        let res: RestResOkx<RestOrderAckOkx> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -574,20 +522,17 @@ impl OkxCli {
         Ok(data)
     }
 
-
-    async fn _get_balance(
-        &self,
-        assets: Option<&[String]>,
-    ) -> InfraResult<Vec<BalanceData>> {
+    async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         let body = match assets {
             Some(ccys) if !ccys.is_empty() => {
                 let okx_ccys: Vec<String> = ccys.iter().map(|s| cli_perp_to_okx_inst(s)).collect();
                 json!({ "ccy": okx_ccys.join(",") }).to_string()
-            }
+            },
             _ => "{}".into(),
         };
 
-        let res: RestResOkx<RestAccountBalOkx> = self.api_key
+        let res: RestResOkx<RestAccountBalOkx> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -609,10 +554,7 @@ impl OkxCli {
         Ok(data)
     }
 
-    async fn _get_positions(
-        &self,
-        insts: Option<&[String]>,
-    ) -> InfraResult<Vec<PositionData>> {
+    async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         let body = match insts {
             Some(ids) if !ids.is_empty() => {
                 let okx_ids: Vec<String> = ids.iter().map(|s| cli_perp_to_okx_inst(s)).collect();
@@ -621,7 +563,8 @@ impl OkxCli {
             _ => "{}".into(),
         };
 
-        let res: RestResOkx<RestAccountPosOkx> = self.api_key
+        let res: RestResOkx<RestAccountPosOkx> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -645,24 +588,14 @@ impl OkxCli {
     fn _get_public_sub_msg(
         &self,
         ws_channel: &WsChannel,
-        insts: Option<&[String]>
+        insts: Option<&[String]>,
     ) -> InfraResult<String> {
         match ws_channel {
-            WsChannel::Candles(channel) => {
-                self._ws_subscribe_candle(channel, insts)
-            },
-            WsChannel::Trades(trades_param) => {
-                self._ws_subscribe_trades(trades_param, insts)
-            },
-            WsChannel::Tick => {
-                Err(InfraError::Unimplemented)
-            },
-            WsChannel::Lob => {
-                Err(InfraError::Unimplemented)
-            },
-            _ => {
-                Err(InfraError::Unimplemented)
-            },
+            WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
+            WsChannel::Trades(trades_param) => self._ws_subscribe_trades(trades_param, insts),
+            WsChannel::Tick => Err(InfraError::Unimplemented),
+            WsChannel::Lob => Err(InfraError::Unimplemented),
+            _ => Err(InfraError::Unimplemented),
         }
     }
 
@@ -671,10 +604,7 @@ impl OkxCli {
         candle_param: &Option<CandleParam>,
         insts: Option<&[String]>,
     ) -> InfraResult<String> {
-        let interval = candle_param
-            .as_ref()
-            .map(|p| p.as_str())
-            .unwrap_or("1m");
+        let interval = candle_param.as_ref().map(|p| p.as_str()).unwrap_or("1m");
 
         let channel = format!("candle{}", interval);
 
@@ -684,7 +614,7 @@ impl OkxCli {
     fn _ws_subscribe_trades(
         &self,
         trades_param: &Option<TradesParam>,
-        insts: Option<&[String]>
+        insts: Option<&[String]>,
     ) -> InfraResult<String> {
         let channel = match trades_param {
             Some(TradesParam::AggTrades) | None => "trades",
@@ -694,10 +624,7 @@ impl OkxCli {
         Ok(ws_subscribe_msg_okx(channel, insts))
     }
 
-    fn _get_private_sub_msg(
-        &self,
-        channel: &WsChannel
-    ) -> InfraResult<String> {
+    fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         let args = match channel {
             WsChannel::AccountOrders => {
                 vec![json!({
@@ -727,4 +654,3 @@ impl OkxCli {
         Ok(msg.to_string())
     }
 }
-

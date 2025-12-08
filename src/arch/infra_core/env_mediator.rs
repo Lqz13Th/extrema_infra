@@ -1,16 +1,13 @@
+use futures::future::pending;
 use std::sync::Arc;
 use tokio::sync::mpsc;
-use futures::future::pending;
 
 use crate::arch::{
     infra_core::env_core::EnvCore,
     strategy_base::command::command_core::{CommandHandle, TaskCommand},
     task_execution::{
-        task_general::TaskInfo,
-        task_alt::AltTaskInfo,
-        task_ws::WsTaskInfo,
-        register_alt::AltTaskBuilder,
-        register_ws::WsTaskBuilder,
+        register_alt::AltTaskBuilder, register_ws::WsTaskBuilder, task_alt::AltTaskInfo,
+        task_general::TaskInfo, task_ws::WsTaskInfo,
     },
     traits::strategy::Strategy,
 };
@@ -31,7 +28,11 @@ where
             self.core.strategy.command_init(handle.clone());
         }
 
-        self.core.strategy._spawn_strategy_tasks(&self.core.channel).await;
+        self.core
+            .strategy
+            ._spawn_strategy_tasks(&self.core.channel)
+            .await;
+        
         pending::<()>().await;
     }
 
@@ -104,4 +105,3 @@ where
             .collect()
     }
 }
-

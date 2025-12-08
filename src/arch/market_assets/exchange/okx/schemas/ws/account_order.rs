@@ -3,13 +3,8 @@ use serde::Deserialize;
 use crate::arch::{
     market_assets::{
         api_general::ts_to_micros,
+        base_data::{InstrumentType, OrderSide, OrderStatus, OrderType},
         exchange::okx::api_utils::okx_inst_to_cli,
-        base_data::{
-            InstrumentType,
-            OrderSide,
-            OrderStatus,
-            OrderType,
-        },
         market_core::Market,
     },
     strategy_base::handler::cex_events::WsAccOrder,
@@ -54,12 +49,14 @@ impl IntoWsData for WsAccountOrderOkx {
                 "OPTION" => InstrumentType::Options,
                 _ => InstrumentType::Unknown,
             },
-            price: self.px
+            price: self
+                .px
                 .as_ref()
                 .and_then(|p| p.parse::<f64>().ok())
                 .unwrap_or(0.0),
             size: self.sz.parse().unwrap_or_default(),
-            filled_size: self.fillSz
+            filled_size: self
+                .fillSz
                 .as_ref()
                 .and_then(|sz| sz.parse::<f64>().ok())
                 .unwrap_or(0.0),

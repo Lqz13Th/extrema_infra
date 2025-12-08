@@ -2,34 +2,20 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 
-use std::sync::Arc;
+use futures_util::{SinkExt, StreamExt};
 use serde::de::DeserializeOwned;
 use serde_json::from_slice;
-use futures_util::{SinkExt, StreamExt};
+use std::sync::Arc;
 use tokio::{
     net::TcpStream,
     sync::{broadcast, mpsc},
-    time::{
-        error::Elapsed,
-        sleep,
-        timeout,
-        Duration,
-    },
+    time::{Duration, error::Elapsed, sleep, timeout},
 };
-use tungstenite::{
-    protocol::Message,
-    Bytes,
-    Error,
-};
-use tokio_tungstenite::{
-    connect_async,
-    MaybeTlsStream,
-    WebSocketStream,
-};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
+use tungstenite::{Bytes, Error, protocol::Message};
 
 use tracing::{error, info, warn};
 
-use crate::errors::{InfraError, InfraResult};
 use crate::arch::{
     market_assets::{
         exchange::{
@@ -37,16 +23,14 @@ use crate::arch::{
                 binance_ws_msg::BinanceWsData,
                 schemas::um_futures_ws::{
                     account_bal_and_pos::WsBalAndPosBinanceUM,
-                    account_order::WsAccountOrderBinanceUM,
-                    agg_trades::WsAggTradeBinanceUM,
+                    account_order::WsAccountOrderBinanceUM, agg_trades::WsAggTradeBinanceUM,
                     candles::WsCandleBinanceUM,
-                }
+                },
             },
             okx::{
                 okx_ws_msg::OkxWsData,
                 schemas::ws::{
-                    account_bal_and_pos::WsBalAndPosOkx,
-                    account_order::WsAccountOrderOkx,
+                    account_bal_and_pos::WsBalAndPosOkx, account_order::WsAccountOrderOkx,
                     trades::WsTradesOkx,
                 },
             },
@@ -62,17 +46,18 @@ use crate::arch::{
     },
     traits::conversion::IntoWsData,
 };
+use crate::errors::{InfraError, InfraResult};
 
 use super::{
     task_general::LogLevel,
-    task_ws::{WsChannel, WsTaskInfo}
+    task_ws::{WsChannel, WsTaskInfo},
 };
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 static PING: Bytes = Bytes::from_static(b"ping");
 
 #[derive(Debug)]
-pub(crate) struct WsTaskBuilder{
+pub(crate) struct WsTaskBuilder {
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
     pub ws_info: Arc<WsTaskInfo>,
@@ -81,16 +66,11 @@ pub(crate) struct WsTaskBuilder{
 }
 
 impl WsTaskBuilder {
-    async fn connect_websocket(
-        &self,
-        url: &str,
-    ) -> InfraResult<WsStream> {
-        let (ws_stream, _) = connect_async(url)
-            .await
-            .map_err(|e| {
-                error!("WebSocket connection failed: {:?}", e);
-                InfraError::WebSocket(Box::new(e))
-            })?;
+    async fn connect_websocket(&self, url: &str) -> InfraResult<WsStream> {
+        let (ws_stream, _) = connect_async(url).await.map_err(|e| {
+            error!("WebSocket connection failed: {:?}", e);
+            InfraError::WebSocket(Box::new(e))
+        })?;
         Ok(ws_stream)
     }
     async fn handle_ws_msg<WsData>(
@@ -101,7 +81,7 @@ impl WsTaskBuilder {
     ) -> bool
     where
         WsData: DeserializeOwned + IntoWsData + Send + 'static,
-        WsData::Output: Send + Sync + 'static
+        WsData::Output: Send + Sync + 'static,
     {
         match msg {
             Ok(Some(Ok(Message::Text(text)))) => {
@@ -152,7 +132,10 @@ impl WsTaskBuilder {
                 return true;
             },
             Ok(Some(Err(e))) => {
-                self.log(LogLevel::Error, &format!("Error receiving WS message: {:?}", e));
+                self.log(
+                    LogLevel::Error,
+                    &format!("Error receiving WS message: {:?}", e),
+                );
                 return true;
             },
             Ok(None) => {
@@ -171,26 +154,22 @@ impl WsTaskBuilder {
         false
     }
 
-    async fn handle_command(
-        &mut self,
-        cmd: Option<TaskCommand>,
-        ws_stream: &mut WsStream,
-    ) -> bool {
+    async fn handle_command(&mut self, cmd: Option<TaskCommand>, ws_stream: &mut WsStream) -> bool {
         if let Some(cmd) = cmd {
             match cmd {
                 TaskCommand::WsMessage { msg, ack } => {
-                    self.send_cmd(ws_stream, msg, ack, AckStatus::WsMessage).await
+                    self.send_cmd(ws_stream, msg, ack, AckStatus::WsMessage)
+                        .await
                 },
                 TaskCommand::WsShutdown { msg, ack } => {
-                    self.send_cmd(ws_stream, msg, ack, AckStatus::WsShutdown).await;
+                    self.send_cmd(ws_stream, msg, ack, AckStatus::WsShutdown)
+                        .await;
                     return true;
                 },
-                _ => {
-                    self.log(
-                        LogLevel::Warn,
-                        &format!("Unexpected command, auto-ack: {:?}", cmd),
-                    )
-                },
+                _ => self.log(
+                    LogLevel::Warn,
+                    &format!("Unexpected command, auto-ack: {:?}", cmd),
+                ),
             };
         }
 
@@ -210,21 +189,17 @@ impl WsTaskBuilder {
                 &format!("Failed to send {:?}: {}", ack_status, msg),
             );
         } else {
-            self.log(LogLevel::Info,
-                &format!("{:?}: {}", ack_status, msg),
-            );
+            self.log(LogLevel::Info, &format!("{:?}: {}", ack_status, msg));
         }
 
         ack_handle.respond(ack_status);
     }
 
-
     async fn ws_loop<WsData>(
         &mut self,
         tx: broadcast::Sender<InfraMsg<WsData::Output>>,
         ws_stream: &mut WsStream,
-    )
-    where
+    ) where
         WsData: DeserializeOwned + IntoWsData + Send + 'static,
         WsData::Output: Send + Sync + 'static,
     {
@@ -246,10 +221,7 @@ impl WsTaskBuilder {
         }
     }
 
-    pub async fn ws_channel_distribution(
-        &mut self,
-        ws_stream: &mut WsStream,
-    ) {
+    pub async fn ws_channel_distribution(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.market {
             #[cfg(feature = "binance_um")]
             Market::BinanceUmFutures => {
@@ -293,7 +265,7 @@ impl WsTaskBuilder {
                 Some(cmd) => {
                     self.log(
                         LogLevel::Warn,
-                        &format!("Received unexpected initial command: {:?}", cmd)
+                        &format!("Received unexpected initial command: {:?}", cmd),
                     );
                     continue;
                 },
@@ -309,25 +281,33 @@ impl WsTaskBuilder {
                     self.log(LogLevel::Error, &format!("Failed to connect ws: {:?}", e));
                     sleep(Duration::from_secs(5)).await;
                     continue;
-                }
+                },
             };
 
             ack.respond(AckStatus::WsConnect);
             self.ws_channel_distribution(&mut ws_stream).await;
-
         }
     }
 
     fn log(&self, level: LogLevel, msg: &str) {
         match level {
             LogLevel::Info => {
-                info!("Ws task: {:?}, task id: {}. {}", self.ws_info, self.task_id, msg)
+                info!(
+                    "Ws task: {:?}, task id: {}. {}",
+                    self.ws_info, self.task_id, msg
+                )
             },
             LogLevel::Warn => {
-                warn!("Ws task: {:?}, task id: {}. {}", self.ws_info, self.task_id, msg)
+                warn!(
+                    "Ws task: {:?}, task id: {}. {}",
+                    self.ws_info, self.task_id, msg
+                )
             },
             LogLevel::Error => {
-                error!("Ws task: {:?}, task id: {}. {}", self.ws_info, self.task_id, msg)
+                error!(
+                    "Ws task: {:?}, task id: {}. {}",
+                    self.ws_info, self.task_id, msg
+                )
             },
         }
     }
@@ -337,10 +317,8 @@ impl WsTaskBuilder {
         match &self.ws_info.ws_channel {
             WsChannel::Trades(..) => {
                 if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(
-                        tx,
-                        ws_stream,
-                    ).await;
+                    self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(tx, ws_stream)
+                        .await;
                 } else {
                     self.log(
                         LogLevel::Warn,
@@ -350,10 +328,8 @@ impl WsTaskBuilder {
             },
             WsChannel::Candles(..) => {
                 if let Some(tx) = find_candle(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(
-                        tx,
-                        ws_stream,
-                    ).await;
+                    self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(tx, ws_stream)
+                        .await;
                 } else {
                     self.log(
                         LogLevel::Warn,
@@ -363,10 +339,8 @@ impl WsTaskBuilder {
             },
             WsChannel::AccountOrders => {
                 if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAccountOrderBinanceUM>>(
-                        tx,
-                        ws_stream,
-                    ).await;
+                    self.ws_loop::<BinanceWsData<WsAccountOrderBinanceUM>>(tx, ws_stream)
+                        .await;
                 } else {
                     self.log(
                         LogLevel::Warn,
@@ -376,10 +350,8 @@ impl WsTaskBuilder {
             },
             WsChannel::AccountBalAndPos => {
                 if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(
-                        tx,
-                        ws_stream,
-                    ).await;
+                    self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(tx, ws_stream)
+                        .await;
                 } else {
                     self.log(
                         LogLevel::Warn,
@@ -388,7 +360,10 @@ impl WsTaskBuilder {
                 }
             },
             c => {
-                self.log(LogLevel::Warn, &format!("Unknown Binance UM channel: {:?}", c));
+                self.log(
+                    LogLevel::Warn,
+                    &format!("Unknown Binance UM channel: {:?}", c),
+                );
             },
         };
     }
@@ -398,23 +373,15 @@ impl WsTaskBuilder {
         match &self.ws_info.ws_channel {
             WsChannel::Trades(..) => {
                 if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsTradesOkx>>(
-                        tx,
-                        ws_stream,
-                    ).await;
+                    self.ws_loop::<OkxWsData<WsTradesOkx>>(tx, ws_stream).await;
                 } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Okx Trades",
-                    );
+                    self.log(LogLevel::Warn, "No broadcast channel found for Okx Trades");
                 }
             },
             WsChannel::AccountOrders => {
                 if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsAccountOrderOkx>>(
-                        tx,
-                        ws_stream,
-                    ).await;
+                    self.ws_loop::<OkxWsData<WsAccountOrderOkx>>(tx, ws_stream)
+                        .await;
                 } else {
                     self.log(
                         LogLevel::Warn,
@@ -424,10 +391,8 @@ impl WsTaskBuilder {
             },
             WsChannel::AccountBalAndPos => {
                 if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsBalAndPosOkx>>(
-                        tx,
-                        ws_stream,
-                    ).await;
+                    self.ws_loop::<OkxWsData<WsBalAndPosOkx>>(tx, ws_stream)
+                        .await;
                 } else {
                     self.log(
                         LogLevel::Warn,
@@ -441,4 +406,3 @@ impl WsTaskBuilder {
         };
     }
 }
-

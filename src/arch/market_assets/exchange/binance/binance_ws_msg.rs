@@ -29,7 +29,6 @@ where
 {
     type Output = Vec<T::Output>;
     fn into_ws(self) -> Self::Output {
-
         match self {
             BinanceWsData::ChannelSingle(c) => vec![c.into_ws()],
             BinanceWsData::ChannelBatch(c) => c.into_iter().map(|d| d.into_ws()).collect(),
@@ -43,9 +42,7 @@ where
                 if let Some(err) = &res.error {
                     warn!(
                         "Subscription error. code = {}, msg = {}, id = {}",
-                        err.code,
-                        err.msg,
-                        res.id
+                        err.code, err.msg, res.id
                     );
                 }
 

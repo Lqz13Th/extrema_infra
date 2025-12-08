@@ -1,26 +1,19 @@
-use std::future::{ready, Future};
+use std::future::{Future, ready};
 
-use crate::errors::{InfraError, InfraResult};
 use crate::arch::{
     market_assets::{
-        api_data::{
-            account_data::*,
-            price_data::*,
-            utils_data::*,
-        },
+        api_data::{account_data::*, price_data::*, utils_data::*},
         api_general::OrderParams,
         base_data::InstrumentType,
     },
     task_execution::task_ws::{CandleParam, WsChannel},
 };
+use crate::errors::{InfraError, InfraResult};
 
 pub trait MarketCexApi: CexPublicRest + CexPrivateRest {}
 
 pub trait CexPublicRest: Send + Sync {
-    fn get_ticker(
-        &self,
-        _inst: &str,
-    ) -> impl Future<Output = InfraResult<TickerData>> + Send {
+    fn get_ticker(&self, _inst: &str) -> impl Future<Output = InfraResult<TickerData>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 

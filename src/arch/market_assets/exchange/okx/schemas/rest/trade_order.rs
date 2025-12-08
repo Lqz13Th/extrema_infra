@@ -1,9 +1,7 @@
 use serde::Deserialize;
 
 use crate::arch::market_assets::{
-    api_data::account_data::OrderAckData,
-    api_general::ts_to_micros,
-    base_data::OrderStatus,
+    api_data::account_data::OrderAckData, api_general::ts_to_micros, base_data::OrderStatus,
 };
 
 #[allow(non_snake_case)]

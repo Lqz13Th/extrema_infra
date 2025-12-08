@@ -59,7 +59,7 @@ where
                                 "Other: {}, code: {:?}, msg: {:?}, arg: {:?}, count: {:?}",
                                 event, res.code, res.msg, res.arg, res.connCount
                             );
-                        }
+                        },
                     };
                 }
 

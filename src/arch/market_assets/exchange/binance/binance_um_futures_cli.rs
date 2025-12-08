@@ -1,47 +1,35 @@
-use std::sync::Arc;
-use simd_json::from_slice;
 use reqwest::Client;
 use serde_json::Value;
+use simd_json::from_slice;
+use std::sync::Arc;
 use tracing::error;
 
-use crate::errors::{InfraError, InfraResult};
-use crate::arch::{
-    market_assets::{
-        exchange::binance::binance_rest_msg::RestResBinance,
-        api_data::{
-            account_data::*,
-            price_data::*,
-            utils_data::*,
-        },
-        api_general::*,
-        base_data::*,
-    },
-    task_execution::task_ws::*,
-    traits::{
-        conversion::IntoInfraVec,
-        market_cex::{
-            CexPrivateRest,
-            CexPublicRest,
-            CexWebsocket,
-            MarketCexApi,
-        },
-    },
-};
 use super::{
-    api_key::{read_binance_env_key, BinanceKey},
+    api_key::{BinanceKey, read_binance_env_key},
     api_utils::*,
     config_assets::*,
     schemas::um_futures_rest::{
         account_balance::RestAccountBalBinanceUM,
         account_position_risk::RestAccountPosRiskBinanceUM,
-        exchange_info::RestExchangeInfoBinanceUM,
-        funding_rate::RestFundingRateBinanceUM,
+        exchange_info::RestExchangeInfoBinanceUM, funding_rate::RestFundingRateBinanceUM,
         funding_rate_info::RestFundingInfoBinanceUM,
-        open_interest_statistics::RestOpenInterestBinanceUM,
-        trade_order::RestOrderAckBinanceUM,
+        open_interest_statistics::RestOpenInterestBinanceUM, trade_order::RestOrderAckBinanceUM,
     },
 };
-
+use crate::arch::{
+    market_assets::{
+        api_data::{account_data::*, price_data::*, utils_data::*},
+        api_general::*,
+        base_data::*,
+        exchange::binance::binance_rest_msg::RestResBinance,
+    },
+    task_execution::task_ws::*,
+    traits::{
+        conversion::IntoInfraVec,
+        market_cex::{CexPrivateRest, CexPublicRest, CexWebsocket, MarketCexApi},
+    },
+};
+use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug)]
 pub struct BinanceUmCli {
@@ -57,7 +45,6 @@ impl Default for BinanceUmCli {
 
 impl MarketCexApi for BinanceUmCli {}
 
-
 impl CexPublicRest for BinanceUmCli {
     async fn get_instrument_info(
         &self,
@@ -66,7 +53,7 @@ impl CexPublicRest for BinanceUmCli {
         self._get_instrument_info(inst_type).await
     }
 
-    async fn get_live_instruments(&self) -> InfraResult<Vec<String>>{
+    async fn get_live_instruments(&self) -> InfraResult<Vec<String>> {
         self._get_live_instruments().await
     }
 }
@@ -83,24 +70,15 @@ impl CexPrivateRest for BinanceUmCli {
         };
     }
 
-    async fn place_order(
-        &self,
-        order_params: OrderParams,
-    ) -> InfraResult<OrderAckData> {
+    async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         self._place_order(order_params).await
     }
 
-    async fn get_balance(
-        &self,
-        assets: Option<&[String]>
-    ) -> InfraResult<Vec<BalanceData>> {
+    async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
 
-    async fn get_positions(
-        &self,
-        insts: Option<&[String]>,
-    ) -> InfraResult<Vec<PositionData>> {
+    async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
     }
 }
@@ -109,67 +87,70 @@ impl CexWebsocket for BinanceUmCli {
     async fn get_public_sub_msg(
         &self,
         channel: &WsChannel,
-        insts: Option<&[String]>
+        insts: Option<&[String]>,
     ) -> InfraResult<String> {
         self._get_public_sub_msg(channel, insts)
     }
 
-    async fn get_private_sub_msg(
-        &self,
-        _channel: &WsChannel
-    ) -> InfraResult<String> {
+    async fn get_private_sub_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
         Ok(String::new())
     }
 
-    async fn get_public_connect_msg(
-        &self,
-        _channel: &WsChannel,
-    ) -> InfraResult<String> {
+    async fn get_public_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
         Ok(BINANCE_UM_FUTURES_WS.into())
     }
 
-    async fn get_private_connect_msg(
-        &self,
-        _channel: &WsChannel
-    ) -> InfraResult<String> {
+    async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
         let listen_key = self.create_listen_key().await?;
-        Ok(format!("{}/{}", BINANCE_UM_FUTURES_WS, listen_key.listenKey))
+        Ok(format!(
+            "{}/{}",
+            BINANCE_UM_FUTURES_WS, listen_key.listenKey
+        ))
     }
 }
-
 
 impl BinanceUmCli {
     pub fn new(shared_client: Arc<Client>) -> Self {
         Self {
             client: shared_client,
-            api_key: None
+            api_key: None,
         }
     }
 
     pub async fn create_listen_key(&self) -> InfraResult<BinanceListenKey> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
 
-        let listen_key: BinanceListenKey = api_key.send_signed_request(
-            &self.client,
-            RequestMethod::Post,
-            None,
-            BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_LISTEN_KEY,
-        ).await?;
+        let listen_key: BinanceListenKey = api_key
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_LISTEN_KEY,
+            )
+            .await?;
 
         Ok(listen_key)
     }
 
     pub async fn renew_listen_key(&self) -> InfraResult<BinanceListenKey> {
-        let api_key = self.api_key.as_ref().ok_or(InfraError::ApiCliNotInitialized)?;
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
 
-        let listen_key: BinanceListenKey = api_key.send_signed_request(
-            &self.client,
-            RequestMethod::Put,
-            None,
-            BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_LISTEN_KEY,
-        ).await?;
+        let listen_key: BinanceListenKey = api_key
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Put,
+                None,
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_LISTEN_KEY,
+            )
+            .await?;
 
         Ok(listen_key)
     }
@@ -259,7 +240,6 @@ impl BinanceUmCli {
             url.push_str(&format!("&endTime={}", e));
         }
 
-
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
 
@@ -316,7 +296,11 @@ impl BinanceUmCli {
         &self,
         inst_type: InstrumentType,
     ) -> InfraResult<Vec<InstrumentInfo>> {
-        let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO].concat();
+        let url = [
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_EXCHANGE_INFO,
+        ]
+        .concat();
 
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
@@ -333,13 +317,18 @@ impl BinanceUmCli {
     }
 
     async fn _get_live_instruments(&self) -> InfraResult<Vec<String>> {
-        let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_EXCHANGE_INFO].concat();
+        let url = [
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_EXCHANGE_INFO,
+        ]
+        .concat();
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestExchangeInfoBinanceUM = from_slice(&mut res_bytes)?;
 
-        let data: Vec<String> = res.symbols
+        let data: Vec<String> = res
+            .symbols
             .into_iter()
             .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
             .map(|s| binance_inst_to_cli(&s.symbol))
@@ -348,10 +337,7 @@ impl BinanceUmCli {
         Ok(data)
     }
 
-    async fn _place_order(
-        &self,
-        order_params: OrderParams,
-    ) -> InfraResult<OrderAckData> {
+    async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         let mut query_string = format!(
             "symbol={}&side={}&type={}&quantity={}",
             cli_perp_to_pure_uppercase(&order_params.inst),
@@ -408,7 +394,8 @@ impl BinanceUmCli {
             query_string.push_str(&format!("&{}={}", k, v));
         }
         println!("{}", query_string);
-        let res: RestResBinance<RestOrderAckBinanceUM> = self.api_key
+        let res: RestResBinance<RestOrderAckBinanceUM> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -432,11 +419,9 @@ impl BinanceUmCli {
         Ok(data)
     }
 
-    async fn _get_balance(
-        &self,
-        assets: Option<&[String]>
-    ) -> InfraResult<Vec<BalanceData>> {
-        let bal_res: RestResBinance<RestAccountBalBinanceUM> = self.api_key
+    async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
+        let bal_res: RestResBinance<RestAccountBalBinanceUM> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -445,32 +430,26 @@ impl BinanceUmCli {
                 None,
                 BINANCE_UM_FUTURES_BASE_URL,
                 BINANCE_UM_FUTURES_BALANCE_INFO,
-            ).await?;
+            )
+            .await?;
 
         let filtered_res = match assets {
-            Some(list) if !list.is_empty() => {
-                bal_res
-                    .into_vec()?
-                    .into_iter()
-                    .filter(|b| list.contains(&b.asset))
-                    .collect()
-            },
+            Some(list) if !list.is_empty() => bal_res
+                .into_vec()?
+                .into_iter()
+                .filter(|b| list.contains(&b.asset))
+                .collect(),
             _ => bal_res.into_vec()?,
         };
 
-        let data = filtered_res
-            .into_iter()
-            .map(BalanceData::from)
-            .collect();
+        let data = filtered_res.into_iter().map(BalanceData::from).collect();
 
         Ok(data)
     }
 
-    async fn _get_positions(
-        &self,
-        insts: Option<&[String]>,
-    ) -> InfraResult<Vec<PositionData>> {
-        let pos_res: RestResBinance<RestAccountPosRiskBinanceUM> = self.api_key
+    async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
+        let pos_res: RestResBinance<RestAccountPosRiskBinanceUM> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -479,23 +458,19 @@ impl BinanceUmCli {
                 None,
                 BINANCE_UM_FUTURES_BASE_URL,
                 BINANCE_UM_FUTURES_POSITION_RISK_INFO,
-            ).await?;
+            )
+            .await?;
 
         let filtered_res = match insts {
-            Some(list) if !list.is_empty() => {
-                pos_res
-                    .into_vec()?
-                    .into_iter()
-                    .filter(|p| list.contains(&p.symbol))
-                    .collect()
-            },
+            Some(list) if !list.is_empty() => pos_res
+                .into_vec()?
+                .into_iter()
+                .filter(|p| list.contains(&p.symbol))
+                .collect(),
             _ => pos_res.into_vec()?,
         };
 
-        let data = filtered_res
-            .into_iter()
-            .map(PositionData::from)
-            .collect();
+        let data = filtered_res.into_iter().map(PositionData::from).collect();
 
         Ok(data)
     }
@@ -503,24 +478,14 @@ impl BinanceUmCli {
     fn _get_public_sub_msg(
         &self,
         ws_channel: &WsChannel,
-        insts: Option<&[String]>
+        insts: Option<&[String]>,
     ) -> InfraResult<String> {
         match ws_channel {
-            WsChannel::Candles(channel) => {
-                self._ws_subscribe_candle(channel, insts)
-            },
-            WsChannel::Trades(_) => {
-                self._ws_subscribe_aggtrade(insts)
-            },
-            WsChannel::Tick => {
-                Err(InfraError::Unimplemented)
-            },
-            WsChannel::Lob => {
-                Err(InfraError::Unimplemented)
-            },
-            _ => {
-                Err(InfraError::Unimplemented)
-            },
+            WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
+            WsChannel::Trades(_) => self._ws_subscribe_aggtrade(insts),
+            WsChannel::Tick => Err(InfraError::Unimplemented),
+            WsChannel::Lob => Err(InfraError::Unimplemented),
+            _ => Err(InfraError::Unimplemented),
         }
     }
 
@@ -529,10 +494,7 @@ impl BinanceUmCli {
         candle_param: &Option<CandleParam>,
         insts: Option<&[String]>,
     ) -> InfraResult<String> {
-        let interval = candle_param
-            .as_ref()
-            .map(|p| p.as_str())
-            .unwrap_or("1m");
+        let interval = candle_param.as_ref().map(|p| p.as_str()).unwrap_or("1m");
 
         let channel = format!("kline_{}", interval);
 

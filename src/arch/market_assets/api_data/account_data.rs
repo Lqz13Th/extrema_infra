@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
-use crate::arch::market_assets::base_data::{
-    InstrumentType, 
-    OrderStatus, 
-    PositionSide,
-};
+
+use crate::arch::market_assets::base_data::{InstrumentType, OrderStatus, PositionSide};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct BalanceData {

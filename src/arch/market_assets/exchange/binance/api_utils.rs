@@ -1,14 +1,11 @@
-use std::{
-    sync::Arc,
-    collections::HashMap
-};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
+use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 
-use crate::arch::market_assets::base_data::SUBSCRIBE;
 use super::api_key::BinanceKey;
+use crate::arch::market_assets::base_data::SUBSCRIBE;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
@@ -29,11 +26,7 @@ where
         .collect()
 }
 
-
-pub fn ws_subscribe_msg_binance(
-    param: &str,
-    insts: Option<&[String]>
-) -> String {
+pub fn ws_subscribe_msg_binance(param: &str, insts: Option<&[String]>) -> String {
     let params: Vec<String> = match insts {
         Some(list) => list
             .iter()
@@ -74,7 +67,6 @@ pub fn binance_inst_to_cli(symbol: &str) -> String {
 
     upper
 }
-
 
 pub fn cli_perp_to_pure_lowercase(symbol: &str) -> String {
     let cleaned = symbol.strip_suffix("_PERP").unwrap_or(symbol);

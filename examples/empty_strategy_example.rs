@@ -1,8 +1,6 @@
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 use tracing::info;
+
 use extrema_infra::prelude::*;
 
 #[derive(Clone)]
@@ -25,10 +23,7 @@ impl CommandEmitter for EmptyStrategy {
 }
 
 impl EventHandler for EmptyStrategy {
-    async fn on_schedule(
-        &mut self,
-        msg: InfraMsg<AltScheduleEvent>,
-    ) {
+    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
         info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
     }
 }

@@ -1,8 +1,5 @@
 use crate::arch::{
-    market_assets::{
-        base_data::*,
-        market_core::Market,
-    },
+    market_assets::{base_data::*, market_core::Market},
     task_execution::task_ws::CandleParam,
 };
 
@@ -79,4 +76,3 @@ pub struct WsAccPosition {
     pub position_side: PositionSide,
     pub margin_mode: MarginMode,
 }
-

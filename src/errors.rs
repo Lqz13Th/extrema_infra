@@ -4,7 +4,7 @@ use thiserror::Error;
 pub enum InfraError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("REST API error: {0}")]
     RestApi(#[from] reqwest::Error),
 
@@ -25,7 +25,7 @@ pub enum InfraError {
 
     #[error("API cli not initialized")]
     ApiCliNotInitialized,
-    
+
     #[error("Invalid secret key length")]
     SecretKeyLength,
 

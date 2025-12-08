@@ -1,10 +1,8 @@
 use serde::Deserialize;
 
 use crate::arch::market_assets::{
-    api_data::price_data::TickerData,
+    api_data::price_data::TickerData, api_general::ts_to_micros, base_data::InstrumentType,
     exchange::okx::api_utils::okx_inst_to_cli,
-    api_general::ts_to_micros,
-    base_data::InstrumentType,
 };
 
 #[allow(non_snake_case)]

@@ -20,7 +20,7 @@ pub struct InstrumentInfoBinanceUM {
     pub status: String,
     pub pricePrecision: i32,
     pub quantityPrecision: i32,
-    filters: Vec<Filter>
+    filters: Vec<Filter>,
 }
 
 #[allow(non_camel_case_types)]

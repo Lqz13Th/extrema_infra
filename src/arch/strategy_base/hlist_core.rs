@@ -5,26 +5,23 @@ use crate::arch::{
     market_assets::api_general::OrderParams,
     strategy_base::{
         command::command_core::CommandHandle,
-        handler::{
-            handler_core::*,
-            alt_events::*,
-            cex_events::*,
-        }
+        handler::{alt_events::*, cex_events::*, handler_core::*},
     },
-    task_execution::{
-        task_alt::AltTaskInfo,
-        task_ws::WsTaskInfo,
-    },
+    task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
     traits::strategy::*,
 };
 
 #[derive(Clone)]
 pub struct HNil;
 
-impl Strategy for HNil { async fn initialize(&mut self) {} }
+impl Strategy for HNil {
+    async fn initialize(&mut self) {}
+}
 impl CommandEmitter for HNil {
     fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {}
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> { Vec::new() }
+    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
+        Vec::new()
+    }
 }
 impl EventHandler for HNil {}
 
@@ -141,7 +138,3 @@ where
         tokio::join!(fut_head, fut_tail);
     }
 }
-
-
-
-

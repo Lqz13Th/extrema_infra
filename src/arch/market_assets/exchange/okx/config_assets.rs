@@ -17,7 +17,8 @@ pub const OKX_CT_PUBLIC_LEADTRADERS: &str = "/api/v5/copytrading/public-lead-tra
 pub const OKX_CT_PUBLIC_LEADTRADER_STATS: &str = "/api/v5/copytrading/public-stats";
 pub const OKX_CT_CURRENT_LEADTRADERS: &str = "/api/v5/copytrading/current-lead-traders";
 pub const OKX_CT_LEADTRADER_SUBPOSITIONS: &str = "/api/v5/copytrading/public-current-subpositions";
-pub const OKX_CT_LEADTRADER_SUBPOSITIONS_HISTORY: &str = "/api/v5/copytrading/public-subpositions-history";
+pub const OKX_CT_LEADTRADER_SUBPOSITIONS_HISTORY: &str =
+    "/api/v5/copytrading/public-subpositions-history";
 
 /// WebSocket channels
 pub const OKX_WS_LOGIN: &str = "GET/users/self/verify";

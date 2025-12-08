@@ -1,23 +1,16 @@
 #![allow(unused_imports)]
 
-use crate::errors::InfraResult;
+use super::prelude::*;
 use crate::arch::{
     market_assets::{
-        api_data::{
-            account_data::*,
-            price_data::*,
-            utils_data::*,
-        },
+        api_data::{account_data::*, price_data::*, utils_data::*},
         api_general::OrderParams,
         base_data::InstrumentType,
     },
-    task_execution::task_ws::{
-        WsChannel,
-        CandleParam,
-    },
+    task_execution::task_ws::{CandleParam, WsChannel},
     traits::market_cex::*,
 };
-use super::prelude::*;
+use crate::errors::InfraResult;
 
 #[derive(Clone, Debug)]
 #[cfg(feature = "cex_clients")]
@@ -39,10 +32,7 @@ impl MarketCexApi for CexClients {}
 
 #[cfg(feature = "cex_clients")]
 impl CexPublicRest for CexClients {
-    async fn get_ticker(
-        &self,
-        inst: &str,
-    ) -> InfraResult<TickerData> {
+    async fn get_ticker(&self, inst: &str) -> InfraResult<TickerData> {
         match self {
             CexClients::BinanceCm(c) => c.get_ticker(inst).await,
             CexClients::BinanceUm(c) => c.get_ticker(inst).await,
@@ -50,11 +40,7 @@ impl CexPublicRest for CexClients {
         }
     }
 
-    async fn get_orderbook(
-        &self,
-        inst: &str,
-        depth: usize,
-    ) -> InfraResult<OrderBookData> {
+    async fn get_orderbook(&self, inst: &str, depth: usize) -> InfraResult<OrderBookData> {
         match self {
             CexClients::BinanceCm(c) => c.get_orderbook(inst, depth).await,
             CexClients::BinanceUm(c) => c.get_orderbook(inst, depth).await,
@@ -62,11 +48,7 @@ impl CexPublicRest for CexClients {
         }
     }
 
-    async fn get_candles(
-        &self,
-        inst: &str,
-        interval: CandleParam,
-    ) -> InfraResult<Vec<CandleData>> {
+    async fn get_candles(&self, inst: &str, interval: CandleParam) -> InfraResult<Vec<CandleData>> {
         match self {
             CexClients::BinanceCm(c) => c.get_candles(inst, interval).await,
             CexClients::BinanceUm(c) => c.get_candles(inst, interval).await,
@@ -104,10 +86,7 @@ impl CexPrivateRest for CexClients {
         }
     }
 
-    async fn place_order(
-        &self,
-        order_params: OrderParams,
-    ) -> InfraResult<OrderAckData> {
+    async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         match self {
             CexClients::BinanceCm(c) => c.place_order(order_params).await,
             CexClients::BinanceUm(c) => c.place_order(order_params).await,
@@ -122,19 +101,13 @@ impl CexPrivateRest for CexClients {
         cli_order_id: Option<&str>,
     ) -> InfraResult<OrderAckData> {
         match self {
-            CexClients::BinanceCm(c) =>
-                c.cancel_order(inst, order_id, cli_order_id).await,
-            CexClients::BinanceUm(c) =>
-                c.cancel_order(inst, order_id, cli_order_id).await,
-            CexClients::Okx(c) =>
-                c.cancel_order(inst, order_id, cli_order_id).await,
+            CexClients::BinanceCm(c) => c.cancel_order(inst, order_id, cli_order_id).await,
+            CexClients::BinanceUm(c) => c.cancel_order(inst, order_id, cli_order_id).await,
+            CexClients::Okx(c) => c.cancel_order(inst, order_id, cli_order_id).await,
         }
     }
 
-    async fn get_balance(
-        &self,
-        insts: Option<&[String]>,
-    ) -> InfraResult<Vec<BalanceData>> {
+    async fn get_balance(&self, insts: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         match self {
             CexClients::BinanceCm(c) => c.get_balance(insts).await,
             CexClients::BinanceUm(c) => c.get_balance(insts).await,
@@ -142,10 +115,7 @@ impl CexPrivateRest for CexClients {
         }
     }
 
-    async fn get_positions(
-        &self,
-        insts: Option<&[String]>,
-    ) -> InfraResult<Vec<PositionData>> {
+    async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         match self {
             CexClients::BinanceCm(c) => c.get_positions(insts).await,
             CexClients::BinanceUm(c) => c.get_positions(insts).await,
@@ -168,10 +138,7 @@ impl CexWebsocket for CexClients {
         }
     }
 
-    async fn get_private_sub_msg(
-        &self,
-        channel: &WsChannel,
-    ) -> InfraResult<String> {
+    async fn get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         match self {
             CexClients::BinanceCm(c) => c.get_private_sub_msg(channel).await,
             CexClients::BinanceUm(c) => c.get_private_sub_msg(channel).await,
@@ -179,10 +146,7 @@ impl CexWebsocket for CexClients {
         }
     }
 
-    async fn get_public_connect_msg(
-        &self,
-        channel: &WsChannel,
-    ) -> InfraResult<String> {
+    async fn get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         match self {
             CexClients::BinanceCm(c) => c.get_public_connect_msg(channel).await,
             CexClients::BinanceUm(c) => c.get_public_connect_msg(channel).await,
@@ -190,10 +154,7 @@ impl CexWebsocket for CexClients {
         }
     }
 
-    async fn get_private_connect_msg(
-        &self,
-        channel: &WsChannel,
-    ) -> InfraResult<String> {
+    async fn get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         match self {
             CexClients::BinanceCm(c) => c.get_private_connect_msg(channel).await,
             CexClients::BinanceUm(c) => c.get_private_connect_msg(channel).await,

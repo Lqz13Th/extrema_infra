@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use super::{
-    task_alt::AltTaskInfo,
-    task_ws::WsTaskInfo,
-};
+use super::{task_alt::AltTaskInfo, task_ws::WsTaskInfo};
 
 #[derive(Clone, Debug)]
 pub enum TaskInfo {
@@ -17,5 +14,3 @@ pub(crate) enum LogLevel {
     Warn,
     Error,
 }
-
-

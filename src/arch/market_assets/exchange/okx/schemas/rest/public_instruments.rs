@@ -2,8 +2,8 @@ use serde::Deserialize;
 
 use crate::arch::market_assets::{
     api_data::utils_data::InstrumentInfo,
-    exchange::okx::api_utils::okx_inst_to_cli,
     base_data::{InstrumentStatus, InstrumentType},
+    exchange::okx::api_utils::okx_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
@@ -39,12 +39,8 @@ impl From<RestInstrumentsOkx> for InstrumentInfo {
             max_lmt_size: d.maxLmtSz.parse().unwrap_or_default(),
             min_mkt_size: d.minSz.parse().unwrap_or_default(),
             max_mkt_size: d.maxMktSz.parse().unwrap_or_default(),
-            contract_value: d.ctVal
-                .as_ref()
-                .and_then(|p| p.parse().ok()),
-            contract_multiplier: d.ctMult
-                .as_ref()
-                .and_then(|p| p.parse().ok()),
+            contract_value: d.ctVal.as_ref().and_then(|p| p.parse().ok()),
+            contract_multiplier: d.ctMult.as_ref().and_then(|p| p.parse().ok()),
             state: match d.state.as_str() {
                 "live" => InstrumentStatus::Live,
                 "suspend" => InstrumentStatus::Suspend,
@@ -53,5 +49,3 @@ impl From<RestInstrumentsOkx> for InstrumentInfo {
         }
     }
 }
-
-

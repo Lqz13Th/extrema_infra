@@ -1,11 +1,8 @@
 use serde::{Deserialize, Serialize};
-use crate::arch::market_assets::base_data::{
-    InstrumentStatus, 
-    InstrumentType, 
-    MarginMode, 
-    PositionSide,
-};
 
+use crate::arch::market_assets::base_data::{
+    InstrumentStatus, InstrumentType, MarginMode, PositionSide,
+};
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InstrumentInfo {
     pub inst: String,

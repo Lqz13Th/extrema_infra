@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+
 use crate::arch::market_assets::base_data::InstrumentType;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -41,4 +42,3 @@ pub struct OrderBookData {
     pub bids: Vec<(f64, f64)>, // (price, quantity)
     pub asks: Vec<(f64, f64)>,
 }
-

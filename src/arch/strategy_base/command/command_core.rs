@@ -1,9 +1,5 @@
-use tokio::sync::{
-    oneshot,
-    mpsc,
-};
+use tokio::sync::{mpsc, oneshot};
 
-use crate::errors::{InfraError, InfraResult};
 use crate::arch::{
     market_assets::api_general::OrderParams,
     strategy_base::{
@@ -12,6 +8,7 @@ use crate::arch::{
     },
     task_execution::task_general::TaskInfo,
 };
+use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug)]
 pub struct CommandHandle {
@@ -32,10 +29,9 @@ impl CommandHandle {
             .map_err(|e| InfraError::Msg(format!("Failed to send Command: {}", e)))?;
 
         if let Some((expected, rx)) = expected_ack {
-            let ack = rx.await.map_err(|_| InfraError::Msg(format!(
-                "Ack channel closed, expected ack: {:?}",
-                expected,
-            )))?;
+            let ack = rx.await.map_err(|_| {
+                InfraError::Msg(format!("Ack channel closed, expected ack: {:?}", expected,))
+            })?;
 
             if ack == expected {
                 Ok(())
@@ -51,7 +47,6 @@ impl CommandHandle {
     }
 }
 
-
 #[derive(Debug)]
 pub enum TaskCommand {
     WsConnect { msg: String, ack: AckHandle },
@@ -65,12 +60,8 @@ pub enum TaskCommand {
 impl TaskCommand {
     pub fn get_ack(self) -> Option<AckHandle> {
         match self {
-            TaskCommand::WsMessage { ack, .. }
-            | TaskCommand::WsShutdown { ack, .. } => Some(ack),
+            TaskCommand::WsMessage { ack, .. } | TaskCommand::WsShutdown { ack, .. } => Some(ack),
             _ => None,
         }
     }
 }
-
-
-

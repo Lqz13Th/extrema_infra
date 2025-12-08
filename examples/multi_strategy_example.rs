@@ -1,14 +1,8 @@
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
-use extrema_infra::{
-    prelude::*,
-    arch::market_assets::exchange::prelude::*,
-};
+use extrema_infra::{arch::market_assets::exchange::prelude::*, prelude::*};
 
 ///---------------------------------------------------------
 /// Empty Strategy
@@ -26,13 +20,18 @@ impl Strategy for EmptyStrategy {
         info!("[EmptyStrategy] Executing init strategy...");
     }
 
-    fn strategy_name(&self) -> &'static str { "EmptyStrategy" }
+    fn strategy_name(&self) -> &'static str {
+        "EmptyStrategy"
+    }
 }
 
 impl CommandEmitter for EmptyStrategy {
     /// Register command channel (not used in EmptyStrategy).
     fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {
-        info!("[EmptyStrategy] Command channel registered: {:?}", _command_handle);
+        info!(
+            "[EmptyStrategy] Command channel registered: {:?}",
+            _command_handle
+        );
     }
 
     /// No commands in this strategy.
@@ -43,10 +42,7 @@ impl CommandEmitter for EmptyStrategy {
 
 impl EventHandler for EmptyStrategy {
     /// Called periodically if scheduled tasks are configured.
-    async fn on_schedule(
-        &mut self,
-        msg: InfraMsg<AltScheduleEvent>,
-    ) {
+    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
         info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
     }
 
@@ -92,10 +88,13 @@ impl BinanceStrategy {
                 msg: ws_url,
                 ack: AckHandle::new(tx),
             };
-            handle.send_command(cmd, Some((AckStatus::WsConnect, rx))).await?;
+            handle
+                .send_command(cmd, Some((AckStatus::WsConnect, rx)))
+                .await?;
 
             // Step 2: Subscribe to BTC/USDT perpetual candle updates
-            let ws_msg = self.binance_um_cli
+            let ws_msg = self
+                .binance_um_cli
                 .get_public_sub_msg(channel, Some(&["BTC_USDT_PERP".into()]))
                 .await?;
 
@@ -105,13 +104,15 @@ impl BinanceStrategy {
             };
             handle.send_command(cmd, None).await?;
         } else {
-            warn!("[BinanceStrategy] No handle found for channel {:?}", channel);
+            warn!(
+                "[BinanceStrategy] No handle found for channel {:?}",
+                channel
+            );
         }
 
         Ok(())
     }
 }
-
 
 impl Strategy for BinanceStrategy {
     async fn initialize(&mut self) {
@@ -121,7 +122,10 @@ impl Strategy for BinanceStrategy {
 
 impl CommandEmitter for BinanceStrategy {
     fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
-        info!("[BinanceStrategy] Command channel registered: {:?}", command_handle);
+        info!(
+            "[BinanceStrategy] Command channel registered: {:?}",
+            command_handle
+        );
         self.command_handles.push(command_handle);
     }
 
@@ -131,18 +135,18 @@ impl CommandEmitter for BinanceStrategy {
 }
 
 impl EventHandler for BinanceStrategy {
-    async fn on_schedule(
-        &mut self,
-        msg: InfraMsg<AltScheduleEvent>,
-    ) {
+    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
         info!("[BinanceStrategy] AltEventHandler: {:?}", msg);
     }
 
     /// Triggered when a new WebSocket task is ready.
     /// Example: After creating WsTaskInfo for Binance Candle, this event will be fired
     /// and connect_channel() will be executed.
-    async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>)  {
-        info!("[BinanceStrategy] Triggering connect for channel: {:?}", msg.data.ws_channel);
+    async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
+        info!(
+            "[BinanceStrategy] Triggering connect for channel: {:?}",
+            msg.data.ws_channel
+        );
         if let Err(e) = self.connect_channel(&msg.data.ws_channel).await {
             error!("[BinanceStrategy] connect failed: {:?}", e);
         }
@@ -153,7 +157,6 @@ impl EventHandler for BinanceStrategy {
         info!("[BinanceStrategy] Candle event: {:?}", msg);
     }
 }
-
 
 ///---------------------------------------------------------
 /// Main Entry Point
@@ -173,7 +176,7 @@ async fn main() {
         market: Market::BinanceUmFutures,
         ws_channel: WsChannel::Candles(Some(CandleParam::OneMinute)),
         filter_channels: false, // false for debug msg
-        chunk: 1, // number of websocket connections for this task
+        chunk: 1,               // number of websocket connections for this task
         task_base_id: None,
     };
 

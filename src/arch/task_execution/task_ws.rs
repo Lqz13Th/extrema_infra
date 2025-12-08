@@ -31,7 +31,7 @@ pub enum CandleParam {
     FourHours,
     OneDay,
     OneWeek,
-    Custom(String)
+    Custom(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -39,8 +39,6 @@ pub enum TradesParam {
     AggTrades,
     AllTrades,
 }
-
-
 
 impl CandleParam {
     pub fn from_candle_str(s: &str) -> Option<Self> {
