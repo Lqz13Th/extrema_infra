@@ -134,6 +134,9 @@ edition = "2024"
 [dependencies]
 # Infra
 extrema_infra = { path = "../extrema_infra" }
+# or use remote git
+# extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["cex_clients"] }
+
 # Tokio async runtime
 tokio = { version = "1.48.0", features = ["full"] }
 # Logging
@@ -144,11 +147,9 @@ tracing-subscriber = "0.3.20"
 Then, on your main.rs:
 
 ```rust
-use std::{
-  sync::Arc,
-  time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 use tracing::info;
+
 use extrema_infra::prelude::*;
 
 #[derive(Clone)]
@@ -171,10 +172,7 @@ impl CommandEmitter for EmptyStrategy {
 }
 
 impl EventHandler for EmptyStrategy {
-  async fn on_schedule(
-    &mut self,
-    msg: InfraMsg<AltScheduleEvent>,
-  ) {
+  async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
     info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
   }
 }
