@@ -1,23 +1,19 @@
+# ===== IDE / OS =====
 .cursor/
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
 
+# ===== Python Virtual Env =====
 env/
 .venv/
 venv/
 ENV/
-.env.*
+**/.env
+**/.env.*
 
-infra_logs/
-saved_models/
-models_ensemble/
-resampled_data/
-merged_alt_data/
-binance_data/
-datas/
-data/
+# ===== Data Files =====
 *.csv
 *.parquet
 *.h5
@@ -28,20 +24,36 @@ data/
 *.zip
 *.env
 
-model_config.json
-trader_config.json
-account_config.json
-instrument_config.json
-symbol_config.json
-symbols.json
+infra_logs/
+saved_models/
+models_ensemble/
+resampled_data/
+merged_alt_data/
+binance_data/
+datas/
+data/
 
-/target
+# ===== Sensitive Configs (Global) =====
+**/model_config.json
+**/trader_config.json
+**/account_config.json
+**/instrument_config.json
+**/symbol_config.json
+**/symbols.json
+
+# ===== Rust =====
+target/
+**/target/
 **/Cargo.lock
-**/Cargo.toml.orig
 
-__pycache__/
+# ===== Python / uv =====
+**/uv.lock
+**/.python-version
+**/.python-version.*
+
+# ===== Python Garbage =====
+**/__pycache__/
 *.py[cod]
 *.pyo
 .ipynb_checkpoints/
 .jupyter/
-/anaconda_projects/
