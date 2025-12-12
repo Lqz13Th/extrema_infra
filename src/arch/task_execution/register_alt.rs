@@ -77,7 +77,7 @@ impl AltTaskBuilder {
             &format!("Connected to model ZMQ server at {address}."),
         );
 
-        let model_inference_timeout = Duration::from_secs(10);
+        let model_inference_timeout = Duration::from_secs(20);
         loop {
             let tensor = match self.cmd_rx.recv().await {
                 Some(TaskCommand::FeatInput(t)) => t,

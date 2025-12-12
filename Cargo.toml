@@ -42,6 +42,12 @@ thiserror = "2.0.17"
 [features]
 default = []
 
+all = [
+    "binance_cm",
+    "binance_um",
+    "okx",
+]
+
 cex_clients = [
     "binance_cm",
     "binance_um",
