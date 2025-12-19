@@ -68,6 +68,21 @@ pub fn normalize_to_string(value: f64, step: f64) -> String {
     format!("{:.*}", precision, (value / step).floor() * step)
 }
 
+pub fn normalize_to_string_reduce_only(value: f64, step: f64) -> String {
+    if step <= 0.0 {
+        return format!("{}", value);
+    }
+
+    let precision = step
+        .to_string()
+        .split('.')
+        .nth(1)
+        .map(|s| s.len())
+        .unwrap_or(0);
+
+    format!("{:.*}", precision, (value / step).ceil() * step)
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OrderParams {
     pub inst: String,
