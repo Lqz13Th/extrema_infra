@@ -132,16 +132,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# Infra
+# Local development
 extrema_infra = { path = "../extrema_infra" }
-# or use remote git
+
+# Or remote
 # extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["cex_clients"] }
 
 # Tokio async runtime
-tokio = { version = "1.48.0", features = ["full"] }
+tokio = { version = "1.48", features = ["full"] }
 # Logging
-tracing = "0.1.41"
-tracing-subscriber = "0.3.20"
+tracing = "0.1"
+tracing-subscriber = "0.3"
 ```
 
 Then, on your main.rs:
