@@ -11,7 +11,7 @@ path = "src/lib.rs"
 # Networking & async
 tokio = { version = "1.48.0", features = ["full"] }
 reqwest = { version = "0.13.1", features = ["json", "gzip"] }
-tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
 tungstenite = "0.28.0"
 futures = "0.3.31"
 futures-util = "0.3.31"
