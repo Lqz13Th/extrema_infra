@@ -10,7 +10,7 @@ use crate::errors::{InfraError, InfraResult};
 
 #[allow(dead_code)]
 pub fn read_binance_env_key() -> InfraResult<BinanceKey> {
-    let _ = dotenv::dotenv();
+    let _ = dotenvy::dotenv();
 
     let api_key = std::env::var("BINANCE_API_KEY")
         .map_err(|_| InfraError::EnvVarMissing("BINANCE_API_KEY".into()))?;

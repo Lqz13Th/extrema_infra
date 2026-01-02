@@ -10,7 +10,7 @@ use crate::errors::{InfraError, InfraResult};
 use super::api_utils::get_okx_timestamp;
 
 pub fn read_okx_env_key() -> InfraResult<OkxKey> {
-    let _ = dotenv::dotenv();
+    let _ = dotenvy::dotenv();
 
     let api_key = std::env::var("OKX_API_KEY")
         .map_err(|_| InfraError::EnvVarMissing("OKX_API_KEY".into()))?;
