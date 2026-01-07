@@ -121,6 +121,32 @@ For connecting to exchanges, you need to implement these traits for each exchang
 
 ---
 
+## TLS / rustls Initialization (Important)
+
+This framework relies on `rustls` for secure REST and WebSocket connections
+(e.g. via `reqwest` and `tokio-tungstenite`).
+
+Starting from **rustls v0.23**, the TLS crypto backend (e.g. `aws-lc-rs` or `ring`)
+**must be explicitly selected by the final binary**.
+
+### ⚠️ Required for all binary crates
+
+Before using any TLS-enabled functionality (REST / WebSocket),
+the executable **must install a default CryptoProvider**:
+
+```rust
+#[tokio::main]
+async fn main() { 
+  rustls::crypto::aws_lc_rs::default_provider()
+          .install_default()
+          .expect("failed to install rustls crypto provider");
+
+  // start tokio runtime, env builder, etc.
+}
+```
+
+---
+
 ## Example: Spawn example strategy
 
 On your strategy Cargo.toml:
@@ -140,6 +166,10 @@ extrema_infra = { path = "../extrema_infra" }
 
 # Tokio async runtime
 tokio = { version = "1.48", features = ["full"] }
+
+# TLS / Cryptography
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = "0.3"
