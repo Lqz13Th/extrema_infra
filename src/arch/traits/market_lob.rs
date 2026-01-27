@@ -10,9 +10,9 @@ use crate::arch::{
 };
 use crate::errors::{InfraError, InfraResult};
 
-pub trait MarketCexApi: CexPublicRest + CexPrivateRest {}
+pub trait MarketLobApi: LobPublicRest + LobPrivateRest {}
 
-pub trait CexPublicRest: Send + Sync {
+pub trait LobPublicRest: Send + Sync {
     fn get_ticker(&self, _inst: &str) -> impl Future<Output = InfraResult<TickerData>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
@@ -45,7 +45,7 @@ pub trait CexPublicRest: Send + Sync {
     }
 }
 
-pub trait CexPrivateRest: Send + Sync {
+pub trait LobPrivateRest: Send + Sync {
     fn init_api_key(&mut self);
 
     fn place_order(
@@ -90,7 +90,7 @@ pub trait CexPrivateRest: Send + Sync {
     }
 }
 
-pub trait CexWebsocket: Send + Sync {
+pub trait LobWebsocket: Send + Sync {
     fn get_public_sub_msg(
         &self,
         _channel: &WsChannel,

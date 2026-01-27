@@ -5,7 +5,7 @@ use crate::arch::{
     market_assets::api_general::OrderParams,
     strategy_base::{
         command::command_core::CommandHandle,
-        handler::{alt_events::*, cex_events::*, handler_core::*},
+        handler::{alt_events::*, handler_core::*, lob_events::*},
     },
     task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
     traits::strategy::*,

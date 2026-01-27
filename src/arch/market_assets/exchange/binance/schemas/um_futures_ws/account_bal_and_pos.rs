@@ -7,7 +7,7 @@ use crate::arch::{
         exchange::binance::api_utils::binance_inst_to_cli,
         market_core::Market,
     },
-    strategy_base::handler::cex_events::{WsAccBalPos, WsAccBalance, WsAccPosition},
+    strategy_base::handler::lob_events::{WsAccBalPos, WsAccBalance, WsAccPosition},
     traits::conversion::IntoWsData,
 };
 

@@ -13,7 +13,7 @@ use crate::arch::{
     task_execution::task_ws::*,
     traits::{
         conversion::IntoInfraVec,
-        market_cex::{CexPrivateRest, CexPublicRest, CexWebsocket, MarketCexApi},
+        market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
 use crate::errors::{InfraError, InfraResult};
@@ -62,9 +62,9 @@ impl Default for OkxCli {
     }
 }
 
-impl MarketCexApi for OkxCli {}
+impl MarketLobApi for OkxCli {}
 
-impl CexPublicRest for OkxCli {
+impl LobPublicRest for OkxCli {
     async fn get_ticker(&self, insts: &str) -> InfraResult<TickerData> {
         self._get_ticker(insts).await
     }
@@ -77,7 +77,7 @@ impl CexPublicRest for OkxCli {
     }
 }
 
-impl CexPrivateRest for OkxCli {
+impl LobPrivateRest for OkxCli {
     fn init_api_key(&mut self) {
         match read_okx_env_key() {
             Ok(okx_key) => {
@@ -102,7 +102,7 @@ impl CexPrivateRest for OkxCli {
     }
 }
 
-impl CexWebsocket for OkxCli {
+impl LobWebsocket for OkxCli {
     async fn get_public_sub_msg(
         &self,
         channel: &WsChannel,

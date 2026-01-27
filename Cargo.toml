@@ -46,18 +46,18 @@ default = []
 all = [
     "binance_cm",
     "binance_um",
-    "okx",
     "gate",
+    "okx",
 ]
 
-cex_clients = [
+lob_clients = [
     "binance_cm",
     "binance_um",
-    "okx",
     "gate",
+    "okx",
 ]
 
 binance_cm = []
 binance_um = []
-okx = []
 gate = []
+okx = []
