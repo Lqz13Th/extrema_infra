@@ -2,7 +2,7 @@ use data_encoding::HEXLOWER;
 use hmac::Mac;
 
 use reqwest::Client;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha512};
 use simd_json::from_slice;
 
@@ -153,7 +153,8 @@ impl GateKey {
             RequestMethod::Get => self.get_request(client, &signature, &url).await?,
             RequestMethod::Post => {
                 let body_str = body.unwrap_or("");
-                self.post_request(client, &signature, body_str, &url).await?
+                self.post_request(client, &signature, body_str, &url)
+                    .await?
             },
             RequestMethod::Put => {
                 let body_str = body.unwrap_or("");
@@ -165,7 +166,6 @@ impl GateKey {
         Ok(result)
     }
 }
-
 
 fn sha512_hex(payload: &str) -> String {
     let mut hasher = Sha512::new();

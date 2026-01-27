@@ -3,10 +3,7 @@ use std::sync::Arc;
 use tracing::error;
 
 use crate::arch::{
-    market_assets::{
-        api_data::account_data::BalanceData,
-        api_general::RequestMethod,
-    },
+    market_assets::{api_data::account_data::BalanceData, api_general::RequestMethod},
     traits::{
         conversion::IntoInfraVec,
         market_cex::{CexPrivateRest, CexPublicRest, CexWebsocket, MarketCexApi},

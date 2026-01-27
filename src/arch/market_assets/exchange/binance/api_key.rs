@@ -125,9 +125,18 @@ impl BinanceKey {
         let url = [base_url, endpoint].concat();
 
         let mut response = match method {
-            RequestMethod::Get => self.get_request(client, &signature, query_string, &url).await?,
-            RequestMethod::Put => self.put_request(client, &signature, query_string, &url).await?,
-            RequestMethod::Post => self.post_request(client, &signature, query_string, &url).await?,
+            RequestMethod::Get => {
+                self.get_request(client, &signature, query_string, &url)
+                    .await?
+            },
+            RequestMethod::Put => {
+                self.put_request(client, &signature, query_string, &url)
+                    .await?
+            },
+            RequestMethod::Post => {
+                self.post_request(client, &signature, query_string, &url)
+                    .await?
+            },
         };
 
         let result: T = from_slice(&mut response)?;

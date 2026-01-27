@@ -10,7 +10,6 @@ use crate::arch::{
     task_execution::task_ws::{CandleParam, WsChannel},
     traits::market_cex::*,
 };
-use crate::arch::market_assets::exchange::gate::gate_cli::GateCli;
 use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug)]
