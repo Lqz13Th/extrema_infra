@@ -10,6 +10,7 @@ use crate::arch::{
     task_execution::task_ws::{CandleParam, WsChannel},
     traits::market_cex::*,
 };
+use crate::arch::market_assets::exchange::gate::gate_cli::GateCli;
 use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug)]
@@ -17,6 +18,7 @@ use crate::errors::{InfraError, InfraResult};
 pub enum CexClients {
     BinanceCm(BinanceCmCli),
     BinanceUm(BinanceUmCli),
+    Gate(GateCli),
     Okx(OkxCli),
 }
 
@@ -36,6 +38,7 @@ impl CexPublicRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_ticker(inst).await,
             CexClients::BinanceUm(c) => c.get_ticker(inst).await,
+            CexClients::Gate(c) => c.get_ticker(inst).await,
             CexClients::Okx(c) => c.get_ticker(inst).await,
         }
     }
@@ -44,6 +47,7 @@ impl CexPublicRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_orderbook(inst, depth).await,
             CexClients::BinanceUm(c) => c.get_orderbook(inst, depth).await,
+            CexClients::Gate(c) => c.get_orderbook(inst, depth).await,
             CexClients::Okx(c) => c.get_orderbook(inst, depth).await,
         }
     }
@@ -52,6 +56,7 @@ impl CexPublicRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_candles(inst, interval).await,
             CexClients::BinanceUm(c) => c.get_candles(inst, interval).await,
+            CexClients::Gate(c) => c.get_candles(inst, interval).await,
             CexClients::Okx(c) => c.get_candles(inst, interval).await,
         }
     }
@@ -63,6 +68,7 @@ impl CexPublicRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_instrument_info(inst_type).await,
             CexClients::BinanceUm(c) => c.get_instrument_info(inst_type).await,
+            CexClients::Gate(c) => c.get_instrument_info(inst_type).await,
             CexClients::Okx(c) => c.get_instrument_info(inst_type).await,
         }
     }
@@ -71,6 +77,7 @@ impl CexPublicRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_live_instruments().await,
             CexClients::BinanceUm(c) => c.get_live_instruments().await,
+            CexClients::Gate(c) => c.get_live_instruments().await,
             CexClients::Okx(c) => c.get_live_instruments().await,
         }
     }
@@ -82,6 +89,7 @@ impl CexPrivateRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.init_api_key(),
             CexClients::BinanceUm(c) => c.init_api_key(),
+            CexClients::Gate(c) => c.init_api_key(),
             CexClients::Okx(c) => c.init_api_key(),
         }
     }
@@ -90,6 +98,7 @@ impl CexPrivateRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.place_order(order_params).await,
             CexClients::BinanceUm(c) => c.place_order(order_params).await,
+            CexClients::Gate(c) => c.place_order(order_params).await,
             CexClients::Okx(c) => c.place_order(order_params).await,
         }
     }
@@ -103,6 +112,7 @@ impl CexPrivateRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.cancel_order(inst, order_id, cli_order_id).await,
             CexClients::BinanceUm(c) => c.cancel_order(inst, order_id, cli_order_id).await,
+            CexClients::Gate(c) => c.cancel_order(inst, order_id, cli_order_id).await,
             CexClients::Okx(c) => c.cancel_order(inst, order_id, cli_order_id).await,
         }
     }
@@ -111,6 +121,7 @@ impl CexPrivateRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_balance(insts).await,
             CexClients::BinanceUm(c) => c.get_balance(insts).await,
+            CexClients::Gate(c) => c.get_balance(insts).await,
             CexClients::Okx(c) => c.get_balance(insts).await,
         }
     }
@@ -119,6 +130,7 @@ impl CexPrivateRest for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_positions(insts).await,
             CexClients::BinanceUm(c) => c.get_positions(insts).await,
+            CexClients::Gate(c) => c.get_positions(insts).await,
             CexClients::Okx(c) => c.get_positions(insts).await,
         }
     }
@@ -151,6 +163,7 @@ impl CexWebsocket for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_public_sub_msg(channel, insts).await,
             CexClients::BinanceUm(c) => c.get_public_sub_msg(channel, insts).await,
+            CexClients::Gate(c) => c.get_public_sub_msg(channel, insts).await,
             CexClients::Okx(c) => c.get_public_sub_msg(channel, insts).await,
         }
     }
@@ -159,6 +172,7 @@ impl CexWebsocket for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_private_sub_msg(channel).await,
             CexClients::BinanceUm(c) => c.get_private_sub_msg(channel).await,
+            CexClients::Gate(c) => c.get_private_sub_msg(channel).await,
             CexClients::Okx(c) => c.get_private_sub_msg(channel).await,
         }
     }
@@ -167,6 +181,7 @@ impl CexWebsocket for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_public_connect_msg(channel).await,
             CexClients::BinanceUm(c) => c.get_public_connect_msg(channel).await,
+            CexClients::Gate(c) => c.get_public_connect_msg(channel).await,
             CexClients::Okx(c) => c.get_public_connect_msg(channel).await,
         }
     }
@@ -175,6 +190,7 @@ impl CexWebsocket for CexClients {
         match self {
             CexClients::BinanceCm(c) => c.get_private_connect_msg(channel).await,
             CexClients::BinanceUm(c) => c.get_private_connect_msg(channel).await,
+            CexClients::Gate(c) => c.get_private_connect_msg(channel).await,
             CexClients::Okx(c) => c.get_private_connect_msg(channel).await,
         }
     }

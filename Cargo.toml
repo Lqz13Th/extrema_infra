@@ -47,14 +47,17 @@ all = [
     "binance_cm",
     "binance_um",
     "okx",
+    "gate",
 ]
 
 cex_clients = [
     "binance_cm",
     "binance_um",
     "okx",
+    "gate",
 ]
 
 binance_cm = []
 binance_um = []
 okx = []
+gate = []

@@ -433,7 +433,7 @@ impl BinanceUmCli {
     }
 
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
-        let bal_res: RestResBinance<RestAccountBalBinanceUM> = self
+        let res: RestResBinance<RestAccountBalBinanceUM> = self
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
@@ -447,12 +447,12 @@ impl BinanceUmCli {
             .await?;
 
         let filtered_res = match assets {
-            Some(list) if !list.is_empty() => bal_res
+            Some(list) if !list.is_empty() => res
                 .into_vec()?
                 .into_iter()
                 .filter(|b| list.contains(&b.asset))
                 .collect(),
-            _ => bal_res.into_vec()?,
+            _ => res.into_vec()?,
         };
 
         let data = filtered_res.into_iter().map(BalanceData::from).collect();
@@ -461,7 +461,7 @@ impl BinanceUmCli {
     }
 
     async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
-        let pos_res: RestResBinance<RestAccountPosRiskBinanceUM> = self
+        let res: RestResBinance<RestAccountPosRiskBinanceUM> = self
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
@@ -475,12 +475,12 @@ impl BinanceUmCli {
             .await?;
 
         let filtered_res = match insts {
-            Some(list) if !list.is_empty() => pos_res
+            Some(list) if !list.is_empty() => res
                 .into_vec()?
                 .into_iter()
                 .filter(|p| list.contains(&p.symbol))
                 .collect(),
-            _ => pos_res.into_vec()?,
+            _ => res.into_vec()?,
         };
 
         let data = filtered_res.into_iter().map(PositionData::from).collect();

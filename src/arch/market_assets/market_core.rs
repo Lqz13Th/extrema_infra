@@ -4,8 +4,8 @@ pub enum Market {
     BinanceUmFutures,
     BinanceSpot,
     Coinbase,
+    Gate,
     Okx,
-    SolPumpFun,
     #[default]
     HyperLiquid,
 }

@@ -1,5 +1,6 @@
 use data_encoding::BASE64;
 use hmac::Mac;
+
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use simd_json::from_slice;
@@ -65,7 +66,7 @@ impl OkxKey {
         self.sign(raw_sign, timestamp)
     }
 
-    pub(crate) async fn post_request(
+    pub(crate) async fn get_request(
         &self,
         client: &Client,
         signature: &Signature<String>,
@@ -73,7 +74,7 @@ impl OkxKey {
         url: &str,
     ) -> InfraResult<Vec<u8>> {
         let res = client
-            .post(url)
+            .get(url)
             .header("OK-ACCESS-KEY", &self.api_key)
             .header("OK-ACCESS-SIGN", &signature.signature)
             .header("OK-ACCESS-TIMESTAMP", &signature.timestamp)
@@ -86,7 +87,7 @@ impl OkxKey {
         Ok(res.bytes().await?.to_vec())
     }
 
-    pub(crate) async fn get_request(
+    pub(crate) async fn post_request(
         &self,
         client: &Client,
         signature: &Signature<String>,
@@ -94,7 +95,7 @@ impl OkxKey {
         url: &str,
     ) -> InfraResult<Vec<u8>> {
         let res = client
-            .get(url)
+            .post(url)
             .header("OK-ACCESS-KEY", &self.api_key)
             .header("OK-ACCESS-SIGN", &signature.signature)
             .header("OK-ACCESS-TIMESTAMP", &signature.timestamp)

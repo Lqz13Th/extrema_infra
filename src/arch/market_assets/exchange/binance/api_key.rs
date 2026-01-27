@@ -56,7 +56,7 @@ impl BinanceKey {
         self.sign(&query_with_timestamp, timestamp)
     }
 
-    pub(crate) async fn put_request(
+    pub(crate) async fn get_request(
         &self,
         client: &Client,
         signature: &Signature<u64>,
@@ -66,7 +66,7 @@ impl BinanceKey {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
-            .put(&full_url)
+            .get(&full_url)
             .header("X-MBX-APIKEY", &self.api_key)
             .send()
             .await?;
@@ -92,7 +92,7 @@ impl BinanceKey {
         Ok(res.bytes().await?.to_vec())
     }
 
-    pub(crate) async fn get_request(
+    pub(crate) async fn put_request(
         &self,
         client: &Client,
         signature: &Signature<u64>,
@@ -102,7 +102,7 @@ impl BinanceKey {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
-            .get(&full_url)
+            .put(&full_url)
             .header("X-MBX-APIKEY", &self.api_key)
             .send()
             .await?;
@@ -114,20 +114,20 @@ impl BinanceKey {
         &self,
         client: &Client,
         method: RequestMethod,
-        args: Option<&str>,
+        query_string: Option<&str>,
         base_url: &str,
         endpoint: &str,
     ) -> InfraResult<T>
     where
         T: DeserializeOwned + Send,
     {
-        let signature = self.sign_now(args)?;
+        let signature = self.sign_now(query_string)?;
         let url = [base_url, endpoint].concat();
 
         let mut response = match method {
-            RequestMethod::Get => self.get_request(client, &signature, args, &url).await?,
-            RequestMethod::Put => self.put_request(client, &signature, args, &url).await?,
-            RequestMethod::Post => self.post_request(client, &signature, args, &url).await?,
+            RequestMethod::Get => self.get_request(client, &signature, query_string, &url).await?,
+            RequestMethod::Put => self.put_request(client, &signature, query_string, &url).await?,
+            RequestMethod::Post => self.post_request(client, &signature, query_string, &url).await?,
         };
 
         let result: T = from_slice(&mut response)?;
