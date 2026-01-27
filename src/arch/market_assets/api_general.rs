@@ -1,7 +1,7 @@
 use hmac::Hmac;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::Sha256;
+use sha2::{Sha256, Sha512};
 use std::{
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},
@@ -18,11 +18,19 @@ pub struct Signature<T> {
 }
 
 pub type HmacSha256 = Hmac<Sha256>;
+pub type HmacSha512 = Hmac<Sha512>;
 
 pub enum RequestMethod {
     Get,
     Put,
     Post,
+}
+
+pub fn get_seconds_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs()
 }
 
 pub fn get_mills_timestamp() -> u64 {

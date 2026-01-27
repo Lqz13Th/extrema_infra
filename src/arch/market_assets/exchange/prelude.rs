@@ -12,3 +12,6 @@ pub use crate::arch::market_assets::exchange::binance::{api_key::*, api_utils::*
 
 #[cfg(feature = "okx")]
 pub use crate::arch::market_assets::exchange::okx::{api_key::*, api_utils::*, okx_cli::OkxCli};
+
+#[cfg(feature = "gate")]
+pub use crate::arch::market_assets::exchange::gate::{api_key::*, gate_cli::GateCli};
