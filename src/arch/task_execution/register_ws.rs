@@ -235,7 +235,7 @@ impl WsTaskBuilder {
         };
     }
 
-    fn ws_cex_event(&self) {
+    fn ws_event(&self) {
         if let Some(tx) = find_ws_event(&self.board_cast_channel) {
             let msg = InfraMsg {
                 task_id: self.task_id,
@@ -243,10 +243,10 @@ impl WsTaskBuilder {
             };
 
             if let Err(e) = tx.send(msg) {
-                self.log(LogLevel::Warn, &format!("CEX event send failed: {:?}", e));
+                self.log(LogLevel::Warn, &format!("Ws event send failed: {:?}", e));
             }
         } else {
-            self.log(LogLevel::Warn, "No broadcast channel found for CEX event");
+            self.log(LogLevel::Warn, "No broadcast channel found for Ws event");
         }
     }
 
@@ -256,7 +256,7 @@ impl WsTaskBuilder {
 
         loop {
             sleep(sleep_interval).await;
-            self.ws_cex_event();
+            self.ws_event();
             self.log(LogLevel::Info, "Initiated");
 
             let initial_command = self.cmd_rx.recv().await;

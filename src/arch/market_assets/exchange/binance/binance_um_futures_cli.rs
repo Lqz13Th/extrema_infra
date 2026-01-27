@@ -27,7 +27,7 @@ use crate::arch::{
     task_execution::task_ws::*,
     traits::{
         conversion::IntoInfraVec,
-        market_cex::{CexPrivateRest, CexPublicRest, CexWebsocket, MarketCexApi},
+        market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
 use crate::errors::{InfraError, InfraResult};
@@ -44,9 +44,9 @@ impl Default for BinanceUmCli {
     }
 }
 
-impl MarketCexApi for BinanceUmCli {}
+impl MarketLobApi for BinanceUmCli {}
 
-impl CexPublicRest for BinanceUmCli {
+impl LobPublicRest for BinanceUmCli {
     async fn get_instrument_info(
         &self,
         inst_type: InstrumentType,
@@ -59,7 +59,7 @@ impl CexPublicRest for BinanceUmCli {
     }
 }
 
-impl CexPrivateRest for BinanceUmCli {
+impl LobPrivateRest for BinanceUmCli {
     fn init_api_key(&mut self) {
         match read_binance_env_key() {
             Ok(binance_key) => {
@@ -96,7 +96,7 @@ impl CexPrivateRest for BinanceUmCli {
     }
 }
 
-impl CexWebsocket for BinanceUmCli {
+impl LobWebsocket for BinanceUmCli {
     async fn get_public_sub_msg(
         &self,
         channel: &WsChannel,

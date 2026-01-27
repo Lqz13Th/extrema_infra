@@ -5,7 +5,7 @@ use crate::arch::{
         api_general::ts_to_micros, base_data::OrderSide, exchange::okx::api_utils::okx_inst_to_cli,
         market_core::Market,
     },
-    strategy_base::handler::cex_events::WsTrade,
+    strategy_base::handler::lob_events::WsTrade,
     traits::conversion::IntoWsData,
 };
 

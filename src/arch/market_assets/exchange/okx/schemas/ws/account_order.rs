@@ -7,7 +7,7 @@ use crate::arch::{
         exchange::okx::api_utils::okx_inst_to_cli,
         market_core::Market,
     },
-    strategy_base::handler::cex_events::WsAccOrder,
+    strategy_base::handler::lob_events::WsAccOrder,
     traits::conversion::IntoWsData,
 };
 

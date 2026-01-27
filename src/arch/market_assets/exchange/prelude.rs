@@ -1,5 +1,5 @@
-#[cfg(feature = "cex_clients")]
-pub use crate::arch::market_assets::exchange::cex_clients::CexClients;
+#[cfg(feature = "lob_clients")]
+pub use crate::arch::market_assets::exchange::lob_clients::LobClients;
 
 #[cfg(feature = "binance_cm")]
 pub use crate::arch::market_assets::exchange::binance::binance_cm_futures_cli::BinanceCmCli;

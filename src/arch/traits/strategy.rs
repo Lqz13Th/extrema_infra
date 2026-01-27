@@ -6,8 +6,8 @@ use crate::arch::{
         command::command_core::CommandHandle,
         handler::{
             alt_events::*,
-            cex_events::*,
             handler_core::{BoardCastChannel, InfraMsg},
+            lob_events::*,
         },
     },
     task_execution::{

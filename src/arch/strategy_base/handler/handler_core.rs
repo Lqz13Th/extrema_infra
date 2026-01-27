@@ -5,7 +5,7 @@ use tracing::error;
 
 use crate::arch::{
     market_assets::api_general::OrderParams,
-    strategy_base::handler::{alt_events::*, cex_events::*},
+    strategy_base::handler::{alt_events::*, lob_events::*},
     task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
     traits::strategy::Strategy,
 };
@@ -194,7 +194,7 @@ pub(crate) async fn strategy_handler_loop<S>(
                 match msg {
                     Ok(msg) => strategies.on_ws_event(msg).await,
                     Err(e) => {
-                        error!("rx_cex_event err: {:?}, reconnecting...", e);
+                        error!("rx_ws_event err: {:?}, reconnecting...", e);
                         rx_ws_event = find_ws_event(channels).map(|tx| tx.subscribe());
                     },
                 };

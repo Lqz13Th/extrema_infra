@@ -76,7 +76,7 @@ impl BinanceStrategy {
     }
 
     /// Connect to Binance WebSocket channel and send subscription.
-    /// This runs only when a CEX event is received that signals the channel is ready.
+    /// This runs only when a LOB event is received that signals the channel is ready.
     async fn connect_channel(&self, channel: &WsChannel) -> InfraResult<()> {
         if let Some(handle) = self.find_ws_handle(channel, 1) {
             info!("[BinanceStrategy] Sending connect to {:?}", handle);

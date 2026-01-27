@@ -6,7 +6,7 @@ use crate::arch::{
     market_assets::{api_data::account_data::BalanceData, api_general::RequestMethod},
     traits::{
         conversion::IntoInfraVec,
-        market_cex::{CexPrivateRest, CexPublicRest, CexWebsocket, MarketCexApi},
+        market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
 use crate::errors::{InfraError, InfraResult};
@@ -30,11 +30,11 @@ impl Default for GateCli {
     }
 }
 
-impl MarketCexApi for GateCli {}
+impl MarketLobApi for GateCli {}
 
-impl CexPublicRest for GateCli {}
+impl LobPublicRest for GateCli {}
 
-impl CexPrivateRest for GateCli {
+impl LobPrivateRest for GateCli {
     fn init_api_key(&mut self) {
         match read_gate_env_key() {
             Ok(gate_key) => {
@@ -51,7 +51,7 @@ impl CexPrivateRest for GateCli {
     }
 }
 
-impl CexWebsocket for GateCli {}
+impl LobWebsocket for GateCli {}
 
 impl GateCli {
     pub fn new(shared_client: Arc<Client>) -> Self {

@@ -98,8 +98,8 @@ The extrema_infra crate provides the core traits to implement trading strategies
 
 - **EventHandler**
   -  handle timer or alternative task events.
-  -  handle centralized exchange (CEX) events like trades, orderbook (LOB), candles, account orders.
-  -  handle decentralized exchange (DEX) events.
+  -  handle Limit Order Book (LOB) events like trades, orderbook, candles, account orders.
+  -  handle asynchronous model prediction events.
 
 - **CommandEmitter**  
   Used to initialize and register command handles for communication with tasks.
@@ -108,16 +108,18 @@ A minimal strategy must implement at least `Strategy` + `CommandEmitter` + `Even
 
 ---
 
-## Exchange API Traits
+## LOB Exchange API Traits
+
+These traits apply only to LOB-based exchanges (Binance, OKX, dYdX, Hyperliquid, etc.)
 
 For connecting to exchanges, you need to implement these traits for each exchange client:
 
-- **CexWebsocket**  
+- **LobWebsocket**  
   Defines how to build subscription/connect messages for websocket streams.
 
-- **MarketCexApi = CexPublicRest + CexPrivateRest**
-  - **CexPublicRest**: market data (ticker, orderbook, candles, instruments).
-  - **CexPrivateRest**: trading operations (init API key, place/cancel orders, get balance, get positions).
+- **MarketLobApi = LobPublicRest + LobPrivateRest**
+  - **LobPublicRest**: market data (ticker, orderbook, candles, instruments).
+  - **LobPrivateRest**: trading operations (init API key, place/cancel orders, get balance, get positions).
 
 ---
 
@@ -162,7 +164,7 @@ edition = "2024"
 extrema_infra = { path = "../extrema_infra" }
 
 # Or remote
-# extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["cex_clients"] }
+# extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["all"] }
 
 # Tokio async runtime
 tokio = { version = "1.48", features = ["full"] }
