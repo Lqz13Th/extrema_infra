@@ -26,7 +26,7 @@ Explore state-of-the-art example usages, architecture walkthroughes, and communi
   - Predictions returned asynchronously to Rust for signal generation and order execution.
 
 - **Unified Exchange Abstraction**
-  - All exchanges (Binance, OKX, etc.) normalized into unified `Market` enum + structs.
+  - All exchanges (Hyperliquid, Binance, etc.) normalized into unified `Market` enum + structs.
   - Strategies write once, run anywhere.
 
 - **Broadcast-based Data Distribution**

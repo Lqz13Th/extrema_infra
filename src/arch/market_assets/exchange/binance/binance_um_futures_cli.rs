@@ -4,19 +4,6 @@ use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
-use super::{
-    api_key::{BinanceKey, read_binance_env_key},
-    api_utils::*,
-    config_assets::*,
-    schemas::um_futures_rest::{
-        account_balance::RestAccountBalBinanceUM,
-        account_position_risk::RestAccountPosRiskBinanceUM,
-        exchange_info::RestExchangeInfoBinanceUM, funding_rate::RestFundingRateBinanceUM,
-        funding_rate_info::RestFundingInfoBinanceUM,
-        open_interest_statistics::RestOpenInterestBinanceUM,
-        order_history::RestOrderHistoryBinanceUM, trade_order::RestOrderAckBinanceUM,
-    },
-};
 use crate::arch::{
     market_assets::{
         api_data::{account_data::*, price_data::*, utils_data::*},
@@ -31,6 +18,20 @@ use crate::arch::{
     },
 };
 use crate::errors::{InfraError, InfraResult};
+
+use super::{
+    api_key::{BinanceKey, read_binance_env_key},
+    api_utils::*,
+    config_assets::*,
+    schemas::um_futures_rest::{
+        account_balance::RestAccountBalBinanceUM,
+        account_position_risk::RestAccountPosRiskBinanceUM,
+        exchange_info::RestExchangeInfoBinanceUM, funding_rate::RestFundingRateBinanceUM,
+        funding_rate_info::RestFundingInfoBinanceUM,
+        open_interest_statistics::RestOpenInterestBinanceUM,
+        order_history::RestOrderHistoryBinanceUM, trade_order::RestOrderAckBinanceUM,
+    },
+};
 
 #[derive(Clone, Debug)]
 pub struct BinanceUmCli {

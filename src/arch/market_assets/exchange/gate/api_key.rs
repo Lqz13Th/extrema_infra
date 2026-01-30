@@ -1,9 +1,9 @@
 use data_encoding::HEXLOWER;
 use hmac::Mac;
+use sha2::{Digest, Sha512};
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use sha2::{Digest, Sha512};
 use simd_json::from_slice;
 
 use crate::arch::market_assets::api_general::*;

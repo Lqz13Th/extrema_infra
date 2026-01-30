@@ -3,15 +3,6 @@ use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
-use super::{
-    api_key::{BinanceKey, read_binance_env_key},
-    api_utils::*,
-    config_assets::*,
-    schemas::cm_futures_rest::{
-        account_balance::RestAccountBalBinanceCM, exchange_info::RestExchangeInfoBinanceCM,
-        open_interest_statistics::RestOpenInterestBinanceCM,
-    },
-};
 use crate::arch::{
     market_assets::{
         api_data::{account_data::*, utils_data::*},
@@ -26,6 +17,16 @@ use crate::arch::{
     },
 };
 use crate::errors::{InfraError, InfraResult};
+
+use super::{
+    api_key::{BinanceKey, read_binance_env_key},
+    api_utils::*,
+    config_assets::*,
+    schemas::cm_futures_rest::{
+        account_balance::RestAccountBalBinanceCM, exchange_info::RestExchangeInfoBinanceCM,
+        open_interest_statistics::RestOpenInterestBinanceCM,
+    },
+};
 
 #[derive(Clone, Debug)]
 pub struct BinanceCmCli {

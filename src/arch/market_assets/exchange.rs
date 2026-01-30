@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+pub mod hyperliquid;
+
 pub mod binance;
 pub mod gate;
 pub mod okx;

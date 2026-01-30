@@ -4,8 +4,9 @@ use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 
-use super::api_key::BinanceKey;
 use crate::arch::market_assets::base_data::SUBSCRIBE;
+
+use super::api_key::BinanceKey;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
