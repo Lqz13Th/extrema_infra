@@ -256,7 +256,6 @@ impl BinanceUmCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-
         let res: RestResBinance<RestFundingRateBinanceUM> = from_slice(&mut res_bytes)?;
 
         let data = res
