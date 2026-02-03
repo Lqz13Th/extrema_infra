@@ -5,8 +5,11 @@ pub fn gate_inst_to_cli(symbol: &str) -> String {
     let parts: Vec<&str> = upper.split('_').collect();
     match parts.as_slice() {
         [base, quote] => format!("{}_{}_PERP", base, quote),
-        [base, quote, kind] if *kind == "PERP" => format!("{}_{}_PERP", base, quote),
-        [base, quote, kind] if *kind == "FUTURE" => format!("{}_{}_FUTURE", base, quote),
+        [base, quote, expiry]
+            if expiry.len() == 8 && expiry.chars().all(|c| c.is_ascii_digit()) =>
+        {
+            format!("{}_{}_FUT_{}", base, quote, expiry)
+        },
         _ => {
             error!("Invalid Gate symbol: {}", symbol);
             symbol.into()

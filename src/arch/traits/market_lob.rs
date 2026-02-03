@@ -40,7 +40,10 @@ pub trait LobPublicRest: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
-    fn get_live_instruments(&self) -> impl Future<Output = InfraResult<Vec<String>>> + Send {
+    fn get_live_instruments(
+        &self,
+        _inst_type: InstrumentType,
+    ) -> impl Future<Output = InfraResult<Vec<String>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 }

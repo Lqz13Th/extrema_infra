@@ -19,6 +19,10 @@ pub const GATE_FUTURES_FUNDING_RATE: &str = "/api/v4/futures/{settle}/funding_ra
 pub const GATE_FUTURES_SET_POSITION_MODE: &str = "/api/v4/futures/{settle}/set_position_mode";
 pub const GATE_FUTURES_ORDERS: &str = "/api/v4/futures/{settle}/orders";
 
+/// Delivery REST endpoints
+pub const GATE_DELIVERY_CONTRACTS: &str = "/api/v4/delivery/{settle}/contracts";
+pub const GATE_DELIVERY_CONTRACT: &str = "/api/v4/delivery/{settle}/contracts/{contract}";
+
 /// Account REST endpoints
 pub const GATE_ACCOUNT_DETAIL: &str = "/api/v4/account/detail";
 pub const GATE_ACCOUNT_MAIN_KEYS: &str = "/api/v4/account/main_keys";

@@ -80,5 +80,6 @@ pub enum TimeInForce {
 
 pub const PERPETUAL: &str = "PERPETUAL";
 pub const TRADING: &str = "TRADING";
+pub const TRADING_LOWER: &str = "trading";
 pub const SUBSCRIBE: &str = "SUBSCRIBE";
 pub const SUBSCRIBE_LOWER: &str = "subscribe";

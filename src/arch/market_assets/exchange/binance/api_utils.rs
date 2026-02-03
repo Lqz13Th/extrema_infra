@@ -58,11 +58,13 @@ pub fn binance_inst_to_cli(symbol: &str) -> String {
             }
 
             // BTCUSDT_250926
-            if upper.contains('_') || upper.len() > base.len() + quote.len() {
-                return format!("{}_{}_FUTURE", base, quote);
-            } else {
-                return format!("{}_{}_PERP", base, quote);
+            if let Some((_, expiry)) = upper.split_once('_')
+                && expiry.chars().all(|c| c.is_ascii_digit())
+            {
+                return format!("{}_{}_FUT_{}", base, quote, expiry);
             }
+
+            return format!("{}_{}_PERP", base, quote);
         }
     }
 

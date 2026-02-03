@@ -48,8 +48,10 @@ pub fn okx_inst_to_cli(symbol: &str) -> String {
     let parts: Vec<&str> = symbol.split('-').collect();
     match parts.as_slice() {
         [base, quote, kind] if *kind == "SWAP" => format!("{}_{}_PERP", base, quote),
-        [base, quote, kind] if kind.chars().all(|c| c.is_numeric()) => {
-            format!("{}_{}_FUTURE", base, quote)
+        [base, quote, expiry]
+            if expiry.len() == 6 && expiry.chars().all(|c| c.is_ascii_digit()) =>
+        {
+            format!("{}_{}_FUT_{}", base, quote, expiry)
         },
         [base, quote] => format!("{}_{}", base, quote),
         _ => {

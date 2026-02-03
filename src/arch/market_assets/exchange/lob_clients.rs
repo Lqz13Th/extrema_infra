@@ -76,16 +76,6 @@ impl LobPublicRest for LobClients {
             LobClients::Okx(c) => c.get_instrument_info(inst_type).await,
         }
     }
-
-    async fn get_live_instruments(&self) -> InfraResult<Vec<String>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_live_instruments().await,
-            LobClients::BinanceCm(c) => c.get_live_instruments().await,
-            LobClients::BinanceUm(c) => c.get_live_instruments().await,
-            LobClients::Gate(c) => c.get_live_instruments().await,
-            LobClients::Okx(c) => c.get_live_instruments().await,
-        }
-    }
 }
 
 #[cfg(feature = "lob_clients")]

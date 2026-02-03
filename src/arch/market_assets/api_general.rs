@@ -1,5 +1,5 @@
 use hmac::Hmac;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::Value;
 use sha2::{Sha256, Sha512};
 use std::{
@@ -89,6 +89,44 @@ pub fn normalize_to_string_reduce_only(value: f64, step: f64) -> String {
         .unwrap_or(0);
 
     format!("{:.*}", precision, (value / step).ceil() * step)
+}
+
+pub fn de_string_from_any<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(s) => Ok(s),
+        Value::Number(n) => Ok(n.to_string()),
+        Value::Bool(b) => Ok(b.to_string()),
+        Value::Null => Ok(String::new()),
+        other => Err(de::Error::custom(format!(
+            "invalid string type: {:?}",
+            other
+        ))),
+    }
+}
+
+pub fn de_u64_from_string_or_number<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::Number(n) => {
+            if let Some(u) = n.as_u64() {
+                Ok(u)
+            } else if let Some(f) = n.as_f64() {
+                Ok(f as u64)
+            } else {
+                Err(de::Error::custom("invalid u64 number"))
+            }
+        },
+        Value::String(s) => s.trim().parse::<u64>().map_err(de::Error::custom),
+        Value::Null => Ok(0),
+        other => Err(de::Error::custom(format!("invalid u64 type: {:?}", other))),
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

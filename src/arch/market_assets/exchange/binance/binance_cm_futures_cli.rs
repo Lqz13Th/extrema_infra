@@ -50,7 +50,7 @@ impl LobPublicRest for BinanceCmCli {
         self._get_instrument_info(inst_type).await
     }
 
-    async fn get_live_instruments(&self) -> InfraResult<Vec<String>> {
+    async fn get_live_instruments(&self, _inst_type: InstrumentType) -> InfraResult<Vec<String>> {
         self._get_live_instruments().await
     }
 }
