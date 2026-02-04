@@ -47,22 +47,19 @@ default = []
 
 all = [
     "hyperliquid",
-    "binance_cm",
-    "binance_um",
+    "binance",
     "gate",
     "okx",
 ]
 
 lob_clients = [
     "hyperliquid",
-    "binance_cm",
-    "binance_um",
+    "binance",
     "gate",
     "okx",
 ]
 
 hyperliquid = []
-binance_cm = []
-binance_um = []
+binance = []
 gate = []
 okx = []

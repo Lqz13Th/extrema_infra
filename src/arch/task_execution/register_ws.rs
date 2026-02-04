@@ -223,7 +223,7 @@ impl WsTaskBuilder {
 
     pub async fn ws_channel_distribution(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.market {
-            #[cfg(feature = "binance_um")]
+            #[cfg(feature = "binance")]
             Market::BinanceUmFutures => {
                 self.ws_channel_binance_um(ws_stream).await;
             },
@@ -312,7 +312,7 @@ impl WsTaskBuilder {
         }
     }
 
-    #[cfg(feature = "binance_um")]
+    #[cfg(feature = "binance")]
     async fn ws_channel_binance_um(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::Trades(..) => {

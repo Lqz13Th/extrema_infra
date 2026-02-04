@@ -3,16 +3,6 @@ use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
-use super::{
-    api_key::{GateKey, read_gate_env_key},
-    api_utils::{cli_perp_to_gate_inst, gate_inst_to_cli},
-    config_assets::*,
-    gate_rest_msg::RestResGate,
-    schemas::rest::{
-        account_balance::RestAccountBalGate, contract_delivery::RestDeliveryContractGate,
-        contract_futures::RestContractGate, funding_rate::RestFundingRateGate,
-    },
-};
 use crate::arch::{
     market_assets::{
         api_data::{
@@ -20,7 +10,7 @@ use crate::arch::{
             utils_data::{FundingRateData, InstrumentInfo},
         },
         api_general::RequestMethod,
-        base_data::InstrumentType,
+        base_data::{InstrumentType, TRADING_LOWER},
     },
     traits::{
         conversion::IntoInfraVec,
@@ -28,23 +18,36 @@ use crate::arch::{
     },
 };
 use crate::errors::{InfraError, InfraResult};
-use crate::prelude::TRADING_LOWER;
+
+use super::{
+    api_key::{GateKey, read_gate_env_key},
+    api_utils::{cli_perp_to_gate_inst, gate_inst_to_cli},
+    config_assets::{
+        GATE_BASE_URL, GATE_FUTURES_CONTRACT, GATE_FUTURES_CONTRACTS, GATE_FUTURES_FUNDING_RATE,
+        GATE_UNI_ACCOUNTS,
+    },
+    gate_rest_msg::RestResGate,
+    schemas::{
+        futures_rest::{contract_futures::RestContractGate, funding_rate::RestFundingRateGate},
+        uni_rest::account_balance::RestAccountBalGate,
+    },
+};
 
 #[derive(Clone, Debug)]
-pub struct GateCli {
+pub struct GateFuturesCli {
     pub client: Arc<Client>,
     pub api_key: Option<GateKey>,
 }
 
-impl Default for GateCli {
+impl Default for GateFuturesCli {
     fn default() -> Self {
         Self::new(Arc::new(Client::new()))
     }
 }
 
-impl MarketLobApi for GateCli {}
+impl MarketLobApi for GateFuturesCli {}
 
-impl LobPublicRest for GateCli {
+impl LobPublicRest for GateFuturesCli {
     async fn get_instrument_info(
         &self,
         inst_type: InstrumentType,
@@ -57,7 +60,7 @@ impl LobPublicRest for GateCli {
     }
 }
 
-impl LobPrivateRest for GateCli {
+impl LobPrivateRest for GateFuturesCli {
     fn init_api_key(&mut self) {
         match read_gate_env_key() {
             Ok(gate_key) => {
@@ -74,9 +77,9 @@ impl LobPrivateRest for GateCli {
     }
 }
 
-impl LobWebsocket for GateCli {}
+impl LobWebsocket for GateFuturesCli {}
 
-impl GateCli {
+impl GateFuturesCli {
     pub fn new(shared_client: Arc<Client>) -> Self {
         Self {
             client: shared_client,
@@ -212,57 +215,21 @@ impl GateCli {
         res.into_vec()
     }
 
-    async fn _get_delivery_contracts(
-        &self,
-        settle: &str,
-        limit: Option<u32>,
-        offset: Option<u32>,
-    ) -> InfraResult<Vec<RestDeliveryContractGate>> {
-        let endpoint = GATE_DELIVERY_CONTRACTS.replace("{settle}", settle);
-
-        let mut params: Vec<String> = Vec::new();
-        if let Some(l) = limit {
-            params.push(format!("limit={}", l));
-        }
-        if let Some(o) = offset {
-            params.push(format!("offset={}", o));
-        }
-
-        let url = if params.is_empty() {
-            [GATE_BASE_URL, &endpoint].concat()
-        } else {
-            format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
-        };
-
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestDeliveryContractGate> = from_slice(&mut res_bytes)?;
-
-        res.into_vec()
-    }
-
     async fn _get_instrument_info(
         &self,
         inst_type: InstrumentType,
     ) -> InfraResult<Vec<InstrumentInfo>> {
         let mut data: Vec<InstrumentInfo> = Vec::new();
 
+        if inst_type != InstrumentType::Perpetual {
+            return Err(InfraError::ApiCliError(
+                "Gate futures cli only supports perpetual instruments".into(),
+            ));
+        }
+
         for settle in ["usdt", "btc"] {
-            match inst_type {
-                InstrumentType::Perpetual => {
-                    let contracts = self._get_futures_contracts(settle, None, None).await?;
-                    data.extend(contracts.into_iter().map(InstrumentInfo::from));
-                },
-                InstrumentType::Futures => {
-                    let contracts = self._get_delivery_contracts(settle, None, None).await?;
-                    data.extend(contracts.into_iter().map(InstrumentInfo::from));
-                },
-                _ => {
-                    return Err(InfraError::ApiCliError(
-                        "Gate only supports futures/perpetual instruments".into(),
-                    ));
-                },
-            }
+            let contracts = self._get_futures_contracts(settle, None, None).await?;
+            data.extend(contracts.into_iter().map(InstrumentInfo::from));
         }
 
         Ok(data)
@@ -271,38 +238,20 @@ impl GateCli {
     async fn _get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
         let mut data: Vec<String> = Vec::new();
 
+        if inst_type != InstrumentType::Perpetual {
+            return Err(InfraError::ApiCliError(
+                "Gate futures cli only supports perpetual instruments".into(),
+            ));
+        }
+
         for settle in ["usdt", "btc"] {
-            match inst_type {
-                InstrumentType::Perpetual => {
-                    let contracts = self._get_futures_contracts(settle, None, None).await?;
-                    data.extend(
-                        contracts
-                            .into_iter()
-                            .filter(|c| c.status.as_str() == TRADING_LOWER)
-                            .map(|c| gate_inst_to_cli(&c.name)),
-                    );
-                },
-                InstrumentType::Futures => {
-                    let contracts = self._get_delivery_contracts(settle, None, None).await?;
-                    data.extend(
-                        contracts
-                            .into_iter()
-                            .filter(|c| {
-                                if !c.status.is_empty() {
-                                    c.status.as_str() == TRADING_LOWER
-                                } else {
-                                    !c.in_delisting
-                                }
-                            })
-                            .map(|c| gate_inst_to_cli(&c.name)),
-                    );
-                },
-                _ => {
-                    return Err(InfraError::ApiCliError(
-                        "Gate only supports futures/perpetual instruments".into(),
-                    ));
-                },
-            }
+            let contracts = self._get_futures_contracts(settle, None, None).await?;
+            data.extend(
+                contracts
+                    .into_iter()
+                    .filter(|c| c.status.as_str() == TRADING_LOWER)
+                    .map(|c| gate_inst_to_cli(&c.name)),
+            );
         }
 
         Ok(data)
@@ -319,7 +268,7 @@ impl GateCli {
                 None,
                 None,
                 GATE_BASE_URL,
-                GATE_UNIFIED_ACCOUNTS,
+                GATE_UNI_ACCOUNTS,
             )
             .await?;
 
