@@ -3,7 +3,8 @@ use serde_json::Value;
 
 use crate::arch::{
     market_assets::{
-        api_general::{ts_to_micros, value_to_f64}, exchange::gate::api_utils::gate_inst_to_cli,
+        api_general::{ts_to_micros, value_to_f64},
+        exchange::gate::api_utils::gate_inst_to_cli,
         market_core::Market,
     },
     strategy_base::handler::lob_events::WsCandle,
@@ -30,7 +31,7 @@ impl IntoWsData for WsCandleGateFutures {
     fn into_ws(self) -> WsCandle {
         let (interval_str, contract) = parse_candle_name(&self.n);
         let interval = CandleParam::from_candle_str(&interval_str)
-            .unwrap_or_else(|| CandleParam::Custom(interval_str));
+            .unwrap_or(CandleParam::Custom(interval_str));
 
         WsCandle {
             timestamp: ts_to_micros(self.t),

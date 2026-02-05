@@ -433,7 +433,10 @@ impl WsTaskBuilder {
                     self.ws_loop::<GateWsData<WsCandleGateFutures>>(tx, ws_stream)
                         .await;
                 } else {
-                    self.log(LogLevel::Warn, "No broadcast channel found for Gate Candles");
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Gate Candles",
+                    );
                 }
             },
             WsChannel::AccountOrders => {
@@ -441,7 +444,10 @@ impl WsTaskBuilder {
                     self.ws_loop::<GateWsData<WsAccountOrderGateFutures>>(tx, ws_stream)
                         .await;
                 } else {
-                    self.log(LogLevel::Warn, "No broadcast channel found for Gate Acc Order");
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Gate Acc Order",
+                    );
                 }
             },
             c => {

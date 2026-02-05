@@ -43,7 +43,12 @@ impl IntoWsData for WsAccountOrderGateFutures {
             OrderSide::SELL
         };
 
-        let status = parse_status(&self.status, self.finish_as.as_deref(), filled_size, left_abs);
+        let status = parse_status(
+            &self.status,
+            self.finish_as.as_deref(),
+            filled_size,
+            left_abs,
+        );
         let order_type = parse_order_type(value_to_f64(&self.price), self.tif.as_deref());
 
         let timestamp = self
@@ -63,10 +68,13 @@ impl IntoWsData for WsAccountOrderGateFutures {
             side,
             status,
             order_type,
-            cli_order_id: self
-                .text
-                .as_ref()
-                .and_then(|t| if t.is_empty() || t == "-" { None } else { Some(t.clone()) }),
+            cli_order_id: self.text.as_ref().and_then(|t| {
+                if t.is_empty() || t == "-" {
+                    None
+                } else {
+                    Some(t.clone())
+                }
+            }),
         }
     }
 }
@@ -87,8 +95,10 @@ fn parse_status(
         },
         "finished" => match finish_as {
             Some("filled") => OrderStatus::Filled,
-            Some("cancelled" | "liquidated" | "ioc" | "auto_deleveraging" | "reduce_only"
-            | "position_close" | "stp" | "reduce_out") => OrderStatus::Canceled,
+            Some(
+                "cancelled" | "liquidated" | "ioc" | "auto_deleveraging" | "reduce_only"
+                | "position_close" | "stp" | "reduce_out",
+            ) => OrderStatus::Canceled,
             Some("_new") | Some("_update") => {
                 if left_abs == 0.0 {
                     OrderStatus::Filled
