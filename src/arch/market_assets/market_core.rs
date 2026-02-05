@@ -6,6 +6,9 @@ pub enum Market {
     BinanceUmFutures,
     BinanceSpot,
     Coinbase,
-    Gate,
+    GateDelivery,
+    GateFutures,
+    GateSpot,
+    GateUni,
     Okx,
 }

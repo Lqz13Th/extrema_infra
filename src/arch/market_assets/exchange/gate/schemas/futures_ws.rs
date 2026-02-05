@@ -1,1 +1,3 @@
-// Gate futures WS schemas to be added here.
+pub mod account_order;
+pub mod candles;
+pub mod trades;

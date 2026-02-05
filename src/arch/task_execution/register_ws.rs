@@ -27,6 +27,13 @@ use crate::arch::{
                     candles::WsCandleBinanceUM,
                 },
             },
+            gate::{
+                gate_ws_msg::GateWsData,
+                schemas::futures_ws::{
+                    account_order::WsAccountOrderGateFutures, candles::WsCandleGateFutures,
+                    trades::WsTradeGateFutures,
+                },
+            },
             okx::{
                 okx_ws_msg::OkxWsData,
                 schemas::ws::{
@@ -231,6 +238,10 @@ impl WsTaskBuilder {
             Market::Okx => {
                 self.ws_channel_okx(ws_stream).await;
             },
+            #[cfg(feature = "gate")]
+            Market::GateFutures => {
+                self.ws_channel_gate(ws_stream).await;
+            },
             m => self.log(LogLevel::Warn, &format!("Unsupported market: {:?}", m)),
         };
     }
@@ -402,6 +413,39 @@ impl WsTaskBuilder {
             },
             c => {
                 self.log(LogLevel::Warn, &format!("Unknown Okx channel: {:?}", c));
+            },
+        };
+    }
+
+    #[cfg(feature = "gate")]
+    async fn ws_channel_gate(&mut self, ws_stream: &mut WsStream) {
+        match &self.ws_info.ws_channel {
+            WsChannel::Trades(..) => {
+                if let Some(tx) = find_trade(&self.board_cast_channel) {
+                    self.ws_loop::<GateWsData<WsTradeGateFutures>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(LogLevel::Warn, "No broadcast channel found for Gate Trades");
+                }
+            },
+            WsChannel::Candles(..) => {
+                if let Some(tx) = find_candle(&self.board_cast_channel) {
+                    self.ws_loop::<GateWsData<WsCandleGateFutures>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(LogLevel::Warn, "No broadcast channel found for Gate Candles");
+                }
+            },
+            WsChannel::AccountOrders => {
+                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
+                    self.ws_loop::<GateWsData<WsAccountOrderGateFutures>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(LogLevel::Warn, "No broadcast channel found for Gate Acc Order");
+                }
+            },
+            c => {
+                self.log(LogLevel::Warn, &format!("Unknown Gate channel: {:?}", c));
             },
         };
     }

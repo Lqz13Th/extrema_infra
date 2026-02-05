@@ -1,37 +1,35 @@
 use reqwest::Client;
+use serde_json::json;
 use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
+use super::{
+    api_key::{GateKey, read_gate_env_key},
+    api_utils::*,
+    config_assets::{
+        GATE_BASE_URL, GATE_FUTURES_CONTRACT, GATE_FUTURES_CONTRACTS, GATE_FUTURES_FUNDING_RATE,
+        GATE_FUTURES_WS_USDT, GATE_WS_FUTURES_CANDLES, GATE_WS_FUTURES_ORDERS,
+        GATE_WS_FUTURES_TRADES,
+    },
+    gate_rest_msg::RestResGate,
+    schemas::futures_rest::{
+        contract_futures::RestContractGate, funding_rate::RestFundingRateGate,
+    },
+};
 use crate::arch::{
     market_assets::{
-        api_data::{
-            account_data::BalanceData,
-            utils_data::{FundingRateData, InstrumentInfo},
-        },
-        api_general::RequestMethod,
-        base_data::{InstrumentType, TRADING_LOWER},
+        api_data::utils_data::{FundingRateData, InstrumentInfo},
+        api_general::get_seconds_timestamp,
+        base_data::{InstrumentType, SUBSCRIBE_LOWER, TRADING_LOWER},
     },
+    task_execution::task_ws::{CandleParam, WsChannel},
     traits::{
         conversion::IntoInfraVec,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
 use crate::errors::{InfraError, InfraResult};
-
-use super::{
-    api_key::{GateKey, read_gate_env_key},
-    api_utils::{cli_perp_to_gate_inst, gate_inst_to_cli},
-    config_assets::{
-        GATE_BASE_URL, GATE_FUTURES_CONTRACT, GATE_FUTURES_CONTRACTS, GATE_FUTURES_FUNDING_RATE,
-        GATE_UNI_ACCOUNTS,
-    },
-    gate_rest_msg::RestResGate,
-    schemas::{
-        futures_rest::{contract_futures::RestContractGate, funding_rate::RestFundingRateGate},
-        uni_rest::account_balance::RestAccountBalGate,
-    },
-};
 
 #[derive(Clone, Debug)]
 pub struct GateFuturesCli {
@@ -71,13 +69,29 @@ impl LobPrivateRest for GateFuturesCli {
             },
         };
     }
-
-    async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
-        self._get_balance(assets).await
-    }
 }
 
-impl LobWebsocket for GateFuturesCli {}
+impl LobWebsocket for GateFuturesCli {
+    async fn get_public_sub_msg(
+        &self,
+        channel: &WsChannel,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        self._get_public_sub_msg(channel, insts)
+    }
+
+    async fn get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_private_sub_msg(channel)
+    }
+
+    async fn get_public_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        Ok(GATE_FUTURES_WS_USDT.into())
+    }
+
+    async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        Ok(GATE_FUTURES_WS_USDT.into())
+    }
+}
 
 impl GateFuturesCli {
     pub fn new(shared_client: Arc<Client>) -> Self {
@@ -85,6 +99,26 @@ impl GateFuturesCli {
             client: shared_client,
             api_key: None,
         }
+    }
+
+    pub fn ws_subscribe_private(&self, channel: &str, payload: Vec<String>) -> InfraResult<String> {
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let timestamp = get_seconds_timestamp();
+        let auth = api_key.ws_auth(channel, SUBSCRIBE_LOWER, timestamp)?;
+
+        let msg = json!({
+            "time": timestamp,
+            "channel": channel,
+            "event": SUBSCRIBE_LOWER,
+            "payload": payload,
+            "auth": auth,
+        });
+
+        Ok(msg.to_string())
     }
 
     pub async fn get_funding_rate_history(
@@ -257,35 +291,52 @@ impl GateFuturesCli {
         Ok(data)
     }
 
-    async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
-        let res: RestResGate<RestAccountBalGate> = self
-            .api_key
-            .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_request(
-                &self.client,
-                RequestMethod::Get,
-                None,
-                None,
-                GATE_BASE_URL,
-                GATE_UNI_ACCOUNTS,
-            )
-            .await?;
+    fn _get_public_sub_msg(
+        &self,
+        ws_channel: &WsChannel,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        match ws_channel {
+            WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
+            WsChannel::Trades(_) => self._ws_subscribe_trades(insts),
+            WsChannel::Tick | WsChannel::Lob => Err(InfraError::Unimplemented),
+            _ => Err(InfraError::Unimplemented),
+        }
+    }
 
-        let balances: Vec<BalanceData> = res
-            .into_vec()?
-            .into_iter()
-            .flat_map(|account| account.into_balance_vec())
-            .collect();
+    fn _ws_subscribe_candle(
+        &self,
+        candle_param: &Option<CandleParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        let interval = candle_param.as_ref().map(|p| p.as_str()).unwrap_or("1m");
+        let contract = gate_first_contract(insts)?;
+        let payload = vec![interval.into(), contract];
+        Ok(ws_subscribe_msg_gate_futures(
+            GATE_WS_FUTURES_CANDLES,
+            payload,
+        ))
+    }
 
-        let filtered = match assets {
-            Some(list) if !list.is_empty() => balances
-                .into_iter()
-                .filter(|b| list.contains(&b.asset))
-                .collect(),
-            _ => balances,
-        };
+    fn _ws_subscribe_trades(&self, insts: Option<&[String]>) -> InfraResult<String> {
+        let contracts = gate_contracts_from_insts(insts)?;
+        Ok(ws_subscribe_msg_gate_futures(
+            GATE_WS_FUTURES_TRADES,
+            contracts,
+        ))
+    }
 
-        Ok(filtered)
+    fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        match channel {
+            WsChannel::AccountOrders => {
+                let api_key = self
+                    .api_key
+                    .as_ref()
+                    .ok_or(InfraError::ApiCliNotInitialized)?;
+                let payload = vec![api_key.user_id.clone(), "!all".into()];
+                self.ws_subscribe_private(GATE_WS_FUTURES_ORDERS, payload)
+            },
+            _ => Err(InfraError::Unimplemented),
+        }
     }
 }

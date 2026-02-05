@@ -1,6 +1,8 @@
 /// Gate API Base
 pub const GATE_BASE_URL: &str = "https://api.gateio.ws";
 pub const GATE_WS_BASE_URL: &str = "wss://api.gateio.ws/ws/v4";
+pub const GATE_FUTURES_WS_USDT: &str = "wss://fx-ws.gateio.ws/v4/ws/usdt";
+pub const GATE_FUTURES_WS_BTC: &str = "wss://fx-ws.gateio.ws/v4/ws/btc";
 
 /// Spot endpoints/channels
 pub const GATE_WS_SPOT_ORDERS: &str = "spot.orders";
@@ -29,6 +31,8 @@ pub const GATE_FUTURES_ORDERS: &str = "/api/v4/futures/{settle}/orders";
 pub const GATE_WS_FUTURES_ORDERS: &str = "futures.orders";
 pub const GATE_WS_FUTURES_BALANCES: &str = "futures.balances";
 pub const GATE_WS_FUTURES_POSITIONS: &str = "futures.positions";
+pub const GATE_WS_FUTURES_TRADES: &str = "futures.trades";
+pub const GATE_WS_FUTURES_CANDLES: &str = "futures.candlesticks";
 
 /// Delivery REST endpoints
 pub const GATE_DELIVERY_CONTRACTS: &str = "/api/v4/delivery/{settle}/contracts";

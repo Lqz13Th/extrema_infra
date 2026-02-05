@@ -4,6 +4,7 @@ use sha2::{Digest, Sha512};
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::{Value, json};
 use simd_json::from_slice;
 
 use crate::arch::market_assets::api_general::*;
@@ -17,21 +18,25 @@ pub fn read_gate_env_key() -> InfraResult<GateKey> {
         .map_err(|_| InfraError::EnvVarMissing("GATE_API_KEY".into()))?;
     let secret_key = std::env::var("GATE_SECRET_KEY")
         .map_err(|_| InfraError::EnvVarMissing("GATE_SECRET_KEY".into()))?;
+    let user_id = std::env::var("GATE_USER_ID")
+        .map_err(|_| InfraError::EnvVarMissing("GATE_USER_ID".into()))?;
 
-    Ok(GateKey::new(&api_key, &secret_key))
+    Ok(GateKey::new(&api_key, &secret_key, &user_id))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GateKey {
     pub api_key: String,
     pub secret_key: String,
+    pub user_id: String,
 }
 
 impl GateKey {
-    fn new(api_key: &str, secret_key: &str) -> Self {
+    fn new(api_key: &str, secret_key: &str, user_id: &str) -> Self {
         Self {
             api_key: api_key.into(),
             secret_key: secret_key.into(),
+            user_id: user_id.into(),
         }
     }
 
@@ -69,6 +74,20 @@ impl GateKey {
     ) -> InfraResult<Signature<u64>> {
         let timestamp = get_seconds_timestamp();
         self.sign(method, full_path, query_string, body, timestamp)
+    }
+
+    pub fn ws_auth(&self, channel: &str, event: &str, time: u64) -> InfraResult<Value> {
+        let raw_sign = format!("channel={}&event={}&time={}", channel, event, time);
+        let mut mac = HmacSha512::new_from_slice(self.secret_key.as_bytes())
+            .map_err(|_| InfraError::SecretKeyLength)?;
+        mac.update(raw_sign.as_bytes());
+        let signature = HEXLOWER.encode(&mac.finalize().into_bytes());
+
+        Ok(json!({
+            "method": "api_key",
+            "KEY": self.api_key,
+            "SIGN": signature,
+        }))
     }
 
     pub(crate) async fn get_request(
