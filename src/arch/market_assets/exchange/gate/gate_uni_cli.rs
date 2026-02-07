@@ -4,12 +4,14 @@ use tracing::error;
 
 use crate::arch::{
     market_assets::{
-        api_data::account_data::BalanceData,
+        api_data::account_data::{BalanceData, BorrowableData},
         api_general::RequestMethod,
         exchange::gate::{
-            config_assets::{GATE_BASE_URL, GATE_UNI_ACCOUNTS},
+            config_assets::{GATE_BASE_URL, GATE_UNI_ACCOUNTS, GATE_UNI_BORROWABLE},
             gate_rest_msg::RestResGate,
-            schemas::uni_rest::account_balance::RestAccountBalGate,
+            schemas::uni_rest::{
+                account_balance::RestAccountBalGate, borrowable::RestBorrowableGate,
+            },
         },
     },
     traits::{
@@ -62,6 +64,31 @@ impl GateUniCli {
             client: shared_client,
             api_key: None,
         }
+    }
+
+    pub async fn get_borrowable(&self, currency: &str) -> InfraResult<Vec<BorrowableData>> {
+        let query = format!("currency={}", currency);
+        let res: RestResGate<RestBorrowableGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_UNI_BORROWABLE,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| entry.into_borrowable_data())
+            .collect();
+
+        Ok(data)
     }
 
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {

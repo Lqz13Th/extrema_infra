@@ -25,6 +25,13 @@ pub struct PositionData {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct BorrowableData {
+    pub timestamp: u64,
+    pub asset: String,
+    pub available: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OrderAckData {
     pub timestamp: u64,
     pub order_status: OrderStatus,
