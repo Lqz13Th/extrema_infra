@@ -21,10 +21,10 @@ pub struct GateUnifiedBalance {
     pub equity: String,
 }
 
-impl RestAccountBalGate {
-    pub fn into_balance_vec(self) -> Vec<BalanceData> {
+impl From<RestAccountBalGate> for Vec<BalanceData> {
+    fn from(data: RestAccountBalGate) -> Self {
         let timestamp = get_micros_timestamp();
-        self.balances
+        data.balances
             .into_iter()
             .map(|(asset, bal)| BalanceData {
                 timestamp,

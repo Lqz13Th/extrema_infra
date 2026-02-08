@@ -156,7 +156,7 @@ impl GateFuturesCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .map(|entry| entry.into_funding_rate_data(inst))
+            .map(|entry| FundingRateData::from((entry, inst)))
             .collect();
 
         Ok(data)

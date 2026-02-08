@@ -11,13 +11,13 @@ pub struct RestFundingRateGate {
     pub r: String,
 }
 
-impl RestFundingRateGate {
-    pub fn into_funding_rate_data(self, inst: &str) -> FundingRateData {
+impl From<(RestFundingRateGate, &str)> for FundingRateData {
+    fn from((data, inst): (RestFundingRateGate, &str)) -> Self {
         FundingRateData {
             timestamp: get_micros_timestamp(),
             inst: inst.into(),
-            funding_rate: self.r.parse().unwrap_or_default(),
-            funding_time: ts_to_micros(self.t),
+            funding_rate: data.r.parse().unwrap_or_default(),
+            funding_time: ts_to_micros(data.t),
         }
     }
 }

@@ -12,12 +12,12 @@ pub struct RestBorrowableGate {
     pub amount: String,
 }
 
-impl RestBorrowableGate {
-    pub fn into_borrowable_data(self) -> BorrowableData {
+impl From<RestBorrowableGate> for BorrowableData {
+    fn from(data: RestBorrowableGate) -> Self {
         BorrowableData {
             timestamp: get_micros_timestamp(),
-            asset: self.currency,
-            available: self.amount.parse().unwrap_or_default(),
+            asset: data.currency,
+            available: data.amount.parse().unwrap_or_default(),
         }
     }
 }

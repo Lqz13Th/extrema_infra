@@ -85,7 +85,7 @@ impl GateUniCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .map(|entry| entry.into_borrowable_data())
+            .map(BorrowableData::from)
             .collect();
 
         Ok(data)
@@ -109,7 +109,7 @@ impl GateUniCli {
         let balances: Vec<BalanceData> = res
             .into_vec()?
             .into_iter()
-            .flat_map(|account| account.into_balance_vec())
+            .flat_map(Vec::<BalanceData>::from)
             .collect();
 
         let filtered = match assets {
