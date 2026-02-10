@@ -8,6 +8,7 @@ pub const GATE_FUTURES_WS_BTC: &str = "wss://fx-ws.gateio.ws/v4/ws/btc";
 pub const GATE_WS_SPOT_ORDERS: &str = "spot.orders";
 pub const GATE_WS_SPOT_BALANCES: &str = "spot.balances";
 pub const GATE_WS_SPOT_CROSS_BALANCES: &str = "spot.cross_balances";
+pub const GATE_SPOT_ORDERS: &str = "/api/v4/spot/orders";
 
 /// Uni (margin/unified) REST endpoints
 pub const GATE_UNI_MARGIN_CURRENCY_PAIRS: &str = "/api/v4/margin/uni/currency_pairs";

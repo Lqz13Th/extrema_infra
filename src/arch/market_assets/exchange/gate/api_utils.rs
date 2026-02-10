@@ -58,3 +58,18 @@ pub fn gate_contracts_from_insts(insts: Option<&[String]>) -> InfraResult<Vec<St
     }
     Ok(list.iter().map(|s| cli_perp_to_gate_inst(s)).collect())
 }
+
+pub fn infer_settle_from_inst(inst: &str) -> String {
+    let gate_inst = cli_perp_to_gate_inst(inst);
+    let parts: Vec<&str> = gate_inst.split('_').collect();
+    let quote = parts.get(1).copied().unwrap_or("USDT");
+    quote.to_lowercase()
+}
+
+pub fn normalize_gate_text(text: &str) -> String {
+    if text.starts_with("t-") {
+        text.to_string()
+    } else {
+        format!("t-{}", text)
+    }
+}

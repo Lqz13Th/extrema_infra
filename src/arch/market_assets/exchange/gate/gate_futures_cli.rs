@@ -4,24 +4,14 @@ use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
-use super::{
-    api_key::{GateKey, read_gate_env_key},
-    api_utils::*,
-    config_assets::{
-        GATE_BASE_URL, GATE_FUTURES_CONTRACT, GATE_FUTURES_CONTRACTS, GATE_FUTURES_FUNDING_RATE,
-        GATE_FUTURES_WS_USDT, GATE_WS_FUTURES_CANDLES, GATE_WS_FUTURES_ORDERS,
-        GATE_WS_FUTURES_TRADES,
-    },
-    gate_rest_msg::RestResGate,
-    schemas::futures_rest::{
-        contract_futures::RestContractGate, funding_rate::RestFundingRateGate,
-    },
-};
 use crate::arch::{
     market_assets::{
-        api_data::utils_data::{FundingRateData, InstrumentInfo},
-        api_general::get_seconds_timestamp,
-        base_data::{InstrumentType, SUBSCRIBE_LOWER, TRADING_LOWER},
+        api_data::{
+            account_data::OrderAckData,
+            utils_data::{FundingRateData, InstrumentInfo},
+        },
+        api_general::{OrderParams, RequestMethod, get_seconds_timestamp},
+        base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TRADING_LOWER},
     },
     task_execution::task_ws::{CandleParam, WsChannel},
     traits::{
@@ -30,6 +20,21 @@ use crate::arch::{
     },
 };
 use crate::errors::{InfraError, InfraResult};
+
+use super::{
+    api_key::{GateKey, read_gate_env_key},
+    api_utils::*,
+    config_assets::{
+        GATE_BASE_URL, GATE_FUTURES_CONTRACT, GATE_FUTURES_CONTRACTS, GATE_FUTURES_FUNDING_RATE,
+        GATE_FUTURES_ORDERS, GATE_FUTURES_WS_USDT, GATE_WS_FUTURES_CANDLES, GATE_WS_FUTURES_ORDERS,
+        GATE_WS_FUTURES_TRADES,
+    },
+    gate_rest_msg::RestResGate,
+    schemas::futures_rest::{
+        contract_futures::RestContractGate, funding_rate::RestFundingRateGate,
+        order::RestFuturesOrderGate,
+    },
+};
 
 #[derive(Clone, Debug)]
 pub struct GateFuturesCli {
@@ -68,6 +73,10 @@ impl LobPrivateRest for GateFuturesCli {
                 error!("Failed to read GATE env key: {:?}", e);
             },
         };
+    }
+
+    async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        self._place_order(order_params).await
     }
 }
 
@@ -287,6 +296,84 @@ impl GateFuturesCli {
                     .map(|c| gate_inst_to_cli(&c.name)),
             );
         }
+
+        Ok(data)
+    }
+
+    async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        let mut extra = order_params.extra;
+        let settle = extra
+            .remove("settle")
+            .unwrap_or_else(|| infer_settle_from_inst(&order_params.inst));
+
+        let contract = cli_perp_to_gate_inst(&order_params.inst);
+        let size_val: i64 = order_params
+            .size
+            .parse()
+            .map_err(|_| InfraError::ApiCliError("Invalid order size".into()))?;
+        let signed_size = match order_params.side {
+            OrderSide::SELL => -size_val.abs(),
+            _ => size_val.abs(),
+        };
+
+        let mut body = json!({
+            "contract": contract,
+            "size": signed_size,
+        });
+
+        let tif = match order_params.order_type {
+            OrderType::PostOnly => Some("poc"),
+            OrderType::Fok => Some("fok"),
+            OrderType::Ioc => Some("ioc"),
+            OrderType::Market => Some("ioc"),
+            _ => None,
+        };
+
+        if matches!(order_params.order_type, OrderType::Market) {
+            body["price"] = json!("0");
+            body["tif"] = json!(tif.unwrap_or("ioc"));
+        } else {
+            let price = order_params.price.ok_or(InfraError::ApiCliError(
+                "Price required for limit order".into(),
+            ))?;
+            body["price"] = json!(price);
+            let tif_val = tif.unwrap_or("gtc");
+            body["tif"] = json!(tif_val);
+        }
+
+        if let Some(reduce_only) = order_params.reduce_only {
+            body["reduce_only"] = json!(reduce_only);
+        }
+
+        if let Some(cl_id) = order_params.client_order_id {
+            body["text"] = json!(normalize_gate_text(&cl_id));
+        }
+
+        for (k, v) in extra {
+            body[k] = json!(v);
+        }
+
+        let endpoint = GATE_FUTURES_ORDERS.replace("{settle}", &settle);
+        let res: RestResGate<RestFuturesOrderGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&body.to_string()),
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data: OrderAckData = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
 
         Ok(data)
     }
