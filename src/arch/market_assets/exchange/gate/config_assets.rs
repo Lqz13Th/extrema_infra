@@ -20,6 +20,7 @@ pub const GATE_UNI_MARGIN_AUTO_REPAY: &str = "/api/v4/margin/auto_repay";
 pub const GATE_UNI_MARGIN_ACCOUNT_BOOK: &str = "/api/v4/margin/account_book";
 pub const GATE_UNI_ACCOUNTS: &str = "/api/v4/unified/accounts";
 pub const GATE_UNI_BORROWABLE: &str = "/api/v4/unified/borrowable";
+pub const GATE_UNI_ESTIMATE_RATE: &str = "/api/v4/unified/estimate_rate";
 pub const GATE_UNI_SUB_ACCOUNTS: &str = "/api/v4/sub_accounts";
 
 /// Futures (perp) REST endpoints

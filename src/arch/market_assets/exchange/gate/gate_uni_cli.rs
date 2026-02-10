@@ -1,4 +1,5 @@
 use reqwest::Client;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
 
@@ -7,7 +8,9 @@ use crate::arch::{
         api_data::account_data::{BalanceData, BorrowableData},
         api_general::RequestMethod,
         exchange::gate::{
-            config_assets::{GATE_BASE_URL, GATE_UNI_ACCOUNTS, GATE_UNI_BORROWABLE},
+            config_assets::{
+                GATE_BASE_URL, GATE_UNI_ACCOUNTS, GATE_UNI_BORROWABLE, GATE_UNI_ESTIMATE_RATE,
+            },
             gate_rest_msg::RestResGate,
             schemas::uni_rest::{
                 account_balance::RestAccountBalGate, borrowable::RestBorrowableGate,
@@ -66,8 +69,8 @@ impl GateUniCli {
         }
     }
 
-    pub async fn get_borrowable(&self, currency: &str) -> InfraResult<Vec<BorrowableData>> {
-        let query = format!("currency={}", currency);
+    pub async fn get_borrowable(&self, inst: &str) -> InfraResult<Vec<BorrowableData>> {
+        let query = format!("currency={}", inst);
         let res: RestResGate<RestBorrowableGate> = self
             .api_key
             .as_ref()
@@ -89,6 +92,54 @@ impl GateUniCli {
             .collect();
 
         Ok(data)
+    }
+
+    pub async fn get_estimate_rate(&self, insts: &[String]) -> InfraResult<HashMap<String, f64>> {
+        if insts.is_empty() {
+            return Err(InfraError::ApiCliError(
+                "Gate uni estimate_rate requires at least one currency".into(),
+            ));
+        }
+
+        let currencies = insts.join(",");
+        let query = format!("currencies={}", currencies);
+
+        let res: RestResGate<HashMap<String, String>> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_UNI_ESTIMATE_RATE,
+            )
+            .await?;
+
+        let raw_map = res.into_vec()?.into_iter().next().unwrap_or_default();
+
+        let mut result: HashMap<String, f64> = HashMap::new();
+        for (currency, rate_str) in raw_map {
+            if rate_str.is_empty() {
+                continue;
+            }
+
+            match rate_str.parse::<f64>() {
+                Ok(rate) => {
+                    result.insert(currency, rate);
+                },
+                Err(_) => {
+                    error!(
+                        "Failed to parse estimate rate for {}: {}",
+                        currency, rate_str
+                    );
+                },
+            }
+        }
+
+        Ok(result)
     }
 
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
