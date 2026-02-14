@@ -5,19 +5,17 @@ use crate::arch::market_assets::{
 };
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct RestBorrowableGate {
-    #[serde(default)]
+pub struct RestBorrowableGateUnified {
     pub currency: String,
-    #[serde(default)]
     pub amount: String,
 }
 
-impl From<RestBorrowableGate> for BorrowableData {
-    fn from(data: RestBorrowableGate) -> Self {
+impl From<RestBorrowableGateUnified> for BorrowableData {
+    fn from(d: RestBorrowableGateUnified) -> Self {
         BorrowableData {
             timestamp: get_micros_timestamp(),
-            asset: data.currency,
-            available: data.amount.parse().unwrap_or_default(),
+            asset: d.currency,
+            available: d.amount.parse().unwrap_or_default(),
         }
     }
 }

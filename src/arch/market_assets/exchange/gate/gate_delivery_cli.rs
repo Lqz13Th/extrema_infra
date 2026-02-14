@@ -19,7 +19,7 @@ use super::{
     api_utils::gate_inst_to_cli,
     config_assets::{GATE_BASE_URL, GATE_DELIVERY_CONTRACTS},
     gate_rest_msg::RestResGate,
-    schemas::delivery_rest::contract_delivery::RestDeliveryContractGate,
+    schemas::delivery_rest::contract_delivery::RestContractGateDelivery,
 };
 
 use tracing::error;
@@ -49,7 +49,7 @@ impl GateDeliveryCli {
         settle: &str,
         limit: Option<u32>,
         offset: Option<u32>,
-    ) -> InfraResult<Vec<RestDeliveryContractGate>> {
+    ) -> InfraResult<Vec<RestContractGateDelivery>> {
         let endpoint = GATE_DELIVERY_CONTRACTS.replace("{settle}", settle);
 
         let mut params: Vec<String> = Vec::new();
@@ -68,7 +68,7 @@ impl GateDeliveryCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestDeliveryContractGate> = from_slice(&mut res_bytes)?;
+        let res: RestResGate<RestContractGateDelivery> = from_slice(&mut res_bytes)?;
 
         res.into_vec()
     }

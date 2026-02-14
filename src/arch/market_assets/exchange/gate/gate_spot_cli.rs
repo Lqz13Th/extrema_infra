@@ -11,7 +11,7 @@ use crate::arch::{
         exchange::gate::{
             config_assets::{GATE_BASE_URL, GATE_SPOT_ORDERS},
             gate_rest_msg::RestResGate,
-            schemas::spot_rest::order::RestSpotOrderGate,
+            schemas::spot_rest::order::RestOrderGateSpot,
         },
     },
     traits::{
@@ -128,7 +128,7 @@ impl GateSpotCli {
             body[k] = json!(v);
         }
 
-        let res: RestResGate<RestSpotOrderGate> = self
+        let res: RestResGate<RestOrderGateSpot> = self
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?

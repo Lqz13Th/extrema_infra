@@ -28,6 +28,7 @@ impl From<RestAccountBalBinanceCM> for BalanceData {
             total,
             available,
             frozen,
+            borrowed: None,
         }
     }
 }

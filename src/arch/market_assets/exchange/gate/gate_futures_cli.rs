@@ -31,8 +31,8 @@ use super::{
     },
     gate_rest_msg::RestResGate,
     schemas::futures_rest::{
-        contract_futures::RestContractGate, funding_rate::RestFundingRateGate,
-        order::RestFuturesOrderGate,
+        contract_futures::RestContractGateFutures, funding_rate::RestFundingRateGateFutures,
+        order::RestFuturesOrderGateFutures,
     },
 };
 
@@ -160,7 +160,7 @@ impl GateFuturesCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestFundingRateGate> = from_slice(&mut res_bytes)?;
+        let res: RestResGate<RestFundingRateGateFutures> = from_slice(&mut res_bytes)?;
 
         let data = res
             .into_vec()?
@@ -195,7 +195,7 @@ impl GateFuturesCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestContractGate> = from_slice(&mut res_bytes)?;
+        let res: RestResGate<RestContractGateFutures> = from_slice(&mut res_bytes)?;
 
         let data = res
             .into_vec()?
@@ -218,7 +218,7 @@ impl GateFuturesCli {
         let url = [GATE_BASE_URL, &endpoint].concat();
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestContractGate> = from_slice(&mut res_bytes)?;
+        let res: RestResGate<RestContractGateFutures> = from_slice(&mut res_bytes)?;
 
         let data = res
             .into_vec()?
@@ -234,7 +234,7 @@ impl GateFuturesCli {
         settle: &str,
         limit: Option<u32>,
         offset: Option<u32>,
-    ) -> InfraResult<Vec<RestContractGate>> {
+    ) -> InfraResult<Vec<RestContractGateFutures>> {
         let endpoint = GATE_FUTURES_CONTRACTS.replace("{settle}", settle);
 
         let mut params: Vec<String> = Vec::new();
@@ -253,7 +253,7 @@ impl GateFuturesCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestContractGate> = from_slice(&mut res_bytes)?;
+        let res: RestResGate<RestContractGateFutures> = from_slice(&mut res_bytes)?;
 
         res.into_vec()
     }
@@ -354,7 +354,7 @@ impl GateFuturesCli {
         }
 
         let endpoint = GATE_FUTURES_ORDERS.replace("{settle}", &settle);
-        let res: RestResGate<RestFuturesOrderGate> = self
+        let res: RestResGate<RestFuturesOrderGateFutures> = self
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?

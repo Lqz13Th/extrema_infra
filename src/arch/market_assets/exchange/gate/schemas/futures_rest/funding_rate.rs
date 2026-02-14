@@ -6,13 +6,13 @@ use crate::arch::market_assets::{
 };
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct RestFundingRateGate {
+pub struct RestFundingRateGateFutures {
     pub t: u64,
     pub r: String,
 }
 
-impl From<(RestFundingRateGate, &str)> for FundingRateData {
-    fn from((data, inst): (RestFundingRateGate, &str)) -> Self {
+impl From<(RestFundingRateGateFutures, &str)> for FundingRateData {
+    fn from((data, inst): (RestFundingRateGateFutures, &str)) -> Self {
         FundingRateData {
             timestamp: get_micros_timestamp(),
             inst: inst.into(),

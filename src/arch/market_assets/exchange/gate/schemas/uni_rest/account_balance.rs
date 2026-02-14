@@ -7,24 +7,22 @@ use crate::arch::market_assets::{
 };
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct RestAccountBalGate {
+pub struct RestAccountBalGateUnified {
     pub balances: HashMap<String, GateUnifiedBalance>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GateUnifiedBalance {
-    #[serde(default)]
     pub available: String,
-    #[serde(default)]
     pub freeze: String,
-    #[serde(default)]
     pub equity: String,
+    pub borrowed: String,
 }
 
-impl From<RestAccountBalGate> for Vec<BalanceData> {
-    fn from(data: RestAccountBalGate) -> Self {
+impl From<RestAccountBalGateUnified> for Vec<BalanceData> {
+    fn from(d: RestAccountBalGateUnified) -> Self {
         let timestamp = get_micros_timestamp();
-        data.balances
+        d.balances
             .into_iter()
             .map(|(asset, bal)| BalanceData {
                 timestamp,
@@ -32,6 +30,7 @@ impl From<RestAccountBalGate> for Vec<BalanceData> {
                 total: bal.equity.parse().unwrap_or_default(),
                 available: bal.available.parse().unwrap_or_default(),
                 frozen: bal.freeze.parse().unwrap_or_default(),
+                borrowed: Some(bal.borrowed.parse().unwrap_or_default()),
             })
             .collect()
     }

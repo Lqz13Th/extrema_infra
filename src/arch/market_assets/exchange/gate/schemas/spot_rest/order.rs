@@ -5,7 +5,7 @@ use crate::arch::market_assets::{
 };
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct RestSpotOrderGate {
+pub struct RestOrderGateSpot {
     pub id: String,
     pub status: String,
     pub update_time_ms: u64,
@@ -13,8 +13,8 @@ pub struct RestSpotOrderGate {
     pub text: Option<String>,
 }
 
-impl From<RestSpotOrderGate> for OrderAckData {
-    fn from(d: RestSpotOrderGate) -> Self {
+impl From<RestOrderGateSpot> for OrderAckData {
+    fn from(d: RestOrderGateSpot) -> Self {
         let ts = if d.update_time_ms > 0 {
             d.update_time_ms
         } else {

@@ -28,6 +28,7 @@ impl From<RestAccountBalBinanceUM> for BalanceData {
             total,
             available,
             frozen,
+            borrowed: None,
         }
     }
 }

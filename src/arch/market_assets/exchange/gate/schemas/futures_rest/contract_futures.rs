@@ -10,26 +10,26 @@ use crate::arch::market_assets::{
 };
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct RestContractGate {
-    #[serde(default, deserialize_with = "de_string_from_any")]
+pub struct RestContractGateFutures {
+    #[serde(deserialize_with = "de_string_from_any")]
     pub name: String,
-    #[serde(default, deserialize_with = "de_string_from_any")]
+    #[serde(deserialize_with = "de_string_from_any")]
     pub order_price_round: String,
-    #[serde(default, deserialize_with = "de_string_from_any")]
+    #[serde(deserialize_with = "de_string_from_any")]
     pub order_size_min: String,
-    #[serde(default, deserialize_with = "de_string_from_any")]
+    #[serde(deserialize_with = "de_string_from_any")]
     pub order_size_max: String,
-    #[serde(default, deserialize_with = "de_string_from_any")]
+    #[serde(deserialize_with = "de_string_from_any")]
     pub quanto_multiplier: String,
-    #[serde(default, deserialize_with = "de_string_from_any")]
+    #[serde(deserialize_with = "de_string_from_any")]
     pub status: String,
-    #[serde(default, deserialize_with = "de_string_from_any")]
+    #[serde(deserialize_with = "de_string_from_any")]
     pub funding_rate: String,
-    #[serde(default, deserialize_with = "de_u64_from_string_or_number")]
+    #[serde(deserialize_with = "de_u64_from_string_or_number")]
     pub funding_next_apply: u64,
 }
 
-impl RestContractGate {
+impl RestContractGateFutures {
     pub fn into_funding_rate_data(self) -> FundingRateData {
         FundingRateData {
             timestamp: get_micros_timestamp(),
@@ -40,8 +40,8 @@ impl RestContractGate {
     }
 }
 
-impl From<RestContractGate> for InstrumentInfo {
-    fn from(d: RestContractGate) -> Self {
+impl From<RestContractGateFutures> for InstrumentInfo {
+    fn from(d: RestContractGateFutures) -> Self {
         let lot_size = d.order_size_min.parse().unwrap_or_default();
         let max_size = d.order_size_max.parse().unwrap_or_default();
         let tick_size = d.order_price_round.parse().unwrap_or_default();

@@ -15,6 +15,7 @@ pub struct AccountBalDetails {
     pub eq: String,
     pub availBal: String,
     pub frozenBal: String,
+    pub liab: String,
     pub uTime: String,
 }
 
@@ -26,6 +27,7 @@ impl From<AccountBalDetails> for BalanceData {
             total: d.eq.parse().unwrap_or_default(),
             available: d.availBal.parse().unwrap_or_default(),
             frozen: d.frozenBal.parse().unwrap_or_default(),
+            borrowed: Some(d.liab.parse().unwrap_or_default()),
         }
     }
 }

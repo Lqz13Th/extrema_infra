@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
 
+use crate::arch::market_assets::exchange::gate::config_assets::GATE_UNI_CURRENCIES;
 use crate::arch::{
     market_assets::{
         api_data::account_data::{BalanceData, BorrowableData},
@@ -13,7 +14,8 @@ use crate::arch::{
             },
             gate_rest_msg::RestResGate,
             schemas::uni_rest::{
-                account_balance::RestAccountBalGate, borrowable::RestBorrowableGate,
+                account_balance::RestAccountBalGateUnified, borrowable::RestBorrowableGateUnified,
+                currencies::RestCurrenciesGateUnified,
             },
         },
     },
@@ -71,7 +73,7 @@ impl GateUniCli {
 
     pub async fn get_borrowable(&self, inst: &str) -> InfraResult<Vec<BorrowableData>> {
         let query = format!("currency={}", inst);
-        let res: RestResGate<RestBorrowableGate> = self
+        let res: RestResGate<RestBorrowableGateUnified> = self
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
@@ -92,6 +94,32 @@ impl GateUniCli {
             .collect();
 
         Ok(data)
+    }
+
+    pub async fn get_currencies(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<RestCurrenciesGateUnified>> {
+        let query = match inst {
+            Some(inst) => format!("currency={}", inst),
+            None => String::new(),
+        };
+
+        let res: RestResGate<RestCurrenciesGateUnified> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_UNI_CURRENCIES,
+            )
+            .await?;
+
+        res.into_vec()
     }
 
     pub async fn get_estimate_rate(&self, insts: &[String]) -> InfraResult<HashMap<String, f64>> {
@@ -143,7 +171,7 @@ impl GateUniCli {
     }
 
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
-        let res: RestResGate<RestAccountBalGate> = self
+        let res: RestResGate<RestAccountBalGateUnified> = self
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?

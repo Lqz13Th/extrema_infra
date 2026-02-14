@@ -9,6 +9,7 @@ pub struct BalanceData {
     pub total: f64,
     pub frozen: f64,
     pub available: f64,
+    pub borrowed: Option<f64>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
