@@ -13,8 +13,8 @@ tokio = { version = "1.49.0", features = ["full"] }
 reqwest = { version = "0.13.2", features = ["json", "gzip"] }
 tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
 tungstenite = "0.28.0"
-futures = "0.3.31"
-futures-util = "0.3.31"
+futures = "0.3.32"
+futures-util = "0.3.32"
 zeromq = "0.5.0"
 
 # Data & Feature processing

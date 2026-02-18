@@ -167,7 +167,7 @@ extrema_infra = { path = "../extrema_infra" }
 # extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["all"] }
 
 # Tokio async runtime
-tokio = { version = "1.48", features = ["full"] }
+tokio = { version = "1.49", features = ["full"] }
 
 # TLS / Cryptography
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
