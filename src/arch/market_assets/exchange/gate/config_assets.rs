@@ -22,6 +22,7 @@ pub const GATE_UNI_ACCOUNTS: &str = "/api/v4/unified/accounts";
 pub const GATE_UNI_BORROWABLE: &str = "/api/v4/unified/borrowable";
 pub const GATE_UNI_CURRENCIES: &str = "/api/v4/unified/currencies";
 pub const GATE_UNI_ESTIMATE_RATE: &str = "/api/v4/unified/estimate_rate";
+pub const GATE_UNI_LOANS: &str = "/api/v4/unified/loans";
 pub const GATE_UNI_SUB_ACCOUNTS: &str = "/api/v4/sub_accounts";
 
 /// Futures (perp) REST endpoints

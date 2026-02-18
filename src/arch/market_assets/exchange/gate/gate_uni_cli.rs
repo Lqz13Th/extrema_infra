@@ -1,21 +1,24 @@
 use reqwest::Client;
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
 
-use crate::arch::market_assets::exchange::gate::config_assets::GATE_UNI_CURRENCIES;
 use crate::arch::{
     market_assets::{
         api_data::account_data::{BalanceData, BorrowableData},
         api_general::RequestMethod,
         exchange::gate::{
             config_assets::{
-                GATE_BASE_URL, GATE_UNI_ACCOUNTS, GATE_UNI_BORROWABLE, GATE_UNI_ESTIMATE_RATE,
+                GATE_BASE_URL, GATE_UNI_ACCOUNTS, GATE_UNI_BORROWABLE, GATE_UNI_CURRENCIES,
+                GATE_UNI_ESTIMATE_RATE, GATE_UNI_LOANS,
             },
             gate_rest_msg::RestResGate,
             schemas::uni_rest::{
-                account_balance::RestAccountBalGateUnified, borrowable::RestBorrowableGateUnified,
+                account_balance::RestAccountBalGateUnified,
+                borrowable::RestBorrowableGateUnified,
                 currencies::RestCurrenciesGateUnified,
+                loans::{RestLoanGateUnified, RestLoanTranGateUnified},
             },
         },
     },
@@ -26,7 +29,10 @@ use crate::arch::{
 };
 use crate::errors::{InfraError, InfraResult};
 
-use super::api_key::{GateKey, read_gate_env_key};
+use super::{
+    api_key::{GateKey, read_gate_env_key},
+    api_utils::normalize_gate_text,
+};
 
 #[derive(Clone, Debug)]
 pub struct GateUniCli {
@@ -116,6 +122,106 @@ impl GateUniCli {
                 None,
                 GATE_BASE_URL,
                 GATE_UNI_CURRENCIES,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn post_loans(
+        &self,
+        currency: &str,
+        loan_type: &str,
+        amount: &str,
+        repaid_all: Option<bool>,
+        text: Option<&str>,
+    ) -> InfraResult<Vec<RestLoanTranGateUnified>> {
+        if loan_type != "borrow" && loan_type != "repay" {
+            return Err(InfraError::ApiCliError(
+                "Gate unified loans type must be borrow or repay".into(),
+            ));
+        }
+
+        let mut body = json!({
+            "currency": currency,
+            "type": loan_type,
+            "amount": amount,
+        });
+
+        if let Some(v) = repaid_all {
+            body["repaid_all"] = json!(v);
+        }
+
+        if let Some(v) = text {
+            body["text"] = json!(normalize_gate_text(v));
+        }
+
+        let res: RestResGate<RestLoanTranGateUnified> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&body.to_string()),
+                GATE_BASE_URL,
+                GATE_UNI_LOANS,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_loans(
+        &self,
+        currency: Option<&str>,
+        page: Option<i32>,
+        limit: Option<i32>,
+        loan_type: Option<&str>,
+    ) -> InfraResult<Vec<RestLoanGateUnified>> {
+        if let Some(v) = loan_type
+            && v != "platform"
+            && v != "margin"
+        {
+            return Err(InfraError::ApiCliError(
+                "Gate unified loans query type must be platform or margin".into(),
+            ));
+        }
+
+        let mut query_parts: Vec<String> = Vec::new();
+
+        if let Some(v) = currency {
+            query_parts.push(format!("currency={}", v));
+        }
+        if let Some(v) = page {
+            query_parts.push(format!("page={}", v));
+        }
+        if let Some(v) = limit {
+            query_parts.push(format!("limit={}", v));
+        }
+        if let Some(v) = loan_type {
+            query_parts.push(format!("type={}", v));
+        }
+
+        let query = query_parts.join("&");
+        let query_opt = if query.is_empty() {
+            None
+        } else {
+            Some(query.as_str())
+        };
+
+        let res: RestResGate<RestLoanGateUnified> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query_opt,
+                None,
+                GATE_BASE_URL,
+                GATE_UNI_LOANS,
             )
             .await?;
 
