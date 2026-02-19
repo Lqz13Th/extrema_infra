@@ -11,11 +11,11 @@ use zeromq::{ReqSocket, Socket, SocketRecv, SocketSend};
 use tracing::{error, info, warn};
 
 use crate::arch::{
-    market_assets::api_general::{OrderParams, get_micros_timestamp},
+    market_assets::api_general::get_micros_timestamp,
     strategy_base::{
         command::{ack_handle::AckStatus, command_core::TaskCommand},
         handler::{
-            alt_events::{AltScheduleEvent, AltTensor},
+            alt_events::{AltOrder, AltScheduleEvent, AltTensor},
             handler_core::*,
         },
     },
@@ -46,13 +46,13 @@ impl AltTaskBuilder {
         }
     }
 
-    async fn order_execution(&mut self, tx: broadcast::Sender<InfraMsg<Vec<OrderParams>>>) {
+    async fn order_execution(&mut self, tx: broadcast::Sender<InfraMsg<Vec<AltOrder>>>) {
         while let Some(cmd) = self.cmd_rx.recv().await {
             match cmd {
-                TaskCommand::OrderExecute(order_params) => {
+                TaskCommand::OrderExecute(alt_orders) => {
                     let _ = tx.send(InfraMsg {
                         task_id: self.task_id,
-                        data: Arc::new(order_params),
+                        data: Arc::new(alt_orders),
                     });
                 },
                 _ => self.handle_cmd(cmd),

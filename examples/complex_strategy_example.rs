@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
 use extrema_infra::{
     arch::market_assets::{
-        api_general::OrderParams,
+        api_general::{OrderParams, get_micros_timestamp},
         base_data::{OrderSide, OrderType},
         exchange::prelude::OkxCli,
     },
@@ -90,7 +91,7 @@ impl HFTStrategy {
 
     /// Send order(s) to the order execution task
     /// Orders are sent via CommandHandle, not directly to the exchange
-    async fn send_order(&mut self, orders: Vec<OrderParams>) -> InfraResult<()> {
+    async fn send_order(&mut self, orders: Vec<AltOrder>) -> InfraResult<()> {
         if let Some(handle) = self.find_alt_handle(&AltTaskType::OrderExecution, 1) {
             let cmd = TaskCommand::OrderExecute(orders);
             handle.send_command(cmd, None).await?;
@@ -161,7 +162,17 @@ impl EventHandler for HFTStrategy {
             ..Default::default()
         };
 
-        if let Err(e) = self.send_order(vec![order_params]).await {
+        let mut order_info = HashMap::new();
+        order_info.insert("acc_id".to_string(), "okx_test_01".to_string());
+
+        let alt_order = AltOrder {
+            timestamp: get_micros_timestamp(),
+            market: Market::Okx,
+            order_info,
+            order_params,
+        };
+
+        if let Err(e) = self.send_order(vec![alt_order]).await {
             error!("Error sending order: {:?}", e);
         }
     }
@@ -271,7 +282,7 @@ impl CommandEmitter for AccountModule {
 impl EventHandler for AccountModule {
     /// Handle incoming order execution requests from strategies.
     /// This places the order on OKX via REST/WebSocket API.
-    async fn on_order_execution(&mut self, msg: InfraMsg<Vec<OrderParams>>) {
+    async fn on_order_execution(&mut self, msg: InfraMsg<Vec<AltOrder>>) {
         info!("Received model order execution, task id: {}", msg.task_id);
         // Then use api_cli to sending order to exchange
         // 1. REST API order placement

@@ -1,10 +1,9 @@
 use tokio::sync::{mpsc, oneshot};
 
 use crate::arch::{
-    market_assets::api_general::OrderParams,
     strategy_base::{
         command::ack_handle::{AckHandle, AckStatus},
-        handler::alt_events::AltTensor,
+        handler::alt_events::{AltOrder, AltTensor},
     },
     task_execution::task_general::TaskInfo,
 };
@@ -53,7 +52,7 @@ pub enum TaskCommand {
     WsMessage { msg: String, ack: AckHandle },
     WsShutdown { msg: String, ack: AckHandle },
 
-    OrderExecute(Vec<OrderParams>),
+    OrderExecute(Vec<AltOrder>),
     FeatInput(AltTensor),
 }
 

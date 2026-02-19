@@ -1,7 +1,6 @@
 use std::{future::ready, sync::Arc};
 
 use crate::arch::{
-    market_assets::api_general::OrderParams,
     strategy_base::{
         command::command_core::CommandHandle,
         handler::{
@@ -73,7 +72,7 @@ pub trait EventHandler {
 
     fn on_order_execution(
         &mut self,
-        _msg: InfraMsg<Vec<OrderParams>>,
+        _msg: InfraMsg<Vec<AltOrder>>,
     ) -> impl Future<Output = ()> + Send {
         ready(())
     }

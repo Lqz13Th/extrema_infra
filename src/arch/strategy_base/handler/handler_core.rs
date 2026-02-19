@@ -4,7 +4,6 @@ use tokio::sync::broadcast;
 use tracing::error;
 
 use crate::arch::{
-    market_assets::api_general::OrderParams,
     strategy_base::handler::{alt_events::*, lob_events::*},
     task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
     traits::strategy::Strategy,
@@ -20,7 +19,7 @@ pub struct InfraMsg<T> {
 pub enum BoardCastChannel {
     Alt(broadcast::Sender<InfraMsg<AltTaskInfo>>),
     Ws(broadcast::Sender<InfraMsg<WsTaskInfo>>),
-    OrderExecute(broadcast::Sender<InfraMsg<Vec<OrderParams>>>),
+    OrderExecute(broadcast::Sender<InfraMsg<Vec<AltOrder>>>),
     Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
     ModelPreds(broadcast::Sender<InfraMsg<AltTensor>>),
     Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
@@ -229,7 +228,7 @@ pub(crate) fn find_ws_event(
 
 pub(crate) fn find_order_execution(
     channels: &Arc<Vec<BoardCastChannel>>,
-) -> Option<broadcast::Sender<InfraMsg<Vec<OrderParams>>>> {
+) -> Option<broadcast::Sender<InfraMsg<Vec<AltOrder>>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::OrderExecute(tx) = ch {
             Some(tx.clone())
