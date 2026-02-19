@@ -89,6 +89,12 @@ where
         tokio::join!(fut_head, fut_tail);
     }
 
+    async fn on_weight_intent(&mut self, msg: InfraMsg<AltWeight>) {
+        let fut_head = self.head.on_weight_intent(msg.clone());
+        let fut_tail = self.tail.on_weight_intent(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
     async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
         let fut_head = self.head.on_schedule(msg.clone());
         let fut_tail = self.tail.on_schedule(msg);

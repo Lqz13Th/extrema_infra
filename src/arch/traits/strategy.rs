@@ -77,6 +77,10 @@ pub trait EventHandler {
         ready(())
     }
 
+    fn on_weight_intent(&mut self, _msg: InfraMsg<AltWeight>) -> impl Future<Output = ()> + Send {
+        ready(())
+    }
+
     fn on_schedule(&mut self, _msg: InfraMsg<AltScheduleEvent>) -> impl Future<Output = ()> + Send {
         ready(())
     }

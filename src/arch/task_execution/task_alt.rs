@@ -10,6 +10,7 @@ pub struct AltTaskInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AltTaskType {
     OrderExecution,
+    WeightIntent,
     ModelPreds(u64),
     TimeScheduler(Duration),
 }

@@ -10,6 +10,10 @@ use zeromq::{ReqSocket, Socket, SocketRecv, SocketSend};
 
 use tracing::{error, info, warn};
 
+use super::{
+    task_alt::{AltTaskInfo, AltTaskType},
+    task_general::LogLevel,
+};
 use crate::arch::{
     market_assets::api_general::get_micros_timestamp,
     strategy_base::{
@@ -20,15 +24,10 @@ use crate::arch::{
         },
     },
 };
-
-use super::{
-    task_alt::{AltTaskInfo, AltTaskType},
-    task_general::LogLevel,
-};
+use crate::prelude::AltWeight;
 
 #[derive(Debug)]
 pub(crate) struct AltTaskBuilder {
-    #[warn(dead_code)]
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
     pub alt_info: Arc<AltTaskInfo>,
@@ -53,6 +52,20 @@ impl AltTaskBuilder {
                     let _ = tx.send(InfraMsg {
                         task_id: self.task_id,
                         data: Arc::new(alt_orders),
+                    });
+                },
+                _ => self.handle_cmd(cmd),
+            };
+        }
+    }
+
+    async fn weight_intent(&mut self, tx: broadcast::Sender<InfraMsg<AltWeight>>) {
+        while let Some(cmd) = self.cmd_rx.recv().await {
+            match cmd {
+                TaskCommand::WeightIntent(alt_weight) => {
+                    let _ = tx.send(InfraMsg {
+                        task_id: self.task_id,
+                        data: Arc::new(alt_weight),
                     });
                 },
                 _ => self.handle_cmd(cmd),
@@ -183,6 +196,16 @@ impl AltTaskBuilder {
                     self.log(
                         LogLevel::Error,
                         "No broadcast channel found for order execution",
+                    );
+                }
+            },
+            AltTaskType::WeightIntent => {
+                if let Some(tx) = find_weight_intent(&self.board_cast_channel) {
+                    self.weight_intent(tx).await
+                } else {
+                    self.log(
+                        LogLevel::Error,
+                        "No broadcast channel found for weight intent",
                     );
                 }
             },

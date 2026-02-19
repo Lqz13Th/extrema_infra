@@ -168,8 +168,8 @@ impl EventHandler for HFTStrategy {
         let alt_order = AltOrder {
             timestamp: get_micros_timestamp(),
             market: Market::Okx,
-            order_info,
             order_params,
+            metadata: order_info,
         };
 
         if let Err(e) = self.send_order(vec![alt_order]).await {
