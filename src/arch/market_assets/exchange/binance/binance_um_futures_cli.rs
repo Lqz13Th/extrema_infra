@@ -29,7 +29,8 @@ use super::{
         exchange_info::RestExchangeInfoBinanceUM, funding_rate::RestFundingRateBinanceUM,
         funding_rate_info::RestFundingInfoBinanceUM,
         open_interest_statistics::RestOpenInterestBinanceUM,
-        order_history::RestOrderHistoryBinanceUM, trade_order::RestOrderAckBinanceUM,
+        order_history::RestOrderHistoryBinanceUM, premium_index::RestPremiumIndexBinanceUM,
+        trade_order::RestOrderAckBinanceUM,
     },
 };
 
@@ -214,6 +215,56 @@ impl BinanceUmCli {
             .collect();
 
         Ok(candles)
+    }
+
+    pub async fn get_premium_index(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<RestPremiumIndexBinanceUM>> {
+        let mut url = [
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_PREMIUM_INDEX,
+        ]
+        .concat();
+
+        if let Some(sym) = inst {
+            let normalized = cli_perp_to_pure_uppercase(sym);
+            url.push_str(&format!("?symbol={}", normalized));
+        }
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResBinance<RestPremiumIndexBinanceUM> = from_slice(&mut res_bytes)?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_funding_rate_live(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        let mut url = [
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_PREMIUM_INDEX,
+        ]
+        .concat();
+
+        if let Some(sym) = inst {
+            let normalized = cli_perp_to_pure_uppercase(sym);
+            url.push_str(&format!("?symbol={}", normalized));
+        }
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResBinance<RestPremiumIndexBinanceUM> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(FundingRateData::from)
+            .collect();
+
+        Ok(data)
     }
 
     pub async fn get_funding_info(&self) -> InfraResult<Vec<FundingRateInfo>> {

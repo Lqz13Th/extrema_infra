@@ -36,6 +36,36 @@ impl Default for GateDeliveryCli {
     }
 }
 
+impl MarketLobApi for GateDeliveryCli {}
+
+impl LobPublicRest for GateDeliveryCli {
+    async fn get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        self._get_instrument_info(inst_type).await
+    }
+
+    async fn get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        self._get_live_instruments(inst_type).await
+    }
+}
+
+impl LobPrivateRest for GateDeliveryCli {
+    fn init_api_key(&mut self) {
+        match read_gate_env_key() {
+            Ok(gate_key) => {
+                self.api_key = Some(gate_key);
+            },
+            Err(e) => {
+                error!("Failed to read GATE env key: {:?}", e);
+            },
+        };
+    }
+}
+
+impl LobWebsocket for GateDeliveryCli {}
+
 impl GateDeliveryCli {
     pub fn new(shared_client: Arc<Client>) -> Self {
         Self {
@@ -73,8 +103,34 @@ impl GateDeliveryCli {
         res.into_vec()
     }
 
-    async fn _get_live_instruments(&self) -> InfraResult<Vec<String>> {
+    async fn _get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        let mut data: Vec<InstrumentInfo> = Vec::new();
+
+        if inst_type != InstrumentType::Futures {
+            return Err(InfraError::ApiCliError(
+                "Gate delivery cli only supports futures instruments".into(),
+            ));
+        }
+
+        for settle in ["usdt", "btc"] {
+            let contracts = self._get_delivery_contracts(settle, None, None).await?;
+            data.extend(contracts.into_iter().map(InstrumentInfo::from));
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
         let mut data: Vec<String> = Vec::new();
+
+        if inst_type != InstrumentType::Futures {
+            return Err(InfraError::ApiCliError(
+                "Gate delivery cli only supports futures instruments".into(),
+            ));
+        }
 
         for settle in ["usdt", "btc"] {
             let contracts = self._get_delivery_contracts(settle, None, None).await?;
@@ -95,50 +151,3 @@ impl GateDeliveryCli {
         Ok(data)
     }
 }
-
-impl MarketLobApi for GateDeliveryCli {}
-
-impl LobPublicRest for GateDeliveryCli {
-    async fn get_instrument_info(
-        &self,
-        inst_type: InstrumentType,
-    ) -> InfraResult<Vec<InstrumentInfo>> {
-        if inst_type != InstrumentType::Futures {
-            return Err(InfraError::ApiCliError(
-                "Gate delivery cli only supports futures instruments".into(),
-            ));
-        }
-
-        let mut data: Vec<InstrumentInfo> = Vec::new();
-        for settle in ["usdt", "btc"] {
-            let contracts = self._get_delivery_contracts(settle, None, None).await?;
-            data.extend(contracts.into_iter().map(InstrumentInfo::from));
-        }
-        Ok(data)
-    }
-
-    async fn get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
-        if inst_type != InstrumentType::Futures {
-            return Err(InfraError::ApiCliError(
-                "Gate delivery cli only supports futures instruments".into(),
-            ));
-        }
-
-        self._get_live_instruments().await
-    }
-}
-
-impl LobPrivateRest for GateDeliveryCli {
-    fn init_api_key(&mut self) {
-        match read_gate_env_key() {
-            Ok(gate_key) => {
-                self.api_key = Some(gate_key);
-            },
-            Err(e) => {
-                error!("Failed to read GATE env key: {:?}", e);
-            },
-        };
-    }
-}
-
-impl LobWebsocket for GateDeliveryCli {}
