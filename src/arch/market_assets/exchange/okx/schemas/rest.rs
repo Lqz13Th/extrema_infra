@@ -5,6 +5,7 @@ pub mod ct_public_current_subpositions;
 pub mod ct_public_lead_trader_stats;
 pub mod ct_public_lead_traders;
 pub mod ct_public_subpositions_history;
+pub mod funding_rate;
 pub mod market_ticker;
 pub mod public_instruments;
 pub mod trade_order;

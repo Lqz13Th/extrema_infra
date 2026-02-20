@@ -30,8 +30,8 @@ use super::{
         ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
         ct_public_lead_traders::RestPubLeadTradersOkx,
         ct_public_subpositions_history::RestSubPositionHistoryOkx,
-        market_ticker::RestMarketTickerOkx, public_instruments::RestInstrumentsOkx,
-        trade_order::RestOrderAckOkx,
+        funding_rate::RestFundingRateOkx, market_ticker::RestMarketTickerOkx,
+        public_instruments::RestInstrumentsOkx, trade_order::RestOrderAckOkx,
     },
 };
 
@@ -386,6 +386,32 @@ impl OkxCli {
             .into_vec()?
             .into_iter()
             .map(LeadtraderSubpositionHistory::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_funding_rate_live(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        let inst_id = inst
+            .map(cli_perp_to_okx_inst)
+            .unwrap_or_else(|| "ANY".to_string());
+
+        let url = format!(
+            "{}{}?instId={}",
+            OKX_BASE_URL, OKX_PUBLIC_FUNDING_RATE, inst_id
+        );
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestFundingRateOkx> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(FundingRateData::from)
             .collect();
 
         Ok(data)
