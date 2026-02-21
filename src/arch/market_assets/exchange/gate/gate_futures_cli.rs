@@ -8,7 +8,7 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::OrderAckData,
-            utils_data::{FundingRateData, InstrumentInfo},
+            utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{OrderParams, RequestMethod, get_seconds_timestamp},
         base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TRADING_LOWER},
@@ -166,6 +166,41 @@ impl GateFuturesCli {
             .into_vec()?
             .into_iter()
             .map(|entry| FundingRateData::from((entry, inst)))
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_funding_rate_info(
+        &self,
+        settle: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> InfraResult<Vec<FundingRateInfo>> {
+        let endpoint = GATE_FUTURES_CONTRACTS.replace("{settle}", settle);
+
+        let mut params: Vec<String> = Vec::new();
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        if let Some(o) = offset {
+            params.push(format!("offset={}", o));
+        }
+
+        let url = if params.is_empty() {
+            [GATE_BASE_URL, &endpoint].concat()
+        } else {
+            format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
+        };
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResGate<RestContractGateFutures> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| entry.into_funding_rate_info())
             .collect();
 
         Ok(data)

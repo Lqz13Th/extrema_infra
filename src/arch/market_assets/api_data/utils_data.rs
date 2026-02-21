@@ -31,7 +31,7 @@ pub struct FundingRateData {
 pub struct FundingRateInfo {
     pub timestamp: u64,
     pub inst: String,
-    pub funding_hours: f64,
+    pub funding_interval_sec: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

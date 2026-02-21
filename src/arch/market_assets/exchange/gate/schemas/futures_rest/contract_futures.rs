@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::arch::market_assets::{
-    api_data::utils_data::{FundingRateData, InstrumentInfo},
+    api_data::utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
     api_general::{
         de_string_from_any, de_u64_from_string_or_number, get_micros_timestamp, ts_to_micros,
     },
@@ -26,6 +26,8 @@ pub struct RestContractGateFutures {
     #[serde(deserialize_with = "de_string_from_any")]
     pub funding_rate: String,
     #[serde(deserialize_with = "de_u64_from_string_or_number")]
+    pub funding_interval: u64,
+    #[serde(deserialize_with = "de_u64_from_string_or_number")]
     pub funding_next_apply: u64,
 }
 
@@ -36,6 +38,14 @@ impl RestContractGateFutures {
             inst: gate_inst_to_cli(&self.name),
             funding_rate: self.funding_rate.parse().unwrap_or_default(),
             funding_time: ts_to_micros(self.funding_next_apply),
+        }
+    }
+
+    pub fn into_funding_rate_info(self) -> FundingRateInfo {
+        FundingRateInfo {
+            timestamp: get_micros_timestamp(),
+            inst: gate_inst_to_cli(&self.name),
+            funding_interval_sec: self.funding_interval as f64,
         }
     }
 }

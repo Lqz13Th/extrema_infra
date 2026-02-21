@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::Duration};
 
 use crate::arch::market_assets::{
-    api_general::OrderParams, base_data::InstrumentType, market_core::Market,
+    api_general::OrderParams, base_data::InstrumentKey, market_core::Market,
 };
 
 #[derive(Clone, Debug)]
@@ -30,13 +30,6 @@ pub struct AltOrder {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct AltWeight {
     pub timestamp: u64,
-    pub weight: HashMap<AltWeightKey, f64>,
+    pub weight: HashMap<InstrumentKey, f64>,
     pub metadata: HashMap<String, String>,
-}
-
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub struct AltWeightKey {
-    pub market: Option<Market>,
-    pub inst_type: InstrumentType,
-    pub inst: String,
 }

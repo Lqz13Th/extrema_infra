@@ -20,7 +20,7 @@ impl From<RestFundingInfoBinanceUM> for FundingRateInfo {
         FundingRateInfo {
             timestamp: get_micros_timestamp(),
             inst: binance_inst_to_cli(&d.symbol),
-            funding_hours: d.fundingIntervalHours as f64,
+            funding_interval_sec: (d.fundingIntervalHours * 3600) as f64,
         }
     }
 }

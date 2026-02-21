@@ -1,5 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+use super::market_core::Market;
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub struct InstrumentKey {
+    pub market: Option<Market>,
+    pub inst_type: InstrumentType,
+    pub inst: String,
+}
+
 #[derive(Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum InstrumentType {
     Spot,
