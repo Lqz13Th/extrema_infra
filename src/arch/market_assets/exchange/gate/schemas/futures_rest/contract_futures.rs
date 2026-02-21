@@ -31,25 +31,6 @@ pub struct RestContractGateFutures {
     pub funding_next_apply: u64,
 }
 
-impl RestContractGateFutures {
-    pub fn into_funding_rate_data(self) -> FundingRateData {
-        FundingRateData {
-            timestamp: get_micros_timestamp(),
-            inst: gate_inst_to_cli(&self.name),
-            funding_rate: self.funding_rate.parse().unwrap_or_default(),
-            funding_time: ts_to_micros(self.funding_next_apply),
-        }
-    }
-
-    pub fn into_funding_rate_info(self) -> FundingRateInfo {
-        FundingRateInfo {
-            timestamp: get_micros_timestamp(),
-            inst: gate_inst_to_cli(&self.name),
-            funding_interval_sec: self.funding_interval as f64,
-        }
-    }
-}
-
 impl From<RestContractGateFutures> for InstrumentInfo {
     fn from(d: RestContractGateFutures) -> Self {
         let lot_size = d.order_size_min.parse().unwrap_or_default();
@@ -74,6 +55,27 @@ impl From<RestContractGateFutures> for InstrumentInfo {
                 "delisted" => InstrumentStatus::Closed,
                 _ => InstrumentStatus::Unknown,
             },
+        }
+    }
+}
+
+impl From<RestContractGateFutures> for FundingRateData {
+    fn from(d: RestContractGateFutures) -> Self {
+        FundingRateData {
+            timestamp: get_micros_timestamp(),
+            inst: gate_inst_to_cli(&d.name),
+            funding_rate: d.funding_rate.parse().unwrap_or_default(),
+            funding_time: ts_to_micros(d.funding_next_apply),
+        }
+    }
+}
+
+impl From<RestContractGateFutures> for FundingRateInfo {
+    fn from(d: RestContractGateFutures) -> Self {
+        FundingRateInfo {
+            timestamp: get_micros_timestamp(),
+            inst: gate_inst_to_cli(&d.name),
+            funding_interval_sec: d.funding_interval as f64,
         }
     }
 }

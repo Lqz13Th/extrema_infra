@@ -29,7 +29,7 @@ pub struct RestSubPositionOkx {
 
 impl From<RestSubPositionOkx> for LeadtraderSubposition {
     fn from(d: RestSubPositionOkx) -> Self {
-        let size_val = d.subPos.parse().unwrap_or(0.0);
+        let size_val = d.subPos.parse::<f64>().unwrap_or_default();
 
         LeadtraderSubposition {
             timestamp: get_micros_timestamp(),

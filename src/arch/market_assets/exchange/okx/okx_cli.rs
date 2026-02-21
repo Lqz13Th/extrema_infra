@@ -391,6 +391,32 @@ impl OkxCli {
         Ok(data)
     }
 
+    pub async fn get_funding_rate_info(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<FundingRateInfo>> {
+        let inst_id = inst
+            .map(cli_perp_to_okx_inst)
+            .unwrap_or_else(|| "ANY".to_string());
+
+        let url = format!(
+            "{}{}?instId={}",
+            OKX_BASE_URL, OKX_PUBLIC_FUNDING_RATE, inst_id
+        );
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestFundingRateOkx> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(FundingRateInfo::from)
+            .collect();
+
+        Ok(data)
+    }
+
     pub async fn get_funding_rate_live(
         &self,
         inst: Option<&str>,

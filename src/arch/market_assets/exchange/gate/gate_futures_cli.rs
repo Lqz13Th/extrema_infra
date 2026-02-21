@@ -200,7 +200,7 @@ impl GateFuturesCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .map(|entry| entry.into_funding_rate_info())
+            .map(FundingRateInfo::from)
             .collect();
 
         Ok(data)
@@ -235,7 +235,7 @@ impl GateFuturesCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .map(|entry| entry.into_funding_rate_data())
+            .map(FundingRateData::from)
             .collect();
 
         Ok(data)
@@ -258,7 +258,7 @@ impl GateFuturesCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .map(|entry| entry.into_funding_rate_data())
+            .map(FundingRateData::from)
             .collect();
 
         Ok(data)

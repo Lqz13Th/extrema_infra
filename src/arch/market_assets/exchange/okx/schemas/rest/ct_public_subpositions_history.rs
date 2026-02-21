@@ -30,7 +30,7 @@ pub struct RestSubPositionHistoryOkx {
 
 impl From<RestSubPositionHistoryOkx> for LeadtraderSubpositionHistory {
     fn from(d: RestSubPositionHistoryOkx) -> Self {
-        let size_val = d.subPos.parse::<f64>().unwrap_or(0.0);
+        let size_val = d.subPos.parse::<f64>().unwrap_or_default();
 
         LeadtraderSubpositionHistory {
             timestamp: get_micros_timestamp(),
