@@ -19,14 +19,14 @@ pub struct RestInstrumentsOkx {
     pub ctVal: Option<String>,
     pub ctMult: Option<String>,
     pub state: String,
-    pub instIdCode: i64,
+    pub instIdCode: Option<i64>,
 }
 
 impl From<RestInstrumentsOkx> for InstrumentInfo {
     fn from(d: RestInstrumentsOkx) -> Self {
         InstrumentInfo {
             inst: okx_inst_to_cli(&d.instId),
-            inst_code: Some(d.instIdCode.to_string()),
+            inst_code: d.instIdCode.map(|x| x.to_string()),
             inst_type: match d.instType.as_str() {
                 "SWAP" => InstrumentType::Perpetual,
                 "FUTURES" => InstrumentType::Futures,
