@@ -34,6 +34,7 @@ datas/
 data/
 
 # ===== Sensitive Configs (Global) =====
+**/strategy_config.toml
 **/model_config.json
 **/trader_config.json
 **/account_config.json
