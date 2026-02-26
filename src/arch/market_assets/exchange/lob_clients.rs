@@ -21,6 +21,7 @@ pub enum LobClients {
     GateDelivery(GateDeliveryCli),
     GateFutures(GateFuturesCli),
     GateSpot(GateSpotCli),
+    GateUni(GateUniCli),
     Okx(OkxCli),
 }
 
@@ -44,6 +45,7 @@ impl LobPublicRest for LobClients {
             LobClients::GateDelivery(c) => c.get_ticker(inst).await,
             LobClients::GateFutures(c) => c.get_ticker(inst).await,
             LobClients::GateSpot(c) => c.get_ticker(inst).await,
+            LobClients::GateUni(c) => c.get_ticker(inst).await,
             LobClients::Okx(c) => c.get_ticker(inst).await,
         }
     }
@@ -56,6 +58,7 @@ impl LobPublicRest for LobClients {
             LobClients::GateDelivery(c) => c.get_orderbook(inst, depth).await,
             LobClients::GateFutures(c) => c.get_orderbook(inst, depth).await,
             LobClients::GateSpot(c) => c.get_orderbook(inst, depth).await,
+            LobClients::GateUni(c) => c.get_orderbook(inst, depth).await,
             LobClients::Okx(c) => c.get_orderbook(inst, depth).await,
         }
     }
@@ -68,6 +71,7 @@ impl LobPublicRest for LobClients {
             LobClients::GateDelivery(c) => c.get_candles(inst, interval).await,
             LobClients::GateFutures(c) => c.get_candles(inst, interval).await,
             LobClients::GateSpot(c) => c.get_candles(inst, interval).await,
+            LobClients::GateUni(c) => c.get_candles(inst, interval).await,
             LobClients::Okx(c) => c.get_candles(inst, interval).await,
         }
     }
@@ -83,6 +87,7 @@ impl LobPublicRest for LobClients {
             LobClients::GateDelivery(c) => c.get_instrument_info(inst_type).await,
             LobClients::GateFutures(c) => c.get_instrument_info(inst_type).await,
             LobClients::GateSpot(c) => c.get_instrument_info(inst_type).await,
+            LobClients::GateUni(c) => c.get_instrument_info(inst_type).await,
             LobClients::Okx(c) => c.get_instrument_info(inst_type).await,
         }
     }
@@ -98,6 +103,7 @@ impl LobPrivateRest for LobClients {
             LobClients::GateDelivery(c) => c.init_api_key(),
             LobClients::GateFutures(c) => c.init_api_key(),
             LobClients::GateSpot(c) => c.init_api_key(),
+            LobClients::GateUni(c) => c.init_api_key(),
             LobClients::Okx(c) => c.init_api_key(),
         }
     }
@@ -110,6 +116,7 @@ impl LobPrivateRest for LobClients {
             LobClients::GateDelivery(c) => c.place_order(order_params).await,
             LobClients::GateFutures(c) => c.place_order(order_params).await,
             LobClients::GateSpot(c) => c.place_order(order_params).await,
+            LobClients::GateUni(c) => c.place_order(order_params).await,
             LobClients::Okx(c) => c.place_order(order_params).await,
         }
     }
@@ -127,6 +134,7 @@ impl LobPrivateRest for LobClients {
             LobClients::GateDelivery(c) => c.cancel_order(inst, order_id, cli_order_id).await,
             LobClients::GateFutures(c) => c.cancel_order(inst, order_id, cli_order_id).await,
             LobClients::GateSpot(c) => c.cancel_order(inst, order_id, cli_order_id).await,
+            LobClients::GateUni(c) => c.cancel_order(inst, order_id, cli_order_id).await,
             LobClients::Okx(c) => c.cancel_order(inst, order_id, cli_order_id).await,
         }
     }
@@ -139,6 +147,7 @@ impl LobPrivateRest for LobClients {
             LobClients::GateDelivery(c) => c.get_balance(insts).await,
             LobClients::GateFutures(c) => c.get_balance(insts).await,
             LobClients::GateSpot(c) => c.get_balance(insts).await,
+            LobClients::GateUni(c) => c.get_balance(insts).await,
             LobClients::Okx(c) => c.get_balance(insts).await,
         }
     }
@@ -151,6 +160,7 @@ impl LobPrivateRest for LobClients {
             LobClients::GateDelivery(c) => c.get_positions(insts).await,
             LobClients::GateFutures(c) => c.get_positions(insts).await,
             LobClients::GateSpot(c) => c.get_positions(insts).await,
+            LobClients::GateUni(c) => c.get_positions(insts).await,
             LobClients::Okx(c) => c.get_positions(insts).await,
         }
     }
@@ -187,6 +197,7 @@ impl LobWebsocket for LobClients {
             LobClients::GateDelivery(c) => c.get_public_sub_msg(channel, insts).await,
             LobClients::GateFutures(c) => c.get_public_sub_msg(channel, insts).await,
             LobClients::GateSpot(c) => c.get_public_sub_msg(channel, insts).await,
+            LobClients::GateUni(c) => c.get_public_sub_msg(channel, insts).await,
             LobClients::Okx(c) => c.get_public_sub_msg(channel, insts).await,
         }
     }
@@ -199,6 +210,7 @@ impl LobWebsocket for LobClients {
             LobClients::GateDelivery(c) => c.get_private_sub_msg(channel).await,
             LobClients::GateFutures(c) => c.get_private_sub_msg(channel).await,
             LobClients::GateSpot(c) => c.get_private_sub_msg(channel).await,
+            LobClients::GateUni(c) => c.get_private_sub_msg(channel).await,
             LobClients::Okx(c) => c.get_private_sub_msg(channel).await,
         }
     }
@@ -211,6 +223,7 @@ impl LobWebsocket for LobClients {
             LobClients::GateDelivery(c) => c.get_public_connect_msg(channel).await,
             LobClients::GateFutures(c) => c.get_public_connect_msg(channel).await,
             LobClients::GateSpot(c) => c.get_public_connect_msg(channel).await,
+            LobClients::GateUni(c) => c.get_public_connect_msg(channel).await,
             LobClients::Okx(c) => c.get_public_connect_msg(channel).await,
         }
     }
@@ -223,6 +236,7 @@ impl LobWebsocket for LobClients {
             LobClients::GateDelivery(c) => c.get_private_connect_msg(channel).await,
             LobClients::GateFutures(c) => c.get_private_connect_msg(channel).await,
             LobClients::GateSpot(c) => c.get_private_connect_msg(channel).await,
+            LobClients::GateUni(c) => c.get_private_connect_msg(channel).await,
             LobClients::Okx(c) => c.get_private_connect_msg(channel).await,
         }
     }
