@@ -103,10 +103,13 @@ impl GateUniCli {
 
     pub async fn get_currencies(
         &self,
-        inst: Option<&str>,
+        insts: Option<&[String]>,
     ) -> InfraResult<Vec<RestCurrenciesGateUnified>> {
-        let query = match inst {
-            Some(inst) => format!("currency={}", inst),
+        let query = match insts {
+            Some(insts) => {
+                let currencies = insts.join(",");
+                format!("currencies={}", currencies)
+            },
             None => String::new(),
         };
 
