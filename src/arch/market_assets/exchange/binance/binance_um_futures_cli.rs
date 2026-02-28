@@ -497,16 +497,15 @@ impl BinanceUmCli {
             )
             .await?;
 
-        let filtered_res = match assets {
-            Some(list) if !list.is_empty() => res
-                .into_vec()?
-                .into_iter()
-                .filter(|b| list.contains(&b.asset))
-                .collect(),
-            _ => res.into_vec()?,
-        };
-
-        let data = filtered_res.into_iter().map(BalanceData::from).collect();
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|b| match assets {
+                Some(list) if !list.is_empty() => list.contains(&b.asset),
+                _ => true,
+            })
+            .map(BalanceData::from)
+            .collect();
 
         Ok(data)
     }
@@ -525,16 +524,15 @@ impl BinanceUmCli {
             )
             .await?;
 
-        let filtered_res = match insts {
-            Some(list) if !list.is_empty() => res
-                .into_vec()?
-                .into_iter()
-                .filter(|p| list.contains(&p.symbol))
-                .collect(),
-            _ => res.into_vec()?,
-        };
-
-        let data = filtered_res.into_iter().map(PositionData::from).collect();
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|p| match insts {
+                Some(list) if !list.is_empty() => list.contains(&p.symbol),
+                _ => true,
+            })
+            .map(PositionData::from)
+            .collect();
 
         Ok(data)
     }

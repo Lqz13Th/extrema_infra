@@ -1,17 +1,18 @@
 use reqwest::Client;
 use serde_json::json;
+use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
 use crate::arch::{
     market_assets::{
-        api_data::account_data::OrderAckData,
+        api_data::{account_data::OrderAckData, price_data::TickerData},
         api_general::{OrderParams, RequestMethod},
-        base_data::{OrderSide, OrderType, TimeInForce},
+        base_data::{InstrumentType, OrderSide, OrderType, TimeInForce},
         exchange::gate::{
-            config_assets::{GATE_BASE_URL, GATE_SPOT_ORDERS},
+            config_assets::{GATE_BASE_URL, GATE_SPOT_ORDERS, GATE_SPOT_TICKERS},
             gate_rest_msg::RestResGate,
-            schemas::spot_rest::order::RestOrderGateSpot,
+            schemas::spot_rest::{order::RestOrderGateSpot, ticker::RestTickerGateSpot},
         },
     },
     traits::{
@@ -40,7 +41,15 @@ impl Default for GateSpotCli {
 
 impl MarketLobApi for GateSpotCli {}
 
-impl LobPublicRest for GateSpotCli {}
+impl LobPublicRest for GateSpotCli {
+    async fn get_tickers(
+        &self,
+        insts: &[String],
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        self._get_tickers(insts).await
+    }
+}
 
 impl LobPrivateRest for GateSpotCli {
     fn init_api_key(&mut self) {
@@ -68,6 +77,29 @@ impl GateSpotCli {
             api_key: None,
         }
     }
+
+    async fn _get_tickers(&self, insts: &[String]) -> InfraResult<Vec<TickerData>> {
+        let url = format!("{}{}", GATE_BASE_URL, GATE_SPOT_TICKERS);
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResGate<RestTickerGateSpot> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|t| {
+                if insts.is_empty() {
+                    true
+                } else {
+                    insts.contains(&t.currency_pair)
+                }
+            })
+            .map(TickerData::from)
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         let mut body = json!({
             "currency_pair": order_params.inst,

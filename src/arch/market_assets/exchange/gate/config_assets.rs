@@ -9,6 +9,7 @@ pub const GATE_WS_SPOT_ORDERS: &str = "spot.orders";
 pub const GATE_WS_SPOT_BALANCES: &str = "spot.balances";
 pub const GATE_WS_SPOT_CROSS_BALANCES: &str = "spot.cross_balances";
 pub const GATE_SPOT_ORDERS: &str = "/api/v4/spot/orders";
+pub const GATE_SPOT_TICKERS: &str = "/api/v4/spot/tickers";
 
 /// Uni (margin/unified) REST endpoints
 pub const GATE_UNI_MARGIN_CURRENCY_PAIRS: &str = "/api/v4/margin/uni/currency_pairs";

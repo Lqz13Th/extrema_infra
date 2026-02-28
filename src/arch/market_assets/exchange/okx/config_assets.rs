@@ -12,6 +12,7 @@ pub const OKX_TRADE_ORDERS_HISTORY: &str = "/api/v5/trade/orders-history";
 pub const OKX_PUBLIC_INSTRUMENTS: &str = "/api/v5/public/instruments";
 pub const OKX_PUBLIC_FUNDING_RATE: &str = "/api/v5/public/funding-rate";
 pub const OKX_MARKET_TICKER: &str = "/api/v5/market/ticker";
+pub const OKX_MARKET_TICKERS: &str = "/api/v5/market/tickers";
 pub const OKX_MARKET_CANDLES: &str = "/api/v5/market/candles";
 pub const OKX_MARKET_BOOKS: &str = "/api/v5/market/books";
 pub const OKX_CT_PUBLIC_LEADTRADERS: &str = "/api/v5/copytrading/public-lead-traders";

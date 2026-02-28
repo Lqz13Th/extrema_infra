@@ -37,16 +37,20 @@ impl MarketLobApi for LobClients {}
 
 #[cfg(feature = "lob_clients")]
 impl LobPublicRest for LobClients {
-    async fn get_ticker(&self, inst: &str) -> InfraResult<TickerData> {
+    async fn get_tickers(
+        &self,
+        insts: &[String],
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
         match self {
-            LobClients::Hyperliquid(c) => c.get_ticker(inst).await,
-            LobClients::BinanceCm(c) => c.get_ticker(inst).await,
-            LobClients::BinanceUm(c) => c.get_ticker(inst).await,
-            LobClients::GateDelivery(c) => c.get_ticker(inst).await,
-            LobClients::GateFutures(c) => c.get_ticker(inst).await,
-            LobClients::GateSpot(c) => c.get_ticker(inst).await,
-            LobClients::GateUni(c) => c.get_ticker(inst).await,
-            LobClients::Okx(c) => c.get_ticker(inst).await,
+            LobClients::Hyperliquid(c) => c.get_tickers(insts, inst_type).await,
+            LobClients::BinanceCm(c) => c.get_tickers(insts, inst_type).await,
+            LobClients::BinanceUm(c) => c.get_tickers(insts, inst_type).await,
+            LobClients::GateDelivery(c) => c.get_tickers(insts, inst_type).await,
+            LobClients::GateFutures(c) => c.get_tickers(insts, inst_type).await,
+            LobClients::GateSpot(c) => c.get_tickers(insts, inst_type).await,
+            LobClients::GateUni(c) => c.get_tickers(insts, inst_type).await,
+            LobClients::Okx(c) => c.get_tickers(insts, inst_type).await,
         }
     }
 

@@ -253,16 +253,15 @@ impl BinanceCmCli {
             )
             .await?;
 
-        let filtered_res = match assets {
-            Some(list) if !list.is_empty() => res
-                .into_vec()?
-                .into_iter()
-                .filter(|b| list.contains(&b.asset))
-                .collect(),
-            _ => res.into_vec()?,
-        };
-
-        let data = filtered_res.into_iter().map(BalanceData::from).collect();
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|b| match assets {
+                Some(list) if !list.is_empty() => list.contains(&b.asset),
+                _ => true,
+            })
+            .map(BalanceData::from)
+            .collect();
 
         Ok(data)
     }

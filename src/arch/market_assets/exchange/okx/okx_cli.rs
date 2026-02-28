@@ -65,8 +65,12 @@ impl Default for OkxCli {
 impl MarketLobApi for OkxCli {}
 
 impl LobPublicRest for OkxCli {
-    async fn get_ticker(&self, insts: &str) -> InfraResult<TickerData> {
-        self._get_ticker(insts).await
+    async fn get_tickers(
+        &self,
+        insts: &[String],
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        self._get_tickers(insts, inst_type).await
     }
 
     async fn get_instrument_info(
@@ -443,24 +447,38 @@ impl OkxCli {
         Ok(data)
     }
 
-    async fn _get_ticker(&self, inst: &str) -> InfraResult<TickerData> {
-        let url = format!(
-            "{}{}?&instId={}",
-            OKX_BASE_URL,
-            OKX_MARKET_TICKER,
-            cli_perp_to_okx_inst(inst),
-        );
+    async fn _get_tickers(
+        &self,
+        insts: &[String],
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Futures => "FUTURES",
+            InstrumentType::Perpetual => "SWAP",
+            InstrumentType::Options => "OPTION",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
+            },
+        };
 
+        let url = format!(
+            "{}{}?instType={}",
+            OKX_BASE_URL, OKX_MARKET_TICKERS, inst_type_str
+        );
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestMarketTickerOkx> = from_slice(&mut res_bytes)?;
 
-        let data: TickerData = res
+        let data = res
             .into_vec()?
             .into_iter()
-            .next()
+            .filter(|t| match insts {
+                list if !list.is_empty() => list.contains(&t.instId),
+                _ => true,
+            })
             .map(TickerData::from)
-            .ok_or(InfraError::ApiCliError("No tick data returned".into()))?;
+            .collect();
 
         Ok(data)
     }
