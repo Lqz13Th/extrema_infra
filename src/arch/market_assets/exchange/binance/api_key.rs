@@ -110,6 +110,24 @@ impl BinanceKey {
         Ok(res.bytes().await?.to_vec())
     }
 
+    pub(crate) async fn delete_request(
+        &self,
+        client: &Client,
+        signature: &Signature<u64>,
+        query_string: Option<&str>,
+        url: &str,
+    ) -> InfraResult<Vec<u8>> {
+        let full_url = binance_build_full_url(url, query_string, signature);
+
+        let res = client
+            .delete(&full_url)
+            .header("X-MBX-APIKEY", &self.api_key)
+            .send()
+            .await?;
+
+        Ok(res.bytes().await?.to_vec())
+    }
+
     pub(crate) async fn send_signed_request<T>(
         &self,
         client: &Client,
@@ -135,6 +153,10 @@ impl BinanceKey {
             },
             RequestMethod::Post => {
                 self.post_request(client, &signature, query_string, &url)
+                    .await?
+            },
+            RequestMethod::Delete => {
+                self.delete_request(client, &signature, query_string, &url)
                     .await?
             },
         };

@@ -24,6 +24,7 @@ pub enum RequestMethod {
     Get,
     Put,
     Post,
+    Delete,
 }
 
 pub fn get_seconds_timestamp() -> u64 {

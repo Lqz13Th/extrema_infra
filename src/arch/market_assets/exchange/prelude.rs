@@ -9,7 +9,7 @@ pub use crate::arch::market_assets::exchange::hyperliquid::{
 #[cfg(feature = "binance")]
 pub use crate::arch::market_assets::exchange::binance::{
     api_key::*, api_utils::*, binance_cm_futures_cli::BinanceCmCli,
-    binance_um_futures_cli::BinanceUmCli,
+    binance_spot_cli::BinanceSpotCli, binance_um_futures_cli::BinanceUmCli,
 };
 
 #[cfg(feature = "gate")]

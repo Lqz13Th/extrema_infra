@@ -155,6 +155,10 @@ impl OkxKey {
                 let signature = self.sign_now("PUT", endpoint, Some(&body))?;
                 self.put_request(client, &signature, body, &url).await?
             },
+            RequestMethod::Delete => {
+                let signature = self.sign_now("DELETE", endpoint, Some(&body))?;
+                self.get_request(client, &signature, body, &url).await?
+            },
         };
 
         let result: T = from_slice(&mut response)?;

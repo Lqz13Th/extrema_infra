@@ -163,6 +163,7 @@ impl GateKey {
             RequestMethod::Get => "GET",
             RequestMethod::Post => "POST",
             RequestMethod::Put => "PUT",
+            RequestMethod::Delete => "DELETE",
         };
 
         let signature = self.sign_now(method_str, endpoint, query_string, body)?;
@@ -179,6 +180,7 @@ impl GateKey {
                 let body_str = body.unwrap_or("");
                 self.put_request(client, &signature, body_str, &url).await?
             },
+            RequestMethod::Delete => self.get_request(client, &signature, &url).await?,
         };
 
         let result: T = from_slice(&mut response)?;

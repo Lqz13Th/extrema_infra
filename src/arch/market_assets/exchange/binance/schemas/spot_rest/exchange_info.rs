@@ -1,0 +1,97 @@
+use serde::Deserialize;
+
+use crate::arch::market_assets::{
+    api_data::utils_data::InstrumentInfo,
+    base_data::{InstrumentStatus, InstrumentType},
+};
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+pub struct RestExchangeInfoBinanceSpot {
+    pub symbols: Vec<InstrumentInfoBinanceSpot>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+pub struct InstrumentInfoBinanceSpot {
+    pub symbol: String,
+    pub status: String,
+    pub baseAsset: String,
+    pub quoteAsset: String,
+    filters: Vec<Filter>,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(tag = "filterType")]
+enum Filter {
+    PRICE_FILTER(PriceFilter),
+    LOT_SIZE(SizeFilter),
+    MARKET_LOT_SIZE(SizeFilter),
+    #[serde(other)]
+    Other,
+}
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+struct PriceFilter {
+    tickSize: String,
+}
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+struct SizeFilter {
+    maxQty: String,
+    minQty: String,
+    stepSize: String,
+}
+
+impl From<InstrumentInfoBinanceSpot> for InstrumentInfo {
+    fn from(d: InstrumentInfoBinanceSpot) -> Self {
+        let mut tick_size = 0.0;
+        let mut min_lmt_size = 0.0;
+        let mut max_lmt_size = 0.0;
+        let mut min_mkt_size = 0.0;
+        let mut max_mkt_size = 0.0;
+
+        let mut lot_size_lmt = 0.0;
+        let mut lot_size_mkt = 0.0;
+
+        for f in d.filters.iter() {
+            match f {
+                Filter::PRICE_FILTER(pf) => {
+                    tick_size = pf.tickSize.parse().unwrap_or_default();
+                },
+                Filter::LOT_SIZE(sf) => {
+                    lot_size_lmt = sf.stepSize.parse::<f64>().unwrap_or_default();
+                    min_lmt_size = sf.minQty.parse().unwrap_or_default();
+                    max_lmt_size = sf.maxQty.parse().unwrap_or_default();
+                },
+                Filter::MARKET_LOT_SIZE(sf) => {
+                    lot_size_mkt = sf.stepSize.parse::<f64>().unwrap_or_default();
+                    min_mkt_size = sf.minQty.parse().unwrap_or_default();
+                    max_mkt_size = sf.maxQty.parse().unwrap_or_default();
+                },
+                Filter::Other => {},
+            };
+        }
+
+        InstrumentInfo {
+            inst: d.symbol,
+            inst_code: None,
+            inst_type: InstrumentType::Spot,
+            lot_size: lot_size_lmt.max(lot_size_mkt),
+            tick_size,
+            min_lmt_size,
+            max_lmt_size,
+            min_mkt_size,
+            max_mkt_size,
+            contract_value: None,
+            contract_multiplier: None,
+            state: match d.status.as_str() {
+                "TRADING" => InstrumentStatus::Live,
+                _ => InstrumentStatus::Suspend,
+            },
+        }
+    }
+}
