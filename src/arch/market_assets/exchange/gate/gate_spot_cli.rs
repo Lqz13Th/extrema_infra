@@ -45,9 +45,9 @@ impl LobPublicRest for GateSpotCli {
     async fn get_tickers(
         &self,
         insts: &[String],
-        _inst_type: Option<InstrumentType>,
+        inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
-        self._get_tickers(insts).await
+        self._get_tickers(insts, inst_type).await
     }
 }
 
@@ -78,7 +78,11 @@ impl GateSpotCli {
         }
     }
 
-    async fn _get_tickers(&self, insts: &[String]) -> InfraResult<Vec<TickerData>> {
+    async fn _get_tickers(
+        &self,
+        insts: &[String],
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
         let url = format!("{}{}", GATE_BASE_URL, GATE_SPOT_TICKERS);
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();

@@ -44,9 +44,9 @@ impl LobPublicRest for BinanceSpotCli {
     async fn get_tickers(
         &self,
         insts: &[String],
-        _inst_type: Option<InstrumentType>,
+        inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
-        self._get_tickers(insts).await
+        self._get_tickers(insts, inst_type).await
     }
 
     async fn get_instrument_info(
@@ -97,7 +97,11 @@ impl BinanceSpotCli {
         }
     }
 
-    async fn _get_tickers(&self, insts: &[String]) -> InfraResult<Vec<TickerData>> {
+    async fn _get_tickers(
+        &self,
+        insts: &[String],
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
         let url = format!("{}{}", BINANCE_SPOT_BASE_URL, BINANCE_SPOT_TICKERS);
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
