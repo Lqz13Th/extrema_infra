@@ -9,7 +9,7 @@ use crate::arch::{
         api_general::RequestMethod,
         exchange::gate::{
             config_assets::{
-                GATE_BASE_URL, GATE_UNI_ACCOUNTS, GATE_UNI_BORROWABLE, GATE_UNI_CURRENCIES,
+                GATE_BASE_URL, GATE_UNI_ACCOUNTS, GATE_UNI_BATCH_BORROWABLE, GATE_UNI_CURRENCIES,
                 GATE_UNI_ESTIMATE_RATE, GATE_UNI_LOANS,
             },
             gate_rest_msg::RestResGate,
@@ -76,8 +76,16 @@ impl GateUniCli {
         }
     }
 
-    pub async fn get_borrowable(&self, inst: &str) -> InfraResult<Vec<BorrowableData>> {
-        let query = format!("currency={}", inst);
+    pub async fn get_borrowable(&self, insts: &[String]) -> InfraResult<Vec<BorrowableData>> {
+        if insts.is_empty() {
+            return Err(InfraError::ApiCliError(
+                "Gate uni get_borrowable requires at least one currency".into(),
+            ));
+        }
+
+        let currencies = insts.join(",");
+        let query = format!("currencies={}", currencies);
+
         let res: RestResGate<RestBorrowableGateUnified> = self
             .api_key
             .as_ref()
@@ -88,7 +96,7 @@ impl GateUniCli {
                 Some(&query),
                 None,
                 GATE_BASE_URL,
-                GATE_UNI_BORROWABLE,
+                GATE_UNI_BATCH_BORROWABLE,
             )
             .await?;
 
