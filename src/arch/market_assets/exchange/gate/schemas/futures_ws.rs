@@ -1,3 +1,3 @@
-pub mod account_order;
-pub mod candles;
-pub mod trades;
+pub(crate) mod account_order;
+pub(crate) mod candles;
+pub(crate) mod trades;
