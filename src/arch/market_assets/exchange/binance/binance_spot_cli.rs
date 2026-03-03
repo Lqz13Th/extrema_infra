@@ -1,4 +1,5 @@
 use reqwest::Client;
+use serde_json::json;
 use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
@@ -10,6 +11,7 @@ use crate::arch::{
         base_data::*,
         exchange::binance::binance_rest_msg::RestResBinance,
     },
+    task_execution::task_ws::WsChannel,
     traits::{
         conversion::IntoInfraVec,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
@@ -87,7 +89,15 @@ impl LobPrivateRest for BinanceSpotCli {
     }
 }
 
-impl LobWebsocket for BinanceSpotCli {}
+impl LobWebsocket for BinanceSpotCli {
+    async fn get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_private_sub_msg(channel)
+    }
+
+    async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        Ok(BINANCE_SPOT_WS_API.into())
+    }
+}
 
 impl BinanceSpotCli {
     pub fn new(shared_client: Arc<Client>) -> Self {
@@ -270,5 +280,29 @@ impl BinanceSpotCli {
             .collect();
 
         Ok(data)
+    }
+
+    fn _get_private_sub_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let recv_window = 5000_u64;
+        let query_string = format!("apiKey={}&recvWindow={}", api_key.api_key, recv_window);
+        let signature = api_key.ws_sign(&query_string)?;
+
+        let msg = json!({
+            "id": 1,
+            "method": "userDataStream.subscribe.signature",
+            "params": {
+                "apiKey": &api_key.api_key,
+                "timestamp": signature.timestamp,
+                "recvWindow": recv_window,
+                "signature": signature.signature,
+            }
+        });
+
+        Ok(msg.to_string())
     }
 }

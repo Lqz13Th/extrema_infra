@@ -21,6 +21,7 @@ use crate::arch::{
         exchange::{
             binance::{
                 binance_ws_msg::BinanceWsData,
+                schemas::spot_ws::account_order::WsAccountOrderEnvelopeBinanceSpot,
                 schemas::um_futures_ws::{
                     account_bal_and_pos::WsBalAndPosBinanceUM,
                     account_order::WsAccountOrderBinanceUM, agg_trades::WsAggTradeBinanceUM,
@@ -234,6 +235,10 @@ impl WsTaskBuilder {
             Market::BinanceUmFutures => {
                 self.ws_channel_binance_um(ws_stream).await;
             },
+            #[cfg(feature = "binance")]
+            Market::BinanceSpot => {
+                self.ws_channel_binance_spot(ws_stream).await;
+            },
             #[cfg(feature = "okx")]
             Market::Okx => {
                 self.ws_channel_okx(ws_stream).await;
@@ -374,6 +379,29 @@ impl WsTaskBuilder {
                 self.log(
                     LogLevel::Warn,
                     &format!("Unknown Binance UM channel: {:?}", c),
+                );
+            },
+        };
+    }
+
+    #[cfg(feature = "binance")]
+    async fn ws_channel_binance_spot(&mut self, ws_stream: &mut WsStream) {
+        match &self.ws_info.ws_channel {
+            WsChannel::AccountOrders => {
+                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
+                    self.ws_loop::<BinanceWsData<WsAccountOrderEnvelopeBinanceSpot>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Binance Spot Acc order",
+                    );
+                }
+            },
+            c => {
+                self.log(
+                    LogLevel::Warn,
+                    &format!("Unknown Binance Spot channel: {:?}", c),
                 );
             },
         };

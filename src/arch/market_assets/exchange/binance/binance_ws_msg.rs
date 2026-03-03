@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use serde_json::Value;
 use tracing::{info, warn};
 
 use crate::arch::traits::conversion::IntoWsData;
@@ -13,8 +14,9 @@ pub enum BinanceWsData<T> {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct BinanceWsRes {
-    pub result: Option<String>,
-    pub id: u32,
+    pub status: Option<u16>,
+    pub result: Option<Value>,
+    pub id: Value,
     pub error: Option<BinanceWsError>,
 }
 
@@ -33,16 +35,23 @@ where
             BinanceWsData::ChannelSingle(c) => vec![c.into_ws()],
             BinanceWsData::ChannelBatch(c) => c.into_iter().map(|d| d.into_ws()).collect(),
             BinanceWsData::Event(res) => {
+                let id = res.id.to_string();
                 if let Some(result) = &res.result {
-                    info!("Subscription method: {}. id = {}", result, res.id);
+                    info!(
+                        "Subscription received. status = {:?}, result = {}, id = {}",
+                        res.status, result, id
+                    );
                 } else {
-                    info!("Subscription received. id = {}", res.id);
+                    info!(
+                        "Subscription received. status = {:?}, id = {}",
+                        res.status, id
+                    );
                 }
 
                 if let Some(err) = &res.error {
                     warn!(
                         "Subscription error. code = {}, msg = {}, id = {}",
-                        err.code, err.msg, res.id
+                        err.code, err.msg, id
                     );
                 }
 

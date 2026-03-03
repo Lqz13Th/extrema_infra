@@ -56,6 +56,14 @@ impl BinanceKey {
         self.sign(&query_with_timestamp, timestamp)
     }
 
+    pub fn ws_sign(&self, query_string: &str) -> InfraResult<Signature<u64>> {
+        let timestamp = get_mills_timestamp();
+        let query_with_timestamp = format!("{}&timestamp={}", query_string, timestamp);
+        let mut sign = self.sign(&query_with_timestamp, timestamp)?;
+        sign.signature = sign.signature.to_lowercase();
+        Ok(sign)
+    }
+
     pub(crate) async fn get_request(
         &self,
         client: &Client,
