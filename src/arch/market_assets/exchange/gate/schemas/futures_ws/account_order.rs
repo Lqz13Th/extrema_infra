@@ -19,6 +19,7 @@ pub(crate) struct WsAccountOrderGateFutures {
     size: Value,
     left: Value,
     price: Value,
+    fill_price: Value,
     status: String,
     finish_as: Option<String>,
     update_time: Option<u64>,
@@ -49,7 +50,14 @@ impl IntoWsData for WsAccountOrderGateFutures {
             filled_size,
             left_abs,
         );
-        let order_type = parse_order_type(value_to_f64(&self.price), self.tif.as_deref());
+        let order_price = value_to_f64(&self.price);
+        let fill_price = value_to_f64(&self.fill_price);
+        let ws_price = if fill_price > 0.0 {
+            fill_price
+        } else {
+            order_price
+        };
+        let order_type = parse_order_type(order_price, self.tif.as_deref());
 
         let timestamp = self
             .update_time
@@ -62,7 +70,7 @@ impl IntoWsData for WsAccountOrderGateFutures {
             market: Market::GateFutures,
             inst: gate_inst_to_cli(&self.contract),
             inst_type: InstrumentType::Perpetual,
-            price: value_to_f64(&self.price),
+            price: ws_price,
             size: size_abs,
             filled_size,
             side,

@@ -1,6 +1,6 @@
 /// Gate API Base
 pub const GATE_BASE_URL: &str = "https://api.gateio.ws";
-pub const GATE_WS_BASE_URL: &str = "wss://api.gateio.ws/ws/v4";
+pub const GATE_WS_BASE_URL: &str = "wss://api.gateio.ws/ws/v4/";
 pub const GATE_FUTURES_WS_USDT: &str = "wss://fx-ws.gateio.ws/v4/ws/usdt";
 pub const GATE_FUTURES_WS_BTC: &str = "wss://fx-ws.gateio.ws/v4/ws/btc";
 

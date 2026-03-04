@@ -96,6 +96,7 @@ impl WsTaskBuilder {
     {
         match msg {
             Ok(Some(Ok(Message::Text(text)))) => {
+                println!("text: {}", text);
                 match from_slice::<WsData>(text.as_ref()) {
                     Ok(parsed_raw) => {
                         let _ = tx.send(InfraMsg {

@@ -21,7 +21,8 @@ pub(crate) struct WsAccountOrderGateSpot {
     price: String,
     left: String,
     filled_amount: Option<String>,
-    status: String,
+    avg_deal_price: Option<String>,
+    status: Option<String>,
     finish_as: Option<String>,
     event: Option<String>,
     update_time_ms: Option<Value>,
@@ -41,9 +42,20 @@ impl IntoWsData for WsAccountOrderGateSpot {
             .as_deref()
             .and_then(|v| v.parse::<f64>().ok())
             .unwrap_or(filled_from_left);
+        let order_price = self.price.parse::<f64>().unwrap_or_default();
+        let avg_deal_price = self
+            .avg_deal_price
+            .as_deref()
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or_default();
+        let ws_price = if avg_deal_price > 0.0 {
+            avg_deal_price
+        } else {
+            order_price
+        };
 
         let status = parse_status(
-            &self.status,
+            self.status.as_deref(),
             self.finish_as.as_deref(),
             self.event.as_deref(),
             filled,
@@ -62,7 +74,7 @@ impl IntoWsData for WsAccountOrderGateSpot {
             market: Market::GateSpot,
             inst: self.currency_pair,
             inst_type: InstrumentType::Spot,
-            price: self.price.parse().unwrap_or_default(),
+            price: ws_price,
             size,
             filled_size: filled,
             side: match self.side.as_str() {
@@ -71,9 +83,10 @@ impl IntoWsData for WsAccountOrderGateSpot {
                 _ => OrderSide::Unknown,
             },
             status,
-            order_type: match self.r#type.as_str() {
-                "market" => OrderType::Market,
-                _ => OrderType::Limit,
+            order_type: if self.r#type.starts_with("market") {
+                OrderType::Market
+            } else {
+                OrderType::Limit
             },
             cli_order_id: self.text.and_then(|t| {
                 if t.is_empty() || t == "-" {
@@ -87,34 +100,65 @@ impl IntoWsData for WsAccountOrderGateSpot {
 }
 
 fn parse_status(
-    status: &str,
+    status: Option<&str>,
     finish_as: Option<&str>,
     event: Option<&str>,
     filled: f64,
     left: f64,
 ) -> OrderStatus {
-    match status {
-        "open" => {
+    if let Some(status) = status {
+        return match status {
+            "open" => {
+                if filled > 0.0 {
+                    OrderStatus::PartiallyFilled
+                } else {
+                    OrderStatus::Live
+                }
+            },
+            "closed" | "cancelled" => match finish_as {
+                Some("filled") => OrderStatus::Filled,
+                Some("cancelled" | "ioc" | "stp" | "poc" | "fok") => OrderStatus::Canceled,
+                _ => {
+                    if left == 0.0 {
+                        OrderStatus::Filled
+                    } else if matches!(event, Some("finish")) {
+                        OrderStatus::Canceled
+                    } else {
+                        OrderStatus::Unknown
+                    }
+                },
+            },
+            _ => OrderStatus::Unknown,
+        };
+    }
+
+    // spot.orders_v2 in unified account may not include `status`.
+    // Fallback to `finish_as` / `event` plus volume to infer state.
+    match finish_as {
+        Some("filled") => OrderStatus::Filled,
+        Some("cancelled" | "ioc" | "stp" | "poc" | "fok") => OrderStatus::Canceled,
+        Some("open") => {
             if filled > 0.0 {
                 OrderStatus::PartiallyFilled
             } else {
                 OrderStatus::Live
             }
         },
-        "closed" | "cancelled" => match finish_as {
-            Some("filled") => OrderStatus::Filled,
-            Some("cancelled" | "ioc" | "stp" | "poc" | "fok") => OrderStatus::Canceled,
-            _ => {
-                if left == 0.0 {
-                    OrderStatus::Filled
-                } else if matches!(event, Some("finish")) {
-                    OrderStatus::Canceled
+        _ => {
+            if left == 0.0 && filled > 0.0 {
+                OrderStatus::Filled
+            } else if matches!(event, Some("finish")) {
+                OrderStatus::Canceled
+            } else if matches!(event, Some("put")) {
+                if filled > 0.0 {
+                    OrderStatus::PartiallyFilled
                 } else {
-                    OrderStatus::Unknown
+                    OrderStatus::Live
                 }
-            },
+            } else {
+                OrderStatus::Unknown
+            }
         },
-        _ => OrderStatus::Unknown,
     }
 }
 

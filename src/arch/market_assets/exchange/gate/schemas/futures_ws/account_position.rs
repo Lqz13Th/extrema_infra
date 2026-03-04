@@ -17,7 +17,7 @@ pub(crate) struct WsAccountPositionGateFutures {
     contract: String,
     size: Value,
     entry_price: Option<Value>,
-    mode: Option<String>,
+    pos_margin_mode: Option<String>,
 }
 
 impl IntoWsData for WsAccountPositionGateFutures {
@@ -30,7 +30,7 @@ impl IntoWsData for WsAccountPositionGateFutures {
             .as_ref()
             .map(value_to_f64)
             .unwrap_or_default();
-        let mode = self.mode.unwrap_or_default();
+        let mode = self.pos_margin_mode.unwrap_or_default();
 
         WsAccPosition {
             inst: gate_inst_to_cli(&self.contract),
