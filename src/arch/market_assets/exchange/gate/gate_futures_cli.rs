@@ -106,7 +106,7 @@ impl GateFuturesCli {
         }
     }
 
-    pub fn ws_subscribe_private(&self, channel: &str, payload: Vec<String>) -> InfraResult<String> {
+    pub fn ws_subscribe_private(&self, channel: &str) -> InfraResult<String> {
         let api_key = self
             .api_key
             .as_ref()
@@ -114,6 +114,7 @@ impl GateFuturesCli {
 
         let timestamp = get_seconds_timestamp();
         let auth = api_key.ws_auth(channel, SUBSCRIBE_LOWER, timestamp)?;
+        let payload = vec![api_key.user_id.clone(), "!all".into()];
 
         let msg = json!({
             "time": timestamp,
@@ -445,19 +446,11 @@ impl GateFuturesCli {
     }
 
     fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        let api_key = self
-            .api_key
-            .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)?;
-
-        let payload = vec![api_key.user_id.clone(), "!all".into()];
-
         let topic = match channel {
             WsChannel::AccountOrders => GATE_WS_FUTURES_ORDERS,
             WsChannel::AccountPositions => GATE_WS_FUTURES_POSITIONS,
             _ => return Err(InfraError::Unimplemented),
         };
-
-        self.ws_subscribe_private(topic, payload)
+        self.ws_subscribe_private(topic)
     }
 }

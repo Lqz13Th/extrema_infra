@@ -7,14 +7,18 @@ use tracing::error;
 use crate::arch::{
     market_assets::{
         api_data::{account_data::OrderAckData, price_data::TickerData},
-        api_general::{OrderParams, RequestMethod},
-        base_data::{InstrumentType, OrderSide, OrderType, TimeInForce},
+        api_general::{OrderParams, RequestMethod, get_seconds_timestamp},
+        base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TimeInForce},
         exchange::gate::{
-            config_assets::{GATE_BASE_URL, GATE_SPOT_ORDERS, GATE_SPOT_TICKERS},
+            config_assets::{
+                GATE_BASE_URL, GATE_SPOT_ORDERS, GATE_SPOT_TICKERS, GATE_WS_BASE_URL,
+                GATE_WS_SPOT_ORDERS_V2,
+            },
             gate_rest_msg::RestResGate,
             schemas::spot_rest::{order::RestOrderGateSpot, ticker::RestTickerGateSpot},
         },
     },
+    task_execution::task_ws::WsChannel,
     traits::{
         conversion::IntoInfraVec,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
@@ -68,7 +72,15 @@ impl LobPrivateRest for GateSpotCli {
     }
 }
 
-impl LobWebsocket for GateSpotCli {}
+impl LobWebsocket for GateSpotCli {
+    async fn get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_private_sub_msg(channel)
+    }
+
+    async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        Ok(GATE_WS_BASE_URL.into())
+    }
+}
 
 impl GateSpotCli {
     pub fn new(shared_client: Arc<Client>) -> Self {
@@ -76,6 +88,27 @@ impl GateSpotCli {
             client: shared_client,
             api_key: None,
         }
+    }
+
+    fn ws_subscribe_private(&self, channel: &str) -> InfraResult<String> {
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let timestamp = get_seconds_timestamp();
+        let auth = api_key.ws_auth(channel, SUBSCRIBE_LOWER, timestamp)?;
+        let payload = vec!["!all".to_string()];
+
+        let msg = json!({
+            "time": timestamp,
+            "channel": channel,
+            "event": SUBSCRIBE_LOWER,
+            "payload": payload,
+            "auth": auth,
+        });
+
+        Ok(msg.to_string())
     }
 
     async fn _get_tickers(
@@ -186,5 +219,13 @@ impl GateSpotCli {
             .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
 
         Ok(data)
+    }
+
+    fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        let topic = match channel {
+            WsChannel::AccountOrders => GATE_WS_SPOT_ORDERS_V2,
+            _ => return Err(InfraError::Unimplemented),
+        };
+        self.ws_subscribe_private(topic)
     }
 }

@@ -36,6 +36,7 @@ use crate::arch::{
                     account_position::WsAccountPositionGateFutures, candles::WsCandleGateFutures,
                     trades::WsTradeGateFutures,
                 },
+                schemas::spot_ws::account_order::WsAccountOrderGateSpot,
             },
             okx::{
                 okx_ws_msg::OkxWsData,
@@ -247,7 +248,11 @@ impl WsTaskBuilder {
             },
             #[cfg(feature = "gate")]
             Market::GateFutures => {
-                self.ws_channel_gate(ws_stream).await;
+                self.ws_channel_gate_futures(ws_stream).await;
+            },
+            #[cfg(feature = "gate")]
+            Market::GateSpot => {
+                self.ws_channel_gate_spot(ws_stream).await;
             },
             m => self.log(LogLevel::Warn, &format!("Unsupported market: {:?}", m)),
         };
@@ -470,14 +475,17 @@ impl WsTaskBuilder {
     }
 
     #[cfg(feature = "gate")]
-    async fn ws_channel_gate(&mut self, ws_stream: &mut WsStream) {
+    async fn ws_channel_gate_futures(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::Trades(..) => {
                 if let Some(tx) = find_trade(&self.board_cast_channel) {
                     self.ws_loop::<GateWsData<WsTradeGateFutures>>(tx, ws_stream)
                         .await;
                 } else {
-                    self.log(LogLevel::Warn, "No broadcast channel found for Gate Trades");
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Gate Futures Trades",
+                    );
                 }
             },
             WsChannel::Candles(..) => {
@@ -487,7 +495,7 @@ impl WsTaskBuilder {
                 } else {
                     self.log(
                         LogLevel::Warn,
-                        "No broadcast channel found for Gate Candles",
+                        "No broadcast channel found for Gate Futures Candles",
                     );
                 }
             },
@@ -498,7 +506,7 @@ impl WsTaskBuilder {
                 } else {
                     self.log(
                         LogLevel::Warn,
-                        "No broadcast channel found for Gate Acc Order",
+                        "No broadcast channel found for Gate Futures Acc Order",
                     );
                 }
             },
@@ -509,12 +517,38 @@ impl WsTaskBuilder {
                 } else {
                     self.log(
                         LogLevel::Warn,
-                        "No broadcast channel found for Gate Acc Position",
+                        "No broadcast channel found for Gate Futures Acc Position",
                     );
                 }
             },
             c => {
-                self.log(LogLevel::Warn, &format!("Unknown Gate channel: {:?}", c));
+                self.log(
+                    LogLevel::Warn,
+                    &format!("Unknown Gate Futures channel: {:?}", c),
+                );
+            },
+        };
+    }
+
+    #[cfg(feature = "gate")]
+    async fn ws_channel_gate_spot(&mut self, ws_stream: &mut WsStream) {
+        match &self.ws_info.ws_channel {
+            WsChannel::AccountOrders => {
+                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
+                    self.ws_loop::<GateWsData<WsAccountOrderGateSpot>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Gate Spot Acc Order",
+                    );
+                }
+            },
+            c => {
+                self.log(
+                    LogLevel::Warn,
+                    &format!("Unknown Gate Spot channel: {:?}", c),
+                );
             },
         };
     }
