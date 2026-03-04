@@ -12,8 +12,8 @@ pub struct WsTaskInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub enum WsChannel {
     AccountOrders,
-    AccountPositions,
     AccountBalAndPos,
+    AccountPositions,
     Candles(Option<CandleParam>),
     Trades(Option<TradesParam>),
     Tick,

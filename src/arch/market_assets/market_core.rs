@@ -5,8 +5,8 @@ pub enum Market {
     #[default]
     HyperLiquid,
     BinanceCmFutures,
-    BinanceUmFutures,
     BinanceSpot,
+    BinanceUmFutures,
     Coinbase,
     GateDelivery,
     GateFutures,
