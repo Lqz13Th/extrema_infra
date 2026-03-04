@@ -24,11 +24,7 @@ use crate::errors::{InfraError, InfraResult};
 use super::{
     api_key::{GateKey, read_gate_env_key},
     api_utils::*,
-    config_assets::{
-        GATE_BASE_URL, GATE_FUTURES_CONTRACT, GATE_FUTURES_CONTRACTS, GATE_FUTURES_FUNDING_RATE,
-        GATE_FUTURES_ORDERS, GATE_FUTURES_WS_USDT, GATE_WS_FUTURES_CANDLES, GATE_WS_FUTURES_ORDERS,
-        GATE_WS_FUTURES_TRADES,
-    },
+    config_assets::*,
     gate_rest_msg::RestResGate,
     schemas::futures_rest::{
         contract_futures::RestContractGateFutures, funding_rate::RestFundingRateGateFutures,
@@ -449,16 +445,19 @@ impl GateFuturesCli {
     }
 
     fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        match channel {
-            WsChannel::AccountOrders => {
-                let api_key = self
-                    .api_key
-                    .as_ref()
-                    .ok_or(InfraError::ApiCliNotInitialized)?;
-                let payload = vec![api_key.user_id.clone(), "!all".into()];
-                self.ws_subscribe_private(GATE_WS_FUTURES_ORDERS, payload)
-            },
-            _ => Err(InfraError::Unimplemented),
-        }
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let payload = vec![api_key.user_id.clone(), "!all".into()];
+
+        let topic = match channel {
+            WsChannel::AccountOrders => GATE_WS_FUTURES_ORDERS,
+            WsChannel::AccountPositions => GATE_WS_FUTURES_POSITIONS,
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        self.ws_subscribe_private(topic, payload)
     }
 }

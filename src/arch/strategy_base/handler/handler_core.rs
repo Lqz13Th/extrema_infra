@@ -28,6 +28,7 @@ pub enum BoardCastChannel {
     Candle(broadcast::Sender<InfraMsg<Vec<WsCandle>>>),
     AccOrder(broadcast::Sender<InfraMsg<Vec<WsAccOrder>>>),
     AccBalPos(broadcast::Sender<InfraMsg<Vec<WsAccBalPos>>>),
+    AccPos(broadcast::Sender<InfraMsg<Vec<WsAccPosition>>>),
 }
 
 impl BoardCastChannel {
@@ -74,6 +75,10 @@ impl BoardCastChannel {
     pub fn default_account_bal_pos() -> Self {
         BoardCastChannel::AccBalPos(broadcast::channel(2048).0)
     }
+
+    pub fn default_account_pos() -> Self {
+        BoardCastChannel::AccPos(broadcast::channel(2048).0)
+    }
 }
 
 async fn recv_or_pending<T: Clone>(
@@ -109,6 +114,7 @@ pub(crate) async fn strategy_handler_loop<S>(
     // Ws pri event
     let mut rx_acc_order = find_acc_order(channels).map(|tx| tx.subscribe());
     let mut rx_acc_bal_pos = find_acc_bal_pos(channels).map(|tx| tx.subscribe());
+    let mut rx_acc_pos = find_acc_pos(channels).map(|tx| tx.subscribe());
 
     loop {
         tokio::select! {
@@ -153,6 +159,15 @@ pub(crate) async fn strategy_handler_loop<S>(
             msg = recv_or_pending(&mut rx_acc_bal_pos) => {
                 match msg {
                     Ok(msg) => strategies.on_acc_bal_pos(msg).await,
+                    Err(e) => {
+                        error!("rx_acc_bal_pos err: {:?}, reconnecting...", e);
+                        rx_acc_bal_pos = find_acc_bal_pos(channels).map(|tx| tx.subscribe());
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_acc_pos) => {
+                match msg {
+                    Ok(msg) => strategies.on_acc_pos(msg).await,
                     Err(e) => {
                         error!("rx_acc_bal_pos err: {:?}, reconnecting...", e);
                         rx_acc_bal_pos = find_acc_bal_pos(channels).map(|tx| tx.subscribe());
@@ -342,6 +357,18 @@ pub(crate) fn find_acc_bal_pos(
 ) -> Option<broadcast::Sender<InfraMsg<Vec<WsAccBalPos>>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::AccBalPos(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_acc_pos(
+    channels: &Arc<Vec<BoardCastChannel>>,
+) -> Option<broadcast::Sender<InfraMsg<Vec<WsAccPosition>>>> {
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::AccPos(tx) = ch {
             Some(tx.clone())
         } else {
             None

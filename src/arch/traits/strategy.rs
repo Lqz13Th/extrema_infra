@@ -116,4 +116,11 @@ pub trait EventHandler {
     ) -> impl Future<Output = ()> + Send {
         ready(())
     }
+
+    fn on_acc_pos(
+        &mut self,
+        _msg: InfraMsg<Vec<WsAccPosition>>,
+    ) -> impl Future<Output = ()> + Send {
+        ready(())
+    }
 }

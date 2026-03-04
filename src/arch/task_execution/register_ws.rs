@@ -31,7 +31,8 @@ use crate::arch::{
             gate::{
                 gate_ws_msg::GateWsData,
                 schemas::futures_ws::{
-                    account_order::WsAccountOrderGateFutures, candles::WsCandleGateFutures,
+                    account_order::WsAccountOrderGateFutures,
+                    account_position::WsAccountPositionGateFutures, candles::WsCandleGateFutures,
                     trades::WsTradeGateFutures,
                 },
             },
@@ -475,6 +476,17 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Gate Acc Order",
+                    );
+                }
+            },
+            WsChannel::AccountPositions => {
+                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
+                    self.ws_loop::<GateWsData<WsAccountPositionGateFutures>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Gate Acc Position",
                     );
                 }
             },
