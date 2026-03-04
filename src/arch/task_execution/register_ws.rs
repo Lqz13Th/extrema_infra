@@ -24,7 +24,8 @@ use crate::arch::{
                 schemas::spot_ws::account_order::WsAccountOrderEnvelopeBinanceSpot,
                 schemas::um_futures_ws::{
                     account_bal_and_pos::WsBalAndPosBinanceUM,
-                    account_order::WsAccountOrderBinanceUM, agg_trades::WsAggTradeBinanceUM,
+                    account_order::WsAccountOrderBinanceUM,
+                    account_position::WsAccountPositionBinanceUM, agg_trades::WsAggTradeBinanceUM,
                     candles::WsCandleBinanceUM,
                 },
             },
@@ -373,6 +374,17 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Binance UmFutures Acc Bal and Pos",
+                    );
+                }
+            },
+            WsChannel::AccountPositions => {
+                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
+                    self.ws_loop::<WsAccountPositionBinanceUM>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Binance UmFutures Acc Position",
                     );
                 }
             },
