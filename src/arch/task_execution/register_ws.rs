@@ -40,8 +40,7 @@ use crate::arch::{
                 okx_ws_msg::OkxWsData,
                 schemas::ws::{
                     account_bal_and_pos::WsBalAndPosOkx, account_order::WsAccountOrderOkx,
-                    account_position::WsAccountPositionOkx,
-                    trades::WsTradesOkx,
+                    account_position::WsAccountPositionOkx, trades::WsTradesOkx,
                 },
             },
         },
