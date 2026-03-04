@@ -27,6 +27,7 @@ pub(crate) struct WsAccountOrderBinanceSpot {
     o: String, // Order type
     q: String, // Original quantity
     p: String, // Original price
+    L: String, // Filled price
     z: String, // Cumulative filled quantity
     X: String, // Order status
 }
@@ -43,9 +44,9 @@ impl IntoWsData for WsAccountOrderEnvelopeBinanceSpot {
             market: Market::BinanceSpot,
             inst: event.s,
             inst_type: InstrumentType::Spot,
-            price: event.p.parse().unwrap_or_default(),
-            size: event.q.parse().unwrap_or_default(),
-            filled_size: event.z.parse().unwrap_or_default(),
+            price: event.L.parse().unwrap_or_default(),
+            size: event.q.parse::<f64>().unwrap_or_default().abs(),
+            filled_size: event.z.parse::<f64>().unwrap_or_default().abs(),
             side: match event.S.as_str() {
                 "BUY" => OrderSide::BUY,
                 "SELL" => OrderSide::SELL,

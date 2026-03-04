@@ -75,7 +75,7 @@ impl IntoWsData for WsAccountOrderBinanceUM {
                     InstrumentType::Perpetual
                 }
             },
-            price: self.o.p.parse().unwrap_or_default(),
+            price: self.o.ap.parse().unwrap_or_default(),
             size: self.o.q.parse().unwrap_or_default(),
             filled_size: self.o.z.parse().unwrap_or_default(),
             side: match self.o.S.as_str() {
