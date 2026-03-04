@@ -54,12 +54,13 @@ impl IntoWsData for WsAccountOrderOkx {
                 .as_ref()
                 .and_then(|p| p.parse::<f64>().ok())
                 .unwrap_or(0.0),
-            size: self.sz.parse().unwrap_or_default(),
+            size: self.sz.parse::<f64>().unwrap_or_default().abs(),
             filled_size: self
                 .fillSz
                 .as_ref()
                 .and_then(|sz| sz.parse::<f64>().ok())
-                .unwrap_or(0.0),
+                .unwrap_or(0.0)
+                .abs(),
             side: match self.side.as_str() {
                 "buy" => OrderSide::BUY,
                 "sell" => OrderSide::SELL,
