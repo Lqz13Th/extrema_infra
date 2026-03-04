@@ -67,6 +67,7 @@ impl IntoWsData for WsBalAndPosOkx {
                     "SWAP" => InstrumentType::Perpetual,
                     "FUTURES" => InstrumentType::Futures,
                     "SPOT" => InstrumentType::Spot,
+                    "OPTIONS" => InstrumentType::Options,
                     _ => InstrumentType::Unknown,
                 },
                 size: p.pos.parse().unwrap_or_default(),

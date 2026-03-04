@@ -40,6 +40,7 @@ use crate::arch::{
                 okx_ws_msg::OkxWsData,
                 schemas::ws::{
                     account_bal_and_pos::WsBalAndPosOkx, account_order::WsAccountOrderOkx,
+                    account_position::WsAccountPositionOkx,
                     trades::WsTradesOkx,
                 },
             },
@@ -426,6 +427,17 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Okx Acc Order",
+                    );
+                }
+            },
+            WsChannel::AccountPositions => {
+                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<WsAccountPositionOkx>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Okx Acc Position",
                     );
                 }
             },
