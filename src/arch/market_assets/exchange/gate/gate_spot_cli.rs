@@ -28,7 +28,7 @@ use crate::errors::{InfraError, InfraResult};
 
 use super::{
     api_key::{GateKey, read_gate_env_key},
-    api_utils::normalize_gate_text,
+    api_utils::*,
 };
 
 #[derive(Clone, Debug)]
@@ -48,7 +48,7 @@ impl MarketLobApi for GateSpotCli {}
 impl LobPublicRest for GateSpotCli {
     async fn get_tickers(
         &self,
-        insts: &[String],
+        insts: Option<&[String]>,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
@@ -113,7 +113,7 @@ impl GateSpotCli {
 
     async fn _get_tickers(
         &self,
-        insts: &[String],
+        insts: Option<&[String]>,
         _inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         let url = format!("{}{}", GATE_BASE_URL, GATE_SPOT_TICKERS);
@@ -124,12 +124,9 @@ impl GateSpotCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .filter(|t| {
-                if insts.is_empty() {
-                    true
-                } else {
-                    insts.contains(&t.currency_pair)
-                }
+            .filter(|t| match insts {
+                Some(list) => list.contains(&t.currency_pair), // BTC_USDT
+                None => true,
             })
             .map(TickerData::from)
             .collect();

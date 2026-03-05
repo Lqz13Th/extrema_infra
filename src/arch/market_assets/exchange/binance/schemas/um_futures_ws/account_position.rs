@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::arch::{
     market_assets::{
         base_data::{InstrumentType, MarginMode, PositionSide},
-        exchange::binance::api_utils::binance_inst_to_cli,
+        exchange::binance::api_utils::binance_fut_inst_to_cli,
     },
     strategy_base::handler::lob_events::WsAccPosition,
     traits::conversion::IntoWsData,
@@ -39,7 +39,7 @@ impl IntoWsData for WsAccountPositionBinanceUM {
             .P
             .into_iter()
             .map(|pos| WsAccPosition {
-                inst: binance_inst_to_cli(&pos.s),
+                inst: binance_fut_inst_to_cli(&pos.s),
                 inst_type: if pos.s.contains('_') {
                     InstrumentType::Futures
                 } else {

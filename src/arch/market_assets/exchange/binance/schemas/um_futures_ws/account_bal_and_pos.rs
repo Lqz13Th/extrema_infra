@@ -4,7 +4,7 @@ use crate::arch::{
     market_assets::{
         api_general::ts_to_micros,
         base_data::{InstrumentType, MarginMode, PositionSide},
-        exchange::binance::api_utils::binance_inst_to_cli,
+        exchange::binance::api_utils::binance_fut_inst_to_cli,
         market_core::Market,
     },
     strategy_base::handler::lob_events::{WsAccBalPos, WsAccBalance, WsAccPosition},
@@ -67,7 +67,7 @@ impl IntoWsData for WsBalAndPosBinanceUM {
             .P
             .into_iter()
             .map(|p| WsAccPosition {
-                inst: binance_inst_to_cli(&p.s),
+                inst: binance_fut_inst_to_cli(&p.s),
                 inst_type: {
                     if p.s.contains('_') {
                         InstrumentType::Futures

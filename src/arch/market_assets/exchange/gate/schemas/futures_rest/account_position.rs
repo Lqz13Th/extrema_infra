@@ -5,7 +5,7 @@ use crate::arch::market_assets::{
     api_data::account_data::PositionData,
     api_general::{ts_to_micros, value_to_f64},
     base_data::{InstrumentType, PositionSide},
-    exchange::gate::api_utils::gate_inst_to_cli,
+    exchange::gate::api_utils::gate_fut_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
@@ -31,7 +31,7 @@ impl From<RestAccountPosGateFutures> for PositionData {
 
         PositionData {
             timestamp: ts_to_micros(ts),
-            inst: gate_inst_to_cli(&d.contract),
+            inst: gate_fut_inst_to_cli(&d.contract),
             inst_type: InstrumentType::Perpetual,
             position_side: if size > 0.0 {
                 PositionSide::Long

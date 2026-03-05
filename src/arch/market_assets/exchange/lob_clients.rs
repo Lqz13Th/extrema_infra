@@ -40,7 +40,7 @@ impl MarketLobApi for LobClients {}
 impl LobPublicRest for LobClients {
     async fn get_tickers(
         &self,
-        insts: &[String],
+        insts: Option<&[String]>,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         match self {

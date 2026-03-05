@@ -15,7 +15,7 @@ pub trait MarketLobApi: LobPublicRest + LobPrivateRest {}
 pub trait LobPublicRest: Send + Sync {
     fn get_tickers(
         &self,
-        _insts: &[String],
+        _insts: Option<&[String]>,
         _inst_type: Option<InstrumentType>,
     ) -> impl Future<Output = InfraResult<Vec<TickerData>>> + Send {
         ready(Err(InfraError::Unimplemented))

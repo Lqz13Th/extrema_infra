@@ -5,7 +5,7 @@ use crate::arch::{
     market_assets::{
         api_general::{ts_to_micros, value_to_f64},
         base_data::{InstrumentType, OrderSide, OrderStatus, OrderType},
-        exchange::gate::api_utils::gate_inst_to_cli,
+        exchange::gate::api_utils::gate_fut_inst_to_cli,
         market_core::Market,
     },
     strategy_base::handler::lob_events::WsAccOrder,
@@ -68,7 +68,7 @@ impl IntoWsData for WsAccountOrderGateFutures {
         WsAccOrder {
             timestamp,
             market: Market::GateFutures,
-            inst: gate_inst_to_cli(&self.contract),
+            inst: gate_fut_inst_to_cli(&self.contract),
             inst_type: InstrumentType::Perpetual,
             price: ws_price,
             size: size_abs,

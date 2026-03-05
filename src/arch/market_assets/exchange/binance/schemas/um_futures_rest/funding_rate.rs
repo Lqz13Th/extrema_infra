@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::arch::market_assets::{
     api_data::utils_data::FundingRateData,
     api_general::{get_micros_timestamp, ts_to_micros},
-    exchange::binance::api_utils::binance_inst_to_cli,
+    exchange::binance::api_utils::binance_fut_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
@@ -19,7 +19,7 @@ impl From<RestFundingRateBinanceUM> for FundingRateData {
     fn from(d: RestFundingRateBinanceUM) -> Self {
         FundingRateData {
             timestamp: get_micros_timestamp(),
-            inst: binance_inst_to_cli(&d.symbol),
+            inst: binance_fut_inst_to_cli(&d.symbol),
             funding_rate: d.fundingRate.parse().unwrap_or_default(),
             funding_time: ts_to_micros(d.fundingTime),
         }

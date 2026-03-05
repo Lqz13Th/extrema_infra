@@ -5,7 +5,7 @@ use crate::arch::{
     market_assets::{
         api_general::value_to_f64,
         base_data::{InstrumentType, MarginMode, PositionSide},
-        exchange::gate::api_utils::gate_inst_to_cli,
+        exchange::gate::api_utils::gate_fut_inst_to_cli,
     },
     strategy_base::handler::lob_events::WsAccPosition,
     traits::conversion::IntoWsData,
@@ -33,7 +33,7 @@ impl IntoWsData for WsAccountPositionGateFutures {
         let mode = self.pos_margin_mode.unwrap_or_default();
 
         WsAccPosition {
-            inst: gate_inst_to_cli(&self.contract),
+            inst: gate_fut_inst_to_cli(&self.contract),
             inst_type: InstrumentType::Perpetual,
             avg_price,
             size: size_val,

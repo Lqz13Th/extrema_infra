@@ -16,7 +16,7 @@ use crate::errors::{InfraError, InfraResult};
 
 use super::{
     api_key::{GateKey, read_gate_env_key},
-    api_utils::gate_inst_to_cli,
+    api_utils::gate_fut_inst_to_cli,
     config_assets::{GATE_BASE_URL, GATE_DELIVERY_CONTRACTS},
     gate_rest_msg::RestResGate,
     schemas::delivery_rest::contract_delivery::RestContractGateDelivery,
@@ -144,7 +144,7 @@ impl GateDeliveryCli {
                             !c.in_delisting
                         }
                     })
-                    .map(|c| gate_inst_to_cli(&c.name)),
+                    .map(|c| gate_fut_inst_to_cli(&c.name)),
             );
         }
 

@@ -4,7 +4,7 @@ use crate::arch::{
     market_assets::{
         api_general::ts_to_micros,
         base_data::{InstrumentType, OrderSide, OrderStatus, OrderType},
-        exchange::binance::api_utils::binance_inst_to_cli,
+        exchange::binance::api_utils::binance_fut_inst_to_cli,
         market_core::Market,
     },
     strategy_base::handler::lob_events::WsAccOrder,
@@ -67,7 +67,7 @@ impl IntoWsData for WsAccountOrderBinanceUM {
         WsAccOrder {
             timestamp: ts_to_micros(self.E),
             market: Market::BinanceUmFutures,
-            inst: binance_inst_to_cli(&self.o.s),
+            inst: binance_fut_inst_to_cli(&self.o.s),
             inst_type: {
                 if self.o.s.contains("_") {
                     InstrumentType::Futures

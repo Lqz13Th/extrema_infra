@@ -15,7 +15,7 @@ pub fn ws_subscribe_msg_gate_futures(channel: &str, payload: Vec<String>) -> Str
     msg.to_string()
 }
 
-pub fn gate_inst_to_cli(symbol: &str) -> String {
+pub fn gate_fut_inst_to_cli(symbol: &str) -> String {
     let upper = symbol.to_uppercase();
     let parts: Vec<&str> = upper.split('_').collect();
     match parts.as_slice() {

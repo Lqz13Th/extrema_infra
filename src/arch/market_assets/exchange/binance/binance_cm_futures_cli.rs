@@ -233,7 +233,7 @@ impl BinanceCmCli {
             .symbols
             .into_iter()
             .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
-            .map(|s| binance_inst_to_cli(&s.symbol))
+            .map(|s| binance_fut_inst_to_cli(&s.symbol))
             .collect();
 
         Ok(data)

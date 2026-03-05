@@ -67,7 +67,7 @@ impl MarketLobApi for OkxCli {}
 impl LobPublicRest for OkxCli {
     async fn get_tickers(
         &self,
-        insts: &[String],
+        insts: Option<&[String]>,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
@@ -449,7 +449,7 @@ impl OkxCli {
 
     async fn _get_tickers(
         &self,
-        insts: &[String],
+        insts: Option<&[String]>,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
@@ -474,8 +474,8 @@ impl OkxCli {
             .into_vec()?
             .into_iter()
             .filter(|t| match insts {
-                list if !list.is_empty() => list.contains(&t.instId),
-                _ => true,
+                Some(list) => list.contains(&okx_inst_to_cli(&t.instId)), // BTC-USDT
+                None => true,
             })
             .map(TickerData::from)
             .collect();

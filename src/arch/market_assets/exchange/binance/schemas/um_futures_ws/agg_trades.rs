@@ -2,8 +2,8 @@ use serde::Deserialize;
 
 use crate::arch::{
     market_assets::{
-        api_general::ts_to_micros, base_data::*, exchange::binance::api_utils::binance_inst_to_cli,
-        market_core::Market,
+        api_general::ts_to_micros, base_data::*,
+        exchange::binance::api_utils::binance_fut_inst_to_cli, market_core::Market,
     },
     strategy_base::handler::lob_events::WsTrade,
     traits::conversion::IntoWsData,
@@ -30,7 +30,7 @@ impl IntoWsData for WsAggTradeBinanceUM {
         WsTrade {
             timestamp: ts_to_micros(self.T),
             market: Market::BinanceUmFutures,
-            inst: binance_inst_to_cli(&self.s),
+            inst: binance_fut_inst_to_cli(&self.s),
             price: self.p.parse().unwrap_or_default(),
             size: self.q.parse().unwrap_or_default(),
             side: if self.m {

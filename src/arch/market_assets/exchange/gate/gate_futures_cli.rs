@@ -329,7 +329,7 @@ impl GateFuturesCli {
                 contracts
                     .into_iter()
                     .filter(|c| c.status.as_str() == TRADING_LOWER)
-                    .map(|c| gate_inst_to_cli(&c.name)),
+                    .map(|c| gate_fut_inst_to_cli(&c.name)),
             );
         }
 
@@ -461,11 +461,9 @@ impl GateFuturesCli {
                     .into_vec()?
                     .into_iter()
                     .filter(|p| value_to_f64(&p.size) != 0.0)
-                    .filter(|p| match insts {
-                        Some(list) if !list.is_empty() => {
-                            list.contains(&gate_inst_to_cli(&p.contract))
-                        },
-                        _ => true,
+                    .filter(|t| match insts {
+                        Some(list) => list.contains(&gate_fut_inst_to_cli(&t.contract)),
+                        None => true,
                     })
                     .map(PositionData::from),
             );

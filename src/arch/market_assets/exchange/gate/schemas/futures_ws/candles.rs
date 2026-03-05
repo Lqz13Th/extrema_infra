@@ -4,7 +4,7 @@ use serde_json::Value;
 use crate::arch::{
     market_assets::{
         api_general::{ts_to_micros, value_to_f64},
-        exchange::gate::api_utils::gate_inst_to_cli,
+        exchange::gate::api_utils::gate_fut_inst_to_cli,
         market_core::Market,
     },
     strategy_base::handler::lob_events::WsCandle,
@@ -36,7 +36,7 @@ impl IntoWsData for WsCandleGateFutures {
         WsCandle {
             timestamp: ts_to_micros(self.t),
             market: Market::GateFutures,
-            inst: gate_inst_to_cli(&contract),
+            inst: gate_fut_inst_to_cli(&contract),
             interval,
             open: value_to_f64(&self.o),
             high: value_to_f64(&self.h),

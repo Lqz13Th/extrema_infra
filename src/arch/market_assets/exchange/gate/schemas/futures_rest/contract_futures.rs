@@ -6,7 +6,7 @@ use crate::arch::market_assets::{
         de_string_from_any, de_u64_from_string_or_number, get_micros_timestamp, ts_to_micros,
     },
     base_data::{InstrumentStatus, InstrumentType},
-    exchange::gate::api_utils::gate_inst_to_cli,
+    exchange::gate::api_utils::gate_fut_inst_to_cli,
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -38,7 +38,7 @@ impl From<RestContractGateFutures> for InstrumentInfo {
         let tick_size = d.order_price_round.parse().unwrap_or_default();
 
         InstrumentInfo {
-            inst: gate_inst_to_cli(&d.name),
+            inst: gate_fut_inst_to_cli(&d.name),
             inst_code: None,
             inst_type: InstrumentType::Perpetual,
             lot_size,
@@ -63,7 +63,7 @@ impl From<RestContractGateFutures> for FundingRateData {
     fn from(d: RestContractGateFutures) -> Self {
         FundingRateData {
             timestamp: get_micros_timestamp(),
-            inst: gate_inst_to_cli(&d.name),
+            inst: gate_fut_inst_to_cli(&d.name),
             funding_rate: d.funding_rate.parse().unwrap_or_default(),
             funding_time: ts_to_micros(d.funding_next_apply),
         }
@@ -74,7 +74,7 @@ impl From<RestContractGateFutures> for FundingRateInfo {
     fn from(d: RestContractGateFutures) -> Self {
         FundingRateInfo {
             timestamp: get_micros_timestamp(),
-            inst: gate_inst_to_cli(&d.name),
+            inst: gate_fut_inst_to_cli(&d.name),
             funding_interval_sec: d.funding_interval as f64,
         }
     }

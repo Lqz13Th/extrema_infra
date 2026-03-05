@@ -30,7 +30,7 @@ use super::{
         funding_rate_info::RestFundingInfoBinanceUM,
         open_interest_statistics::RestOpenInterestBinanceUM,
         order_history::RestOrderHistoryBinanceUM, premium_index::RestPremiumIndexBinanceUM,
-        trade_order::RestOrderAckBinanceUM,
+        ticker::RestTickerBinanceUM, trade_order::RestOrderAckBinanceUM,
     },
 };
 
@@ -49,6 +49,14 @@ impl Default for BinanceUmCli {
 impl MarketLobApi for BinanceUmCli {}
 
 impl LobPublicRest for BinanceUmCli {
+    async fn get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        self._get_tickers(insts, inst_type).await
+    }
+
     async fn get_instrument_info(
         &self,
         inst_type: InstrumentType,
@@ -356,6 +364,30 @@ impl BinanceUmCli {
         Ok(data)
     }
 
+    async fn _get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_TICKERS].concat();
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResBinance<RestTickerBinanceUM> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|t| match insts {
+                Some(list) => list.contains(&binance_fut_inst_to_cli(&t.symbol)),
+                None => true,
+            })
+            .map(TickerData::from)
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _get_instrument_info(
         &self,
         inst_type: InstrumentType,
@@ -395,7 +427,7 @@ impl BinanceUmCli {
             .symbols
             .into_iter()
             .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
-            .map(|s| binance_inst_to_cli(&s.symbol))
+            .map(|s| binance_fut_inst_to_cli(&s.symbol))
             .collect();
 
         Ok(data)
@@ -527,9 +559,9 @@ impl BinanceUmCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .filter(|p| match insts {
-                Some(list) if !list.is_empty() => list.contains(&p.symbol),
-                _ => true,
+            .filter(|t| match insts {
+                Some(list) => list.contains(&binance_fut_inst_to_cli(&t.symbol)),
+                None => true,
             })
             .map(PositionData::from)
             .collect();

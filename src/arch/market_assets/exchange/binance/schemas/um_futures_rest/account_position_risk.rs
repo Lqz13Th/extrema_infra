@@ -4,7 +4,7 @@ use crate::arch::market_assets::{
     api_data::account_data::PositionData,
     api_general::ts_to_micros,
     base_data::{InstrumentType, PositionSide},
-    exchange::binance::api_utils::binance_inst_to_cli,
+    exchange::binance::api_utils::binance_fut_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
@@ -38,7 +38,7 @@ impl From<RestAccountPosRiskBinanceUM> for PositionData {
 
         PositionData {
             timestamp: ts_to_micros(d.updateTime),
-            inst: binance_inst_to_cli(&d.symbol),
+            inst: binance_fut_inst_to_cli(&d.symbol),
             inst_type: if d.symbol.contains('_') {
                 InstrumentType::Futures
             } else {

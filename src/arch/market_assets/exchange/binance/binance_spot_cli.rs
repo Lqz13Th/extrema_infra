@@ -21,6 +21,7 @@ use crate::errors::{InfraError, InfraResult};
 
 use super::{
     api_key::{BinanceKey, read_binance_env_key},
+    api_utils::*,
     config_assets::*,
     schemas::spot_rest::{
         account_balance::RestAccountInfoBinanceSpot, exchange_info::RestExchangeInfoBinanceSpot,
@@ -45,7 +46,7 @@ impl MarketLobApi for BinanceSpotCli {}
 impl LobPublicRest for BinanceSpotCli {
     async fn get_tickers(
         &self,
-        insts: &[String],
+        insts: Option<&[String]>,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
@@ -109,7 +110,7 @@ impl BinanceSpotCli {
 
     async fn _get_tickers(
         &self,
-        insts: &[String],
+        insts: Option<&[String]>,
         _inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         let url = format!("{}{}", BINANCE_SPOT_BASE_URL, BINANCE_SPOT_TICKERS);
@@ -120,12 +121,11 @@ impl BinanceSpotCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .filter(|t| {
-                if insts.is_empty() {
-                    true
-                } else {
-                    insts.contains(&t.symbol)
-                }
+            .filter(|t| match insts {
+                Some(list) => list
+                    .iter()
+                    .any(|inst| cli_to_binance_spot(inst) == t.symbol), // BTCUSDT
+                None => true,
             })
             .map(TickerData::from)
             .collect();

@@ -4,7 +4,7 @@ use crate::arch::market_assets::{
     api_data::utils_data::InstrumentInfo,
     api_general::de_string_from_any,
     base_data::{InstrumentStatus, InstrumentType},
-    exchange::gate::api_utils::gate_inst_to_cli,
+    exchange::gate::api_utils::gate_fut_inst_to_cli,
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -43,7 +43,7 @@ impl From<RestContractGateDelivery> for InstrumentInfo {
         };
 
         InstrumentInfo {
-            inst: gate_inst_to_cli(&d.name),
+            inst: gate_fut_inst_to_cli(&d.name),
             inst_code: None,
             inst_type: InstrumentType::Futures,
             lot_size,

@@ -5,7 +5,7 @@ use crate::arch::market_assets::{
     api_data::account_data::HistoOrderData,
     api_general::ts_to_micros,
     base_data::{OrderSide, OrderStatus, OrderType, PositionSide, TimeInForce},
-    exchange::binance::api_utils::binance_inst_to_cli,
+    exchange::binance::api_utils::binance_fut_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
@@ -87,7 +87,7 @@ impl From<RestOrderHistoryBinanceUM> for HistoOrderData {
 
         HistoOrderData {
             timestamp: ts_to_micros(d.time),
-            inst: binance_inst_to_cli(&d.symbol),
+            inst: binance_fut_inst_to_cli(&d.symbol),
             order_id: d.orderId.to_string(),
             cli_order_id: d.clientOrderId,
             side,

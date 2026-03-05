@@ -45,7 +45,7 @@ pub fn ws_subscribe_msg_binance(param: &str, insts: Option<&[String]>) -> String
     subscribe_msg.to_string()
 }
 
-pub fn binance_inst_to_cli(symbol: &str) -> String {
+pub fn binance_fut_inst_to_cli(symbol: &str) -> String {
     let upper = symbol.to_uppercase();
     let quote_currencies = ["USDT", "USDC", "USD"];
 
@@ -87,4 +87,8 @@ pub fn cli_perp_to_binance_cm(symbol: &str) -> String {
         .unwrap_or(symbol)
         .replace("_USDT", "USD")
         .to_string()
+}
+
+pub fn cli_to_binance_spot(inst: &str) -> String {
+    inst.replace('_', "").to_uppercase()
 }
