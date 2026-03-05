@@ -8,6 +8,7 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{OrderAckData, PositionData},
+            price_data::TickerData,
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{OrderParams, RequestMethod, get_seconds_timestamp, value_to_f64},
@@ -29,6 +30,7 @@ use super::{
     schemas::futures_rest::{
         account_position::RestAccountPosGateFutures, contract_futures::RestContractGateFutures,
         funding_rate::RestFundingRateGateFutures, order::RestFuturesOrderGateFutures,
+        ticker::RestTickerGateFutures,
     },
 };
 
@@ -47,6 +49,14 @@ impl Default for GateFuturesCli {
 impl MarketLobApi for GateFuturesCli {}
 
 impl LobPublicRest for GateFuturesCli {
+    async fn get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        self._get_tickers(insts, inst_type).await
+    }
+
     async fn get_instrument_info(
         &self,
         inst_type: InstrumentType,
@@ -294,17 +304,40 @@ impl GateFuturesCli {
         res.into_vec()
     }
 
+    async fn _get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        let mut data: Vec<TickerData> = Vec::new();
+
+        for settle in ["usdt", "btc"] {
+            let endpoint = GATE_FUTURES_TICKERS.replace("{settle}", settle);
+            let url = [GATE_BASE_URL, &endpoint].concat();
+
+            let responds = self.client.get(url).send().await?;
+            let mut res_bytes = responds.bytes().await?.to_vec();
+            let res: RestResGate<RestTickerGateFutures> = from_slice(&mut res_bytes)?;
+
+            data.extend(
+                res.into_vec()?
+                    .into_iter()
+                    .filter(|t| match insts {
+                        Some(list) => list.contains(&gate_fut_inst_to_cli(&t.contract)),
+                        None => true,
+                    })
+                    .map(TickerData::from),
+            );
+        }
+
+        Ok(data)
+    }
+
     async fn _get_instrument_info(
         &self,
-        inst_type: InstrumentType,
+        _inst_type: InstrumentType,
     ) -> InfraResult<Vec<InstrumentInfo>> {
         let mut data: Vec<InstrumentInfo> = Vec::new();
-
-        if inst_type != InstrumentType::Perpetual {
-            return Err(InfraError::ApiCliError(
-                "Gate futures cli only supports perpetual instruments".into(),
-            ));
-        }
 
         for settle in ["usdt", "btc"] {
             let contracts = self._get_futures_contracts(settle, None, None).await?;
@@ -314,14 +347,8 @@ impl GateFuturesCli {
         Ok(data)
     }
 
-    async fn _get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+    async fn _get_live_instruments(&self, _inst_type: InstrumentType) -> InfraResult<Vec<String>> {
         let mut data: Vec<String> = Vec::new();
-
-        if inst_type != InstrumentType::Perpetual {
-            return Err(InfraError::ApiCliError(
-                "Gate futures cli only supports perpetual instruments".into(),
-            ));
-        }
 
         for settle in ["usdt", "btc"] {
             let contracts = self._get_futures_contracts(settle, None, None).await?;
