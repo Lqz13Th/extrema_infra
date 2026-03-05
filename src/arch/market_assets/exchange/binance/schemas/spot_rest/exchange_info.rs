@@ -3,6 +3,7 @@ use serde::Deserialize;
 use crate::arch::market_assets::{
     api_data::utils_data::InstrumentInfo,
     base_data::{InstrumentStatus, InstrumentType},
+    exchange::binance::api_utils::binance_spot_inst_to_cli,
 };
 
 #[allow(non_snake_case)]
@@ -77,7 +78,7 @@ impl From<InstrumentInfoBinanceSpot> for InstrumentInfo {
         }
 
         InstrumentInfo {
-            inst: d.symbol,
+            inst: binance_spot_inst_to_cli(&d.symbol),
             inst_code: None,
             inst_type: InstrumentType::Spot,
             lot_size: lot_size_lmt.max(lot_size_mkt),

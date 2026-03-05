@@ -124,7 +124,7 @@ impl BinanceSpotCli {
             .filter(|t| match insts {
                 Some(list) => list
                     .iter()
-                    .any(|inst| cli_to_binance_spot(inst) == t.symbol), // BTCUSDT
+                    .any(|inst| cli_spot_to_binance_spot(inst) == t.symbol), // BTCUSDT
                 None => true,
             })
             .map(TickerData::from)

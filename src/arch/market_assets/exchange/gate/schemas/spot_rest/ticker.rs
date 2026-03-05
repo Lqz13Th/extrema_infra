@@ -6,7 +6,7 @@ use crate::arch::market_assets::{
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestTickerGateSpot {
-    pub currency_pair: String,
+    pub currency_pair: String, // BTC_USDT
     pub last: String,
 }
 

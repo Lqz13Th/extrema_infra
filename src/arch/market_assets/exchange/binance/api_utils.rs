@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
-use tracing::error;
+use tracing::warn;
 
 use crate::arch::market_assets::base_data::SUBSCRIBE;
 
@@ -53,7 +53,7 @@ pub fn binance_fut_inst_to_cli(symbol: &str) -> String {
         if upper.ends_with(quote) {
             let base = &upper[..upper.len() - quote.len()];
             if base.is_empty() {
-                error!("Invalid Binance symbol: {}", symbol);
+                warn!("Invalid Binance symbol: {}", symbol);
                 return symbol.into();
             }
 
@@ -65,6 +65,27 @@ pub fn binance_fut_inst_to_cli(symbol: &str) -> String {
             }
 
             return format!("{}_{}_PERP", base, quote);
+        }
+    }
+
+    upper
+}
+
+pub fn binance_spot_inst_to_cli(symbol: &str) -> String {
+    let upper = symbol.to_uppercase();
+    let quote_currencies = [
+        "USDT", "USDC", "USD1", "FDUSD", "TUSD", "USDP", "BUSD", "DAI", "BTC", "ETH", "BNB", "JPY",
+        "USD",
+    ];
+
+    for quote in quote_currencies {
+        if upper.ends_with(quote) {
+            let base = &upper[..upper.len() - quote.len()];
+            if base.is_empty() {
+                warn!("Invalid Binance spot symbol: {}", symbol);
+                return symbol.into();
+            }
+            return format!("{}_{}", base, quote);
         }
     }
 
@@ -89,6 +110,6 @@ pub fn cli_perp_to_binance_cm(symbol: &str) -> String {
         .to_string()
 }
 
-pub fn cli_to_binance_spot(inst: &str) -> String {
+pub fn cli_spot_to_binance_spot(inst: &str) -> String {
     inst.replace('_', "").to_uppercase()
 }
