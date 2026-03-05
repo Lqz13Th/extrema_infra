@@ -20,9 +20,9 @@ pub enum BoardCastChannel {
     Alt(broadcast::Sender<InfraMsg<AltTaskInfo>>),
     Ws(broadcast::Sender<InfraMsg<WsTaskInfo>>),
     OrderExecute(broadcast::Sender<InfraMsg<Vec<AltOrder>>>),
-    WeightIntent(broadcast::Sender<InfraMsg<AltWeight>>),
-    Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
+    InstIntent(broadcast::Sender<InfraMsg<AltIntent>>),
     ModelPreds(broadcast::Sender<InfraMsg<AltTensor>>),
+    Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
     Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
     Lob(broadcast::Sender<InfraMsg<Vec<WsLob>>>),
     Candle(broadcast::Sender<InfraMsg<Vec<WsCandle>>>),
@@ -44,16 +44,16 @@ impl BoardCastChannel {
         BoardCastChannel::OrderExecute(broadcast::channel(2048).0)
     }
 
-    pub fn default_weight_intent() -> Self {
-        BoardCastChannel::WeightIntent(broadcast::channel(2048).0)
-    }
-
-    pub fn default_scheduler() -> Self {
-        BoardCastChannel::Schedule(broadcast::channel(2048).0)
+    pub fn default_inst_intent() -> Self {
+        BoardCastChannel::InstIntent(broadcast::channel(2048).0)
     }
 
     pub fn default_model_preds() -> Self {
         BoardCastChannel::ModelPreds(broadcast::channel(2048).0)
+    }
+
+    pub fn default_scheduler() -> Self {
+        BoardCastChannel::Schedule(broadcast::channel(2048).0)
     }
 
     pub fn default_trade() -> Self {
@@ -102,9 +102,9 @@ pub(crate) async fn strategy_handler_loop<S>(
 
     // Alt event
     let mut rx_order_execute = find_order_execution(channels).map(|tx| tx.subscribe());
-    let mut rx_weight_intent = find_weight_intent(channels).map(|tx| tx.subscribe());
-    let mut rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
+    let mut rx_inst_intent = find_inst_intent(channels).map(|tx| tx.subscribe());
     let mut rx_preds = find_model_preds(channels).map(|tx| tx.subscribe());
+    let mut rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
 
     // Ws pub event
     let mut rx_trade = find_trade(channels).map(|tx| tx.subscribe());
@@ -183,12 +183,21 @@ pub(crate) async fn strategy_handler_loop<S>(
                     },
                 };
             },
-            msg = recv_or_pending(&mut rx_weight_intent) => {
+            msg = recv_or_pending(&mut rx_inst_intent) => {
                 match msg {
-                    Ok(msg) => strategies.on_weight_intent(msg).await,
+                    Ok(msg) => strategies.on_inst_intent(msg).await,
                     Err(e) => {
-                        error!("rx_weight_intent err: {:?}, reconnecting...", e);
-                        rx_weight_intent = find_weight_intent(channels).map(|tx| tx.subscribe());
+                        error!("rx_inst_intent err: {:?}, reconnecting...", e);
+                        rx_inst_intent = find_inst_intent(channels).map(|tx| tx.subscribe());
+                    },
+                };
+            },
+             msg = recv_or_pending(&mut rx_preds) => {
+                match msg {
+                    Ok(msg) => strategies.on_preds(msg).await,
+                    Err(e) => {
+                        error!("rx_preds err: {:?}, reconnecting...", e);
+                        rx_preds = find_model_preds(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -198,15 +207,6 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Err(e) => {
                         error!("rx_schedule err: {:?}, reconnecting...", e);
                         rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
-                    },
-                };
-            },
-            msg = recv_or_pending(&mut rx_preds) => {
-                match msg {
-                    Ok(msg) => strategies.on_preds(msg).await,
-                    Err(e) => {
-                        error!("rx_preds err: {:?}, reconnecting...", e);
-                        rx_preds = find_model_preds(channels).map(|tx| tx.subscribe());
                     },
                 };
             },
@@ -268,11 +268,11 @@ pub(crate) fn find_order_execution(
     })
 }
 
-pub(crate) fn find_weight_intent(
+pub(crate) fn find_inst_intent(
     channels: &Arc<Vec<BoardCastChannel>>,
-) -> Option<broadcast::Sender<InfraMsg<AltWeight>>> {
+) -> Option<broadcast::Sender<InfraMsg<AltIntent>>> {
     channels.iter().find_map(|ch| {
-        if let BoardCastChannel::WeightIntent(tx) = ch {
+        if let BoardCastChannel::InstIntent(tx) = ch {
             Some(tx.clone())
         } else {
             None

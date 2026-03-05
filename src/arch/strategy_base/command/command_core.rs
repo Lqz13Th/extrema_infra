@@ -8,7 +8,7 @@ use crate::arch::{
     task_execution::task_general::TaskInfo,
 };
 use crate::errors::{InfraError, InfraResult};
-use crate::prelude::AltWeight;
+use crate::prelude::AltIntent;
 
 #[derive(Clone, Debug)]
 pub struct CommandHandle {
@@ -54,7 +54,7 @@ pub enum TaskCommand {
     WsShutdown { msg: String, ack: AckHandle },
 
     OrderExecute(Vec<AltOrder>),
-    WeightIntent(AltWeight),
+    InstIntent(AltIntent),
     FeatInput(AltTensor),
 }
 

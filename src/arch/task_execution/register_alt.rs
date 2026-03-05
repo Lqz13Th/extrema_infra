@@ -24,7 +24,7 @@ use crate::arch::{
         },
     },
 };
-use crate::prelude::AltWeight;
+use crate::prelude::AltIntent;
 
 #[derive(Debug)]
 pub(crate) struct AltTaskBuilder {
@@ -59,13 +59,13 @@ impl AltTaskBuilder {
         }
     }
 
-    async fn weight_intent(&mut self, tx: broadcast::Sender<InfraMsg<AltWeight>>) {
+    async fn inst_intent(&mut self, tx: broadcast::Sender<InfraMsg<AltIntent>>) {
         while let Some(cmd) = self.cmd_rx.recv().await {
             match cmd {
-                TaskCommand::WeightIntent(alt_weight) => {
+                TaskCommand::InstIntent(alt_intent) => {
                     let _ = tx.send(InfraMsg {
                         task_id: self.task_id,
-                        data: Arc::new(alt_weight),
+                        data: Arc::new(alt_intent),
                     });
                 },
                 _ => self.handle_cmd(cmd),
@@ -199,13 +199,13 @@ impl AltTaskBuilder {
                     );
                 }
             },
-            AltTaskType::WeightIntent => {
-                if let Some(tx) = find_weight_intent(&self.board_cast_channel) {
-                    self.weight_intent(tx).await
+            AltTaskType::InstIntent => {
+                if let Some(tx) = find_inst_intent(&self.board_cast_channel) {
+                    self.inst_intent(tx).await
                 } else {
                     self.log(
                         LogLevel::Error,
-                        "No broadcast channel found for weight intent",
+                        "No broadcast channel found for inst intent",
                     );
                 }
             },

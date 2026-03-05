@@ -28,8 +28,16 @@ pub struct AltOrder {
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct AltWeight {
+pub struct AltIntent {
     pub timestamp: u64,
-    pub weight: HashMap<InstrumentKey, f64>,
+    pub intent_type: IntentType,
+    pub intents: HashMap<InstrumentKey, f64>,
     pub metadata: HashMap<String, String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum IntentType {
+    #[default]
+    Weight,
+    Price,
 }
