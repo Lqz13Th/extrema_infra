@@ -7,10 +7,10 @@ use tracing::error;
 use crate::arch::{
     market_assets::{
         api_data::{
-            account_data::OrderAckData,
+            account_data::{OrderAckData, PositionData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
-        api_general::{OrderParams, RequestMethod, get_seconds_timestamp},
+        api_general::{OrderParams, RequestMethod, get_seconds_timestamp, value_to_f64},
         base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TRADING_LOWER},
     },
     task_execution::task_ws::{CandleParam, WsChannel},
@@ -27,8 +27,8 @@ use super::{
     config_assets::*,
     gate_rest_msg::RestResGate,
     schemas::futures_rest::{
-        contract_futures::RestContractGateFutures, funding_rate::RestFundingRateGateFutures,
-        order::RestFuturesOrderGateFutures,
+        account_position::RestAccountPosGateFutures, contract_futures::RestContractGateFutures,
+        funding_rate::RestFundingRateGateFutures, order::RestFuturesOrderGateFutures,
     },
 };
 
@@ -73,6 +73,10 @@ impl LobPrivateRest for GateFuturesCli {
 
     async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         self._place_order(order_params).await
+    }
+
+    async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
+        self._get_positions(insts).await
     }
 }
 
@@ -406,6 +410,66 @@ impl GateFuturesCli {
             .map(OrderAckData::from)
             .next()
             .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
+
+        Ok(data)
+    }
+
+    async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
+        let settles: Vec<String> = if let Some(list) = insts {
+            let mut s = Vec::new();
+            for inst in list {
+                let settle = infer_settle_from_inst(inst);
+                if !s.contains(&settle) {
+                    s.push(settle);
+                }
+            }
+            if s.is_empty() { vec!["usdt".into()] } else { s }
+        } else {
+            vec!["usdt".into(), "btc".into()]
+        };
+
+        let mut data: Vec<PositionData> = Vec::new();
+        for settle in settles {
+            let endpoint = GATE_FUTURES_POSITIONS.replace("{settle}", &settle);
+            let res: RestResGate<RestAccountPosGateFutures> = self
+                .api_key
+                .as_ref()
+                .ok_or(InfraError::ApiCliNotInitialized)?
+                .send_signed_request(
+                    &self.client,
+                    RequestMethod::Get,
+                    None,
+                    None,
+                    GATE_BASE_URL,
+                    &endpoint,
+                )
+                .await?;
+
+            let pos_raw = match res {
+                RestResGate::Error { label, message }
+                    if label == "USER_NOT_FOUND"
+                        || message
+                            .contains("please transfer funds first to create futures account") =>
+                {
+                    continue;
+                },
+                other => other,
+            };
+
+            data.extend(
+                pos_raw
+                    .into_vec()?
+                    .into_iter()
+                    .filter(|p| value_to_f64(&p.size) != 0.0)
+                    .filter(|p| match insts {
+                        Some(list) if !list.is_empty() => {
+                            list.contains(&gate_inst_to_cli(&p.contract))
+                        },
+                        _ => true,
+                    })
+                    .map(PositionData::from),
+            );
+        }
 
         Ok(data)
     }
