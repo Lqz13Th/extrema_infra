@@ -232,7 +232,7 @@ impl BinanceCmCli {
         let data: Vec<String> = res
             .symbols
             .into_iter()
-            .filter(|ins| ins.contractType == PERPETUAL && ins.status == TRADING)
+            .filter(|ins| ins.contractType == PERPETUAL && ins.contractStatus == TRADING)
             .map(|s| binance_fut_inst_to_cli(&s.symbol))
             .collect();
 

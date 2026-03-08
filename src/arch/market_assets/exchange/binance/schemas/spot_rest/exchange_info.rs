@@ -29,6 +29,9 @@ enum Filter {
     PRICE_FILTER(PriceFilter),
     LOT_SIZE(SizeFilter),
     MARKET_LOT_SIZE(SizeFilter),
+    MIN_NOTIONAL(MinNotionalFilter),
+    #[serde(rename = "NOTIONAL")]
+    Notional(NotionalFilter),
     #[serde(other)]
     Other,
 }
@@ -47,6 +50,24 @@ struct SizeFilter {
     stepSize: String,
 }
 
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+struct MinNotionalFilter {
+    #[serde(default)]
+    minNotional: Option<String>,
+    #[serde(default)]
+    notional: Option<String>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+struct NotionalFilter {
+    #[serde(default)]
+    minNotional: Option<String>,
+    #[serde(default)]
+    notional: Option<String>,
+}
+
 impl From<InstrumentInfoBinanceSpot> for InstrumentInfo {
     fn from(d: InstrumentInfoBinanceSpot) -> Self {
         let mut tick_size = 0.0;
@@ -54,6 +75,7 @@ impl From<InstrumentInfoBinanceSpot> for InstrumentInfo {
         let mut max_lmt_size = 0.0;
         let mut min_mkt_size = 0.0;
         let mut max_mkt_size = 0.0;
+        let mut min_notional: f64 = 0.0;
 
         let mut lot_size_lmt = 0.0;
         let mut lot_size_mkt = 0.0;
@@ -73,6 +95,26 @@ impl From<InstrumentInfoBinanceSpot> for InstrumentInfo {
                     min_mkt_size = sf.minQty.parse().unwrap_or_default();
                     max_mkt_size = sf.maxQty.parse().unwrap_or_default();
                 },
+                Filter::MIN_NOTIONAL(nf) => {
+                    min_notional = min_notional.max(
+                        nf.minNotional
+                            .as_deref()
+                            .or(nf.notional.as_deref())
+                            .unwrap_or_default()
+                            .parse::<f64>()
+                            .unwrap_or_default(),
+                    );
+                },
+                Filter::Notional(nf) => {
+                    min_notional = min_notional.max(
+                        nf.minNotional
+                            .as_deref()
+                            .or(nf.notional.as_deref())
+                            .unwrap_or_default()
+                            .parse::<f64>()
+                            .unwrap_or_default(),
+                    );
+                },
                 Filter::Other => {},
             };
         }
@@ -87,6 +129,7 @@ impl From<InstrumentInfoBinanceSpot> for InstrumentInfo {
             max_lmt_size,
             min_mkt_size,
             max_mkt_size,
+            min_notional: (min_notional > 0.0).then_some(min_notional),
             contract_value: None,
             contract_multiplier: None,
             state: match d.status.as_str() {

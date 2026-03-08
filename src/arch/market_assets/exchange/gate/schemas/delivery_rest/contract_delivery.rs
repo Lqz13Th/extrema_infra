@@ -52,6 +52,7 @@ impl From<RestContractGateDelivery> for InstrumentInfo {
             max_lmt_size: max_size,
             min_mkt_size: lot_size,
             max_mkt_size: max_size,
+            min_notional: None,
             contract_value: d.quanto_multiplier.parse().ok(),
             contract_multiplier: None,
             state,

@@ -48,23 +48,29 @@ pub fn ws_subscribe_msg_binance(param: &str, insts: Option<&[String]>) -> String
 pub fn binance_fut_inst_to_cli(symbol: &str) -> String {
     let upper = symbol.to_uppercase();
     let quote_currencies = ["USDT", "USDC", "USD"];
+    let (pair, suffix) = match upper.rsplit_once('_') {
+        Some((pair, suffix)) => (pair, Some(suffix)),
+        None => (upper.as_str(), None),
+    };
 
     for quote in quote_currencies {
-        if upper.ends_with(quote) {
-            let base = &upper[..upper.len() - quote.len()];
+        if let Some(base) = pair.strip_suffix(quote) {
             if base.is_empty() {
                 warn!("Invalid Binance symbol: {}", symbol);
                 return symbol.into();
             }
 
-            // BTCUSDT_250926
-            if let Some((_, expiry)) = upper.split_once('_')
-                && expiry.chars().all(|c| c.is_ascii_digit())
-            {
-                return format!("{}_{}_FUT_{}", base, quote, expiry);
-            }
-
-            return format!("{}_{}_PERP", base, quote);
+            return match suffix {
+                Some("PERP") => format!("{}_{}_PERP", base, quote),
+                Some(expiry) if expiry.chars().all(|c| c.is_ascii_digit()) => {
+                    format!("{}_{}_FUT_{}", base, quote, expiry)
+                },
+                Some(other) => {
+                    warn!("Unknown Binance futures suffix: {}", other);
+                    upper
+                },
+                None => format!("{}_{}_PERP", base, quote),
+            };
         }
     }
 

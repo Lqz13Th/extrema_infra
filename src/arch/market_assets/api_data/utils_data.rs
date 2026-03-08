@@ -14,6 +14,7 @@ pub struct InstrumentInfo {
     pub max_lmt_size: f64,
     pub min_mkt_size: f64,
     pub max_mkt_size: f64,
+    pub min_notional: Option<f64>,
     pub contract_value: Option<f64>,
     pub contract_multiplier: Option<f64>,
     pub state: InstrumentStatus,
