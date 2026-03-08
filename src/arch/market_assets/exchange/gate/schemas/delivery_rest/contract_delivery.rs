@@ -19,7 +19,7 @@ pub struct RestContractGateDelivery {
     pub order_size_max: String,
     #[serde(deserialize_with = "de_string_from_any")]
     pub quanto_multiplier: String,
-    #[serde(deserialize_with = "de_string_from_any")]
+    #[serde(default, deserialize_with = "de_string_from_any")]
     pub status: String,
     pub in_delisting: bool,
 }

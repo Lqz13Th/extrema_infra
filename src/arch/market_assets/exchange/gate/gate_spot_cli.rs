@@ -6,16 +6,21 @@ use tracing::error;
 
 use crate::arch::{
     market_assets::{
-        api_data::{account_data::OrderAckData, price_data::TickerData},
+        api_data::{
+            account_data::OrderAckData, price_data::TickerData, utils_data::InstrumentInfo,
+        },
         api_general::{OrderParams, RequestMethod, get_seconds_timestamp},
         base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TimeInForce},
         exchange::gate::{
             config_assets::{
-                GATE_BASE_URL, GATE_SPOT_ORDERS, GATE_SPOT_TICKERS, GATE_WS_BASE_URL,
-                GATE_WS_SPOT_ORDERS_V2,
+                GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS, GATE_SPOT_ORDERS, GATE_SPOT_TICKERS,
+                GATE_WS_BASE_URL, GATE_WS_SPOT_ORDERS_V2,
             },
             gate_rest_msg::RestResGate,
-            schemas::spot_rest::{order::RestOrderGateSpot, ticker::RestTickerGateSpot},
+            schemas::spot_rest::{
+                currency_pair::RestCurrencyPairGateSpot, order::RestOrderGateSpot,
+                ticker::RestTickerGateSpot,
+            },
         },
     },
     task_execution::task_ws::WsChannel,
@@ -52,6 +57,17 @@ impl LobPublicRest for GateSpotCli {
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        self._get_instrument_info(inst_type).await
+    }
+
+    async fn get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        self._get_live_instruments(inst_type).await
     }
 }
 
@@ -116,7 +132,8 @@ impl GateSpotCli {
         insts: Option<&[String]>,
         _inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
-        let url = format!("{}{}", GATE_BASE_URL, GATE_SPOT_TICKERS);
+        let url = [GATE_BASE_URL, GATE_SPOT_TICKERS].concat();
+
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResGate<RestTickerGateSpot> = from_slice(&mut res_bytes)?;
@@ -129,6 +146,42 @@ impl GateSpotCli {
                 None => true,
             })
             .map(TickerData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_instrument_info(
+        &self,
+        _inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        let url = [GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS].concat();
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResGate<RestCurrencyPairGateSpot> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(InstrumentInfo::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_live_instruments(&self, _inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        let url = [GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS].concat();
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResGate<RestCurrencyPairGateSpot> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|p| p.trade_status.as_str() == "tradable")
+            .map(|p| p.id)
             .collect();
 
         Ok(data)
