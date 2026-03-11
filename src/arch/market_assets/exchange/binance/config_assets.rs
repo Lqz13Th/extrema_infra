@@ -16,6 +16,7 @@ pub const BINANCE_UM_FUTURES_EXCHANGE_INFO: &str = "/fapi/v1/exchangeInfo";
 pub const BINANCE_UM_FUTURES_ACCOUNT_INFO: &str = "/fapi/v3/account";
 pub const BINANCE_UM_FUTURES_BALANCE_INFO: &str = "/fapi/v3/balance";
 pub const BINANCE_UM_FUTURES_PLACE_ORDER_INFO: &str = "/fapi/v1/order";
+pub const BINANCE_UM_FUTURES_CHANGE_LEVERAGE: &str = "/fapi/v1/leverage";
 pub const BINANCE_UM_FUTURES_POSITION_RISK_INFO: &str = "/fapi/v3/positionRisk";
 pub const BINANCE_UM_FUTURES_TICKERS: &str = "/fapi/v2/ticker/price";
 pub const BINANCE_UM_FUTURES_PREMIUM_INDEX_KLINES: &str = "/fapi/v1/premiumIndexKlines";

@@ -27,7 +27,7 @@ use super::{
         account_balance::RestAccountBalBinanceUM,
         account_position_risk::RestAccountPosRiskBinanceUM,
         exchange_info::RestExchangeInfoBinanceUM, funding_rate::RestFundingRateBinanceUM,
-        funding_rate_info::RestFundingInfoBinanceUM,
+        funding_rate_info::RestFundingInfoBinanceUM, leverage::RestLeverageBinanceUM,
         open_interest_statistics::RestOpenInterestBinanceUM,
         order_history::RestOrderHistoryBinanceUM, premium_index::RestPremiumIndexBinanceUM,
         ticker::RestTickerBinanceUM, trade_order::RestOrderAckBinanceUM,
@@ -176,6 +176,39 @@ impl BinanceUmCli {
             .await?;
 
         Ok(listen_key)
+    }
+
+    pub async fn set_leverage(
+        &self,
+        inst: &str,
+        leverage: u32,
+    ) -> InfraResult<RestLeverageBinanceUM> {
+        let query_string = format!(
+            "symbol={}&leverage={}",
+            cli_perp_to_pure_uppercase(inst),
+            leverage
+        );
+
+        let res: RestResBinance<RestLeverageBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_CHANGE_LEVERAGE,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError("No leverage data returned".into()))?;
+
+        Ok(data)
     }
 
     pub async fn get_premium_index_klines(

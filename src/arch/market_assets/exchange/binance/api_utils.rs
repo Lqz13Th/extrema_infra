@@ -99,13 +99,23 @@ pub fn binance_spot_inst_to_cli(symbol: &str) -> String {
 }
 
 pub fn cli_perp_to_pure_lowercase(symbol: &str) -> String {
-    let cleaned = symbol.strip_suffix("_PERP").unwrap_or(symbol);
-    cleaned.replace("_", "").to_lowercase()
+    cli_um_to_binance_symbol(symbol).to_lowercase()
 }
 
 pub fn cli_perp_to_pure_uppercase(symbol: &str) -> String {
-    let cleaned = symbol.strip_suffix("_PERP").unwrap_or(symbol);
-    cleaned.replace("_", "").to_uppercase()
+    cli_um_to_binance_symbol(symbol).to_uppercase()
+}
+
+fn cli_um_to_binance_symbol(symbol: &str) -> String {
+    if let Some(cleaned) = symbol.strip_suffix("_PERP") {
+        return cleaned.replace("_", "");
+    }
+
+    if let Some((pair, expiry)) = symbol.rsplit_once("_FUT_") {
+        return format!("{}_{}", pair.replace("_", ""), expiry);
+    }
+
+    symbol.replace("_", "")
 }
 
 pub fn cli_perp_to_binance_cm(symbol: &str) -> String {
