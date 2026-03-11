@@ -15,7 +15,7 @@ pub struct RestAccountPosGateFutures {
     pub size: Value,
     pub entry_price: Option<Value>,
     pub mark_price: Option<Value>,
-    pub margin: Option<Value>,
+    pub initial_margin: Option<Value>,
     pub leverage: Option<Value>,
     pub update_time: Option<Value>,
 }
@@ -25,7 +25,11 @@ impl From<RestAccountPosGateFutures> for PositionData {
         let size = value_to_f64(&d.size);
         let avg_price = d.entry_price.as_ref().map(value_to_f64).unwrap_or_default();
         let mark_price = d.mark_price.as_ref().map(value_to_f64).unwrap_or_default();
-        let margin = d.margin.as_ref().map(value_to_f64).unwrap_or_default();
+        let margin = d
+            .initial_margin
+            .as_ref()
+            .map(value_to_f64)
+            .unwrap_or_default();
         let leverage = d.leverage.as_ref().map(value_to_f64).unwrap_or_default();
         let ts = d.update_time.as_ref().map(value_to_f64).unwrap_or_default() as u64;
 
