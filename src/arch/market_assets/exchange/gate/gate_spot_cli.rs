@@ -220,21 +220,29 @@ impl GateSpotCli {
             body["account"] = json!("spot");
         }
 
-        let tif = match order_params.order_type {
-            OrderType::PostOnly => Some("poc"),
-            OrderType::Fok => Some("fok"),
-            OrderType::Ioc => Some("ioc"),
-            _ => None,
-        }
-        .or_else(|| {
-            order_params.time_in_force.as_ref().map(|t| match t {
-                TimeInForce::GTC => "gtc",
-                TimeInForce::IOC => "ioc",
-                TimeInForce::FOK => "fok",
-                TimeInForce::GTD => "gtd",
-                TimeInForce::Unknown => "gtc",
+        let tif = if matches!(order_params.order_type, OrderType::Market) {
+            match order_params.time_in_force.as_ref() {
+                Some(TimeInForce::IOC) => Some("ioc"),
+                Some(TimeInForce::FOK) => Some("fok"),
+                _ => Some("ioc"),
+            }
+        } else {
+            match order_params.order_type {
+                OrderType::PostOnly => Some("poc"),
+                OrderType::Fok => Some("fok"),
+                OrderType::Ioc => Some("ioc"),
+                _ => None,
+            }
+            .or_else(|| {
+                order_params.time_in_force.as_ref().map(|t| match t {
+                    TimeInForce::GTC => "gtc",
+                    TimeInForce::IOC => "ioc",
+                    TimeInForce::FOK => "fok",
+                    TimeInForce::GTD => "gtd",
+                    TimeInForce::Unknown => "gtc",
+                })
             })
-        });
+        };
         if let Some(tif_val) = tif {
             body["time_in_force"] = json!(tif_val);
         }
