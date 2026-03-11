@@ -522,7 +522,7 @@ impl BinanceUmCli {
         for (k, v) in &order_params.extra {
             query_string.push_str(&format!("&{}={}", k, v));
         }
-        println!("{}", query_string);
+
         let res: RestResBinance<RestOrderAckBinanceUM> = self
             .api_key
             .as_ref()
@@ -535,8 +535,6 @@ impl BinanceUmCli {
                 BINANCE_UM_FUTURES_PLACE_ORDER_INFO,
             )
             .await?;
-
-        tracing::warn!("{:#?}", res);
 
         let data: OrderAckData = res
             .into_vec()?
