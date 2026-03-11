@@ -48,6 +48,57 @@ pub fn get_micros_timestamp() -> u64 {
         .as_micros() as u64
 }
 
+pub fn encode_query_string(query_string: Option<&str>) -> Option<String> {
+    let query = query_string?.trim();
+    if query.is_empty() {
+        return None;
+    }
+
+    let encoded = query
+        .split('&')
+        .filter(|part| !part.is_empty())
+        .map(|part| match part.split_once('=') {
+            Some((key, value)) => format!(
+                "{}={}",
+                percent_encode_query_component(key),
+                percent_encode_query_component(value)
+            ),
+            None => percent_encode_query_component(part),
+        })
+        .collect::<Vec<_>>()
+        .join("&");
+
+    if encoded.is_empty() {
+        None
+    } else {
+        Some(encoded)
+    }
+}
+
+fn percent_encode_query_component(input: &str) -> String {
+    let mut encoded = String::with_capacity(input.len());
+
+    for &byte in input.as_bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push('%');
+            encoded.push(hex_upper(byte >> 4));
+            encoded.push(hex_upper(byte & 0x0F));
+        }
+    }
+
+    encoded
+}
+
+fn hex_upper(nibble: u8) -> char {
+    match nibble {
+        0..=9 => (b'0' + nibble) as char,
+        10..=15 => (b'A' + (nibble - 10)) as char,
+        _ => unreachable!(),
+    }
+}
+
 pub fn ts_to_micros(ts: u64) -> u64 {
     match ts {
         0..=9_999_999_999 => ts * 1_000_000,

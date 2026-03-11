@@ -147,24 +147,25 @@ impl BinanceKey {
     where
         T: DeserializeOwned + Send,
     {
-        let signature = self.sign_now(query_string)?;
+        let encoded_query = encode_query_string(query_string);
+        let signature = self.sign_now(encoded_query.as_deref())?;
         let url = [base_url, endpoint].concat();
 
         let mut response = match method {
             RequestMethod::Get => {
-                self.get_request(client, &signature, query_string, &url)
+                self.get_request(client, &signature, encoded_query.as_deref(), &url)
                     .await?
             },
             RequestMethod::Put => {
-                self.put_request(client, &signature, query_string, &url)
+                self.put_request(client, &signature, encoded_query.as_deref(), &url)
                     .await?
             },
             RequestMethod::Post => {
-                self.post_request(client, &signature, query_string, &url)
+                self.post_request(client, &signature, encoded_query.as_deref(), &url)
                     .await?
             },
             RequestMethod::Delete => {
-                self.delete_request(client, &signature, query_string, &url)
+                self.delete_request(client, &signature, encoded_query.as_deref(), &url)
                     .await?
             },
         };

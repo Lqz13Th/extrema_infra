@@ -166,8 +166,9 @@ impl GateKey {
             RequestMethod::Delete => "DELETE",
         };
 
-        let signature = self.sign_now(method_str, endpoint, query_string, body)?;
-        let url = gate_build_full_url(base_url, endpoint, query_string);
+        let encoded_query = encode_query_string(query_string);
+        let signature = self.sign_now(method_str, endpoint, encoded_query.as_deref(), body)?;
+        let url = gate_build_full_url(base_url, endpoint, encoded_query.as_deref());
 
         let mut response = match method {
             RequestMethod::Get => self.get_request(client, &signature, &url).await?,
