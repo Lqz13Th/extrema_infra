@@ -17,9 +17,7 @@ use tungstenite::{Bytes, Error, protocol::Message};
 use tracing::{error, info, warn};
 
 use crate::arch::{
-    market_assets::{
-        market_core::Market,
-    },
+    market_assets::market_core::Market,
     strategy_base::{
         command::{
             ack_handle::{AckHandle, AckStatus},
@@ -45,9 +43,8 @@ use crate::arch::market_assets::exchange::binance::{
 use crate::arch::market_assets::exchange::gate::{
     gate_ws_msg::GateWsData,
     schemas::futures_ws::{
-        account_order::WsAccountOrderGateFutures,
-        account_position::WsAccountPositionGateFutures, candles::WsCandleGateFutures,
-        trades::WsTradeGateFutures,
+        account_order::WsAccountOrderGateFutures, account_position::WsAccountPositionGateFutures,
+        candles::WsCandleGateFutures, trades::WsTradeGateFutures,
     },
     schemas::spot_ws::account_order::WsAccountOrderGateSpot,
 };

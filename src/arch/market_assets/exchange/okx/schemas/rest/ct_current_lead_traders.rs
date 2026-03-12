@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::arch::market_assets::{
-    api_data::utils_data::CurrentLeadtrader, api_general::get_micros_timestamp,
+    api_general::get_micros_timestamp, exchange::okx::api_utils::CurrentLeadtrader,
 };
 
 #[allow(non_snake_case)]

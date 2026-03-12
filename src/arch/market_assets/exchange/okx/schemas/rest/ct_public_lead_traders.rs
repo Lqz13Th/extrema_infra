@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::arch::market_assets::api_data::utils_data::{PubLeadtrader, PubLeadtraderInfo};
+use crate::arch::market_assets::exchange::okx::api_utils::{PubLeadtrader, PubLeadtraderInfo};
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]

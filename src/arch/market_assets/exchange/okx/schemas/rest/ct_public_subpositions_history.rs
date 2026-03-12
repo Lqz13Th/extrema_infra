@@ -1,10 +1,9 @@
 use serde::Deserialize;
 
 use crate::arch::market_assets::{
-    api_data::utils_data::LeadtraderSubpositionHistory,
     api_general::{get_micros_timestamp, ts_to_micros},
     base_data::{InstrumentType, MarginMode, PositionSide},
-    exchange::okx::api_utils::okx_inst_to_cli,
+    exchange::okx::api_utils::{LeadtraderSubpositionHistory, okx_inst_to_cli},
 };
 
 #[allow(non_snake_case)]
