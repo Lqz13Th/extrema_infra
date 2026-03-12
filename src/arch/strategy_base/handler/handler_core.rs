@@ -169,8 +169,8 @@ pub(crate) async fn strategy_handler_loop<S>(
                 match msg {
                     Ok(msg) => strategies.on_acc_pos(msg).await,
                     Err(e) => {
-                        error!("rx_acc_bal_pos err: {:?}, reconnecting...", e);
-                        rx_acc_bal_pos = find_acc_bal_pos(channels).map(|tx| tx.subscribe());
+                        error!("rx_acc_pos err: {:?}, reconnecting...", e);
+                        rx_acc_pos = find_acc_pos(channels).map(|tx| tx.subscribe());
                     },
                 };
             },

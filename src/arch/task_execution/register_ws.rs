@@ -18,34 +18,6 @@ use tracing::{error, info, warn};
 
 use crate::arch::{
     market_assets::{
-        exchange::{
-            binance::{
-                binance_ws_msg::BinanceWsData,
-                schemas::spot_ws::account_order::WsAccountOrderEnvelopeBinanceSpot,
-                schemas::um_futures_ws::{
-                    account_bal_and_pos::WsBalAndPosBinanceUM,
-                    account_order::WsAccountOrderBinanceUM,
-                    account_position::WsAccountPositionBinanceUM, agg_trades::WsAggTradeBinanceUM,
-                    candles::WsCandleBinanceUM,
-                },
-            },
-            gate::{
-                gate_ws_msg::GateWsData,
-                schemas::futures_ws::{
-                    account_order::WsAccountOrderGateFutures,
-                    account_position::WsAccountPositionGateFutures, candles::WsCandleGateFutures,
-                    trades::WsTradeGateFutures,
-                },
-                schemas::spot_ws::account_order::WsAccountOrderGateSpot,
-            },
-            okx::{
-                okx_ws_msg::OkxWsData,
-                schemas::ws::{
-                    account_bal_and_pos::WsBalAndPosOkx, account_order::WsAccountOrderOkx,
-                    account_position::WsAccountPositionOkx, trades::WsTradesOkx,
-                },
-            },
-        },
         market_core::Market,
     },
     strategy_base::{
@@ -58,6 +30,35 @@ use crate::arch::{
     traits::conversion::IntoWsData,
 };
 use crate::errors::{InfraError, InfraResult};
+
+#[cfg(feature = "binance")]
+use crate::arch::market_assets::exchange::binance::{
+    binance_ws_msg::BinanceWsData,
+    schemas::spot_ws::account_order::WsAccountOrderEnvelopeBinanceSpot,
+    schemas::um_futures_ws::{
+        account_bal_and_pos::WsBalAndPosBinanceUM, account_order::WsAccountOrderBinanceUM,
+        account_position::WsAccountPositionBinanceUM, agg_trades::WsAggTradeBinanceUM,
+        candles::WsCandleBinanceUM,
+    },
+};
+#[cfg(feature = "gate")]
+use crate::arch::market_assets::exchange::gate::{
+    gate_ws_msg::GateWsData,
+    schemas::futures_ws::{
+        account_order::WsAccountOrderGateFutures,
+        account_position::WsAccountPositionGateFutures, candles::WsCandleGateFutures,
+        trades::WsTradeGateFutures,
+    },
+    schemas::spot_ws::account_order::WsAccountOrderGateSpot,
+};
+#[cfg(feature = "okx")]
+use crate::arch::market_assets::exchange::okx::{
+    okx_ws_msg::OkxWsData,
+    schemas::ws::{
+        account_bal_and_pos::WsBalAndPosOkx, account_order::WsAccountOrderOkx,
+        account_position::WsAccountPositionOkx, trades::WsTradesOkx,
+    },
+};
 
 use super::{
     task_general::LogLevel,
