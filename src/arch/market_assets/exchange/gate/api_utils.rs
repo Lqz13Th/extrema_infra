@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::error;
 
@@ -71,5 +72,59 @@ pub fn normalize_gate_text(text: &str) -> String {
         text.to_string()
     } else {
         format!("t-{}", text)
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateWithdrawReq {
+    pub currency: String,
+    pub address: String,
+    pub amount: String,
+    pub chain: Option<String>,
+    pub memo: Option<String>,
+    pub withdraw_order_id: Option<String>,
+}
+
+impl GateWithdrawReq {
+    pub(crate) fn to_body_string(&self) -> String {
+        let mut body = json!({
+            "currency": self.currency,
+            "address": self.address,
+            "amount": self.amount,
+        });
+
+        if let Some(chain) = self.chain.as_deref() {
+            body["chain"] = json!(chain);
+        }
+        if let Some(memo) = self.memo.as_deref() {
+            body["memo"] = json!(memo);
+        }
+        if let Some(withdraw_order_id) = self.withdraw_order_id.as_deref() {
+            body["withdraw_order_id"] = json!(withdraw_order_id);
+        }
+
+        body.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GateWithdrawReq;
+
+    #[test]
+    fn withdraw_body_uses_expected_fields() {
+        let req = GateWithdrawReq {
+            currency: "USDT".into(),
+            address: "0xabc".into(),
+            amount: "5".into(),
+            chain: Some("ETH".into()),
+            memo: Some("memo".into()),
+            withdraw_order_id: Some("wid-1".into()),
+        };
+
+        assert_eq!(
+            req.to_body_string(),
+            r#"{"address":"0xabc","amount":"5","chain":"ETH","currency":"USDT","memo":"memo","withdraw_order_id":"wid-1"}"#
+        );
     }
 }

@@ -14,12 +14,15 @@ use crate::arch::{
         exchange::gate::{
             config_assets::{
                 GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS, GATE_SPOT_ORDERS, GATE_SPOT_TICKERS,
-                GATE_WS_BASE_URL, GATE_WS_SPOT_ORDERS_V2,
+                GATE_WITHDRAWALS, GATE_WS_BASE_URL, GATE_WS_SPOT_ORDERS_V2,
             },
             gate_rest_msg::RestResGate,
-            schemas::spot_rest::{
-                currency_pair::RestCurrencyPairGateSpot, order::RestOrderGateSpot,
-                ticker::RestTickerGateSpot,
+            schemas::{
+                spot_rest::{
+                    currency_pair::RestCurrencyPairGateSpot, order::RestOrderGateSpot,
+                    ticker::RestTickerGateSpot,
+                },
+                wallet_rest::withdraw::RestWithdrawGate,
             },
         },
     },
@@ -104,6 +107,21 @@ impl GateSpotCli {
             client: shared_client,
             api_key: None,
         }
+    }
+
+    pub async fn withdraw(&self, req: GateWithdrawReq) -> InfraResult<RestWithdrawGate> {
+        self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&req.to_body_string()),
+                GATE_BASE_URL,
+                GATE_WITHDRAWALS,
+            )
+            .await
     }
 
     fn ws_subscribe_private(&self, channel: &str) -> InfraResult<String> {

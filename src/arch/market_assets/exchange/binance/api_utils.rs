@@ -1,5 +1,5 @@
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
 use tracing::warn;
@@ -12,6 +12,148 @@ use super::api_key::BinanceKey;
 #[derive(Debug, Deserialize)]
 pub struct BinanceListenKey {
     pub listenKey: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BinanceUniversalTransferType {
+    MainUmFuture,
+    UmFutureMain,
+    MainCmFuture,
+    CmFutureMain,
+    MainMargin,
+    MarginMain,
+    MainFunding,
+    FundingMain,
+    MainOption,
+    OptionMain,
+    MainPortfolioMargin,
+    PortfolioMarginMain,
+    IsolatedMarginMargin,
+    MarginIsolatedMargin,
+}
+
+impl BinanceUniversalTransferType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::MainUmFuture => "MAIN_UMFUTURE",
+            Self::UmFutureMain => "UMFUTURE_MAIN",
+            Self::MainCmFuture => "MAIN_CMFUTURE",
+            Self::CmFutureMain => "CMFUTURE_MAIN",
+            Self::MainMargin => "MAIN_MARGIN",
+            Self::MarginMain => "MARGIN_MAIN",
+            Self::MainFunding => "MAIN_FUNDING",
+            Self::FundingMain => "FUNDING_MAIN",
+            Self::MainOption => "MAIN_OPTION",
+            Self::OptionMain => "OPTION_MAIN",
+            Self::MainPortfolioMargin => "MAIN_PORTFOLIO_MARGIN",
+            Self::PortfolioMarginMain => "PORTFOLIO_MARGIN_MAIN",
+            Self::IsolatedMarginMargin => "ISOLATEDMARGIN_MARGIN",
+            Self::MarginIsolatedMargin => "MARGIN_ISOLATEDMARGIN",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinanceUniversalTransferReq {
+    pub transfer_type: BinanceUniversalTransferType,
+    pub asset: String,
+    pub amount: String,
+    pub from_symbol: Option<String>,
+    pub to_symbol: Option<String>,
+    pub recv_window: Option<u64>,
+}
+
+impl BinanceUniversalTransferReq {
+    pub(crate) fn to_query_string(&self) -> String {
+        let mut parts = vec![
+            format!("type={}", self.transfer_type.as_str()),
+            format!("asset={}", self.asset),
+            format!("amount={}", self.amount),
+        ];
+
+        if let Some(from_symbol) = self.from_symbol.as_deref() {
+            parts.push(format!("fromSymbol={from_symbol}"));
+        }
+        if let Some(to_symbol) = self.to_symbol.as_deref() {
+            parts.push(format!("toSymbol={to_symbol}"));
+        }
+        if let Some(recv_window) = self.recv_window {
+            parts.push(format!("recvWindow={recv_window}"));
+        }
+
+        parts.join("&")
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinanceSpotUmTransferReq {
+    pub asset: String,
+    pub amount: String,
+    pub recv_window: Option<u64>,
+}
+
+impl BinanceSpotUmTransferReq {
+    pub(crate) fn into_universal_req(
+        self,
+        transfer_type: BinanceUniversalTransferType,
+    ) -> BinanceUniversalTransferReq {
+        BinanceUniversalTransferReq {
+            transfer_type,
+            asset: self.asset,
+            amount: self.amount,
+            from_symbol: None,
+            to_symbol: None,
+            recv_window: self.recv_window,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinanceWithdrawReq {
+    pub coin: String,
+    pub address: String,
+    pub amount: String,
+    pub network: Option<String>,
+    pub address_tag: Option<String>,
+    pub withdraw_order_id: Option<String>,
+    pub transaction_fee_flag: Option<bool>,
+    pub name: Option<String>,
+    pub wallet_type: Option<u8>,
+    pub recv_window: Option<u64>,
+}
+
+impl BinanceWithdrawReq {
+    pub(crate) fn to_query_string(&self) -> String {
+        let mut parts = vec![
+            format!("coin={}", self.coin),
+            format!("address={}", self.address),
+            format!("amount={}", self.amount),
+        ];
+
+        if let Some(network) = self.network.as_deref() {
+            parts.push(format!("network={network}"));
+        }
+        if let Some(address_tag) = self.address_tag.as_deref() {
+            parts.push(format!("addressTag={address_tag}"));
+        }
+        if let Some(withdraw_order_id) = self.withdraw_order_id.as_deref() {
+            parts.push(format!("withdrawOrderId={withdraw_order_id}"));
+        }
+        if let Some(transaction_fee_flag) = self.transaction_fee_flag {
+            parts.push(format!("transactionFeeFlag={transaction_fee_flag}"));
+        }
+        if let Some(name) = self.name.as_deref() {
+            parts.push(format!("name={name}"));
+        }
+        if let Some(wallet_type) = self.wallet_type {
+            parts.push(format!("walletType={wallet_type}"));
+        }
+        if let Some(recv_window) = self.recv_window {
+            parts.push(format!("recvWindow={recv_window}"));
+        }
+
+        parts.join("&")
+    }
 }
 
 fn create_binance_cli_with_key<C, F>(
@@ -128,4 +270,71 @@ pub fn cli_perp_to_binance_cm(symbol: &str) -> String {
 
 pub fn cli_spot_to_binance_spot(inst: &str) -> String {
     inst.replace('_', "").to_uppercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        BinanceSpotUmTransferReq, BinanceUniversalTransferReq, BinanceUniversalTransferType,
+        BinanceWithdrawReq,
+    };
+
+    #[test]
+    fn universal_transfer_query_uses_expected_fields() {
+        let req = BinanceUniversalTransferReq {
+            transfer_type: BinanceUniversalTransferType::MainUmFuture,
+            asset: "USDT".into(),
+            amount: "10".into(),
+            from_symbol: Some("BTCUSDT".into()),
+            to_symbol: Some("ETHUSDT".into()),
+            recv_window: Some(5_000),
+        };
+
+        assert_eq!(
+            req.to_query_string(),
+            "type=MAIN_UMFUTURE&asset=USDT&amount=10&fromSymbol=BTCUSDT&toSymbol=ETHUSDT&recvWindow=5000"
+        );
+    }
+
+    #[test]
+    fn withdraw_query_uses_expected_fields() {
+        let req = BinanceWithdrawReq {
+            coin: "USDT".into(),
+            address: "0xabc".into(),
+            amount: "12.5".into(),
+            network: Some("ETH".into()),
+            address_tag: Some("memo".into()),
+            withdraw_order_id: Some("wid-1".into()),
+            transaction_fee_flag: Some(true),
+            name: Some("wallet".into()),
+            wallet_type: Some(1),
+            recv_window: Some(6_000),
+        };
+
+        assert_eq!(
+            req.to_query_string(),
+            "coin=USDT&address=0xabc&amount=12.5&network=ETH&addressTag=memo&withdrawOrderId=wid-1&transactionFeeFlag=true&name=wallet&walletType=1&recvWindow=6000"
+        );
+    }
+
+    #[test]
+    fn spot_um_helper_maps_into_universal_request() {
+        let req = BinanceSpotUmTransferReq {
+            asset: "USDT".into(),
+            amount: "25".into(),
+            recv_window: Some(7_000),
+        };
+
+        let universal = req.into_universal_req(BinanceUniversalTransferType::UmFutureMain);
+
+        assert_eq!(
+            universal.transfer_type,
+            BinanceUniversalTransferType::UmFutureMain
+        );
+        assert_eq!(universal.asset, "USDT");
+        assert_eq!(universal.amount, "25");
+        assert_eq!(universal.recv_window, Some(7_000));
+        assert_eq!(universal.from_symbol, None);
+        assert_eq!(universal.to_symbol, None);
+    }
 }

@@ -14,7 +14,7 @@ pub use crate::arch::market_assets::exchange::binance::{
 
 #[cfg(feature = "gate")]
 pub use crate::arch::market_assets::exchange::gate::{
-    api_key::*, gate_delivery_cli::GateDeliveryCli, gate_futures_cli::GateFuturesCli,
+    api_key::*, api_utils::*, gate_delivery_cli::GateDeliveryCli, gate_futures_cli::GateFuturesCli,
     gate_spot_cli::GateSpotCli, gate_uni_cli::GateUniCli,
 };
 

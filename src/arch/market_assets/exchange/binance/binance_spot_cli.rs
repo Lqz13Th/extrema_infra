@@ -23,9 +23,13 @@ use super::{
     api_key::{BinanceKey, read_binance_env_key},
     api_utils::*,
     config_assets::*,
-    schemas::spot_rest::{
-        account_balance::RestAccountInfoBinanceSpot, exchange_info::RestExchangeInfoBinanceSpot,
-        ticker::RestTickerBinanceSpot, trade_order::RestOrderAckBinanceSpot,
+    schemas::{
+        spot_rest::{
+            account_balance::RestAccountInfoBinanceSpot,
+            exchange_info::RestExchangeInfoBinanceSpot, ticker::RestTickerBinanceSpot,
+            trade_order::RestOrderAckBinanceSpot,
+        },
+        wallet_rest::{transfer::RestUserUniversalTransferBinance, withdraw::RestWithdrawBinance},
     },
 };
 
@@ -106,6 +110,57 @@ impl BinanceSpotCli {
             client: shared_client,
             api_key: None,
         }
+    }
+
+    pub async fn user_universal_transfer(
+        &self,
+        req: BinanceUniversalTransferReq,
+    ) -> InfraResult<RestUserUniversalTransferBinance> {
+        self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&req.to_query_string()),
+                BINANCE_SPOT_BASE_URL,
+                BINANCE_USER_UNIVERSAL_TRANSFER,
+            )
+            .await
+    }
+
+    pub async fn transfer_spot_to_um(
+        &self,
+        req: BinanceSpotUmTransferReq,
+    ) -> InfraResult<RestUserUniversalTransferBinance> {
+        self.user_universal_transfer(
+            req.into_universal_req(BinanceUniversalTransferType::MainUmFuture),
+        )
+        .await
+    }
+
+    pub async fn transfer_um_to_spot(
+        &self,
+        req: BinanceSpotUmTransferReq,
+    ) -> InfraResult<RestUserUniversalTransferBinance> {
+        self.user_universal_transfer(
+            req.into_universal_req(BinanceUniversalTransferType::UmFutureMain),
+        )
+        .await
+    }
+
+    pub async fn withdraw(&self, req: BinanceWithdrawReq) -> InfraResult<RestWithdrawBinance> {
+        self.api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&req.to_query_string()),
+                BINANCE_SPOT_BASE_URL,
+                BINANCE_WITHDRAW_APPLY,
+            )
+            .await
     }
 
     async fn _get_tickers(

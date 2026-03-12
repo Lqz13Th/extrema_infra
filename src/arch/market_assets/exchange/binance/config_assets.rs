@@ -8,6 +8,8 @@ pub const BINANCE_SPOT_CANCEL_ORDER: &str = "/api/v3/order";
 pub const BINANCE_SPOT_ACCOUNT_INFO: &str = "/api/v3/account";
 pub const BINANCE_SPOT_MY_TRADES: &str = "/api/v3/myTrades";
 pub const SPOT_USER_DATA_STREAM: &str = "/api/v3/userDataStream";
+pub const BINANCE_USER_UNIVERSAL_TRANSFER: &str = "/sapi/v1/asset/transfer";
+pub const BINANCE_WITHDRAW_APPLY: &str = "/sapi/v1/capital/withdraw/apply";
 
 /// UmFutures API
 pub const BINANCE_UM_FUTURES_WS: &str = "wss://fstream.binance.com/ws";
