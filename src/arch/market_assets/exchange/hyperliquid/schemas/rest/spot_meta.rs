@@ -45,8 +45,11 @@ pub struct RestSpotTokenHyperliquid {
 
 impl RestSpotMetaHyperliquid {
     pub fn into_instrument_info(self) -> Vec<InstrumentInfo> {
-        let token_map: HashMap<u32, RestSpotTokenHyperliquid> =
-            self.tokens.into_iter().map(|token| (token.index, token)).collect();
+        let token_map: HashMap<u32, RestSpotTokenHyperliquid> = self
+            .tokens
+            .into_iter()
+            .map(|token| (token.index, token))
+            .collect();
 
         self.universe
             .into_iter()
