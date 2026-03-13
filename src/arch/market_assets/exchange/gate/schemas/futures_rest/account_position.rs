@@ -16,25 +16,18 @@ pub struct RestAccountPosGateFutures {
     pub entry_price: Option<Value>,
     pub mark_price: Option<Value>,
     pub initial_margin: Option<Value>,
-    pub leverage: Option<Value>,
+    pub lever: Option<Value>,
     pub update_time: Option<Value>,
 }
 
 impl From<RestAccountPosGateFutures> for PositionData {
     fn from(d: RestAccountPosGateFutures) -> Self {
         let size = value_to_f64(&d.size);
-        let avg_price = d.entry_price.as_ref().map(value_to_f64).unwrap_or_default();
-        let mark_price = d.mark_price.as_ref().map(value_to_f64).unwrap_or_default();
-        let margin = d
-            .initial_margin
-            .as_ref()
-            .map(value_to_f64)
-            .unwrap_or_default();
-        let leverage = d.leverage.as_ref().map(value_to_f64).unwrap_or_default();
-        let ts = d.update_time.as_ref().map(value_to_f64).unwrap_or_default() as u64;
 
         PositionData {
-            timestamp: ts_to_micros(ts),
+            timestamp: ts_to_micros(
+                d.update_time.as_ref().map(value_to_f64).unwrap_or_default() as u64
+            ),
             inst: gate_fut_inst_to_cli(&d.contract),
             inst_type: InstrumentType::Perpetual,
             position_side: if size > 0.0 {
@@ -45,10 +38,14 @@ impl From<RestAccountPosGateFutures> for PositionData {
                 PositionSide::Both
             },
             size,
-            avg_price,
-            mark_price,
-            margin,
-            leverage,
+            avg_price: d.entry_price.as_ref().map(value_to_f64).unwrap_or_default(),
+            mark_price: d.mark_price.as_ref().map(value_to_f64).unwrap_or_default(),
+            margin: d
+                .initial_margin
+                .as_ref()
+                .map(value_to_f64)
+                .unwrap_or_default(),
+            leverage: d.lever.as_ref().map(value_to_f64).unwrap_or_default(),
         }
     }
 }
