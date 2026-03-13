@@ -1,7 +1,7 @@
 use reqwest::Client;
 use serde_json::{Value, json};
 use simd_json::from_slice;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 
 use crate::arch::{
@@ -10,6 +10,7 @@ use crate::arch::{
         api_general::{OrderParams, get_mills_timestamp},
         base_data::InstrumentType,
     },
+    task_execution::task_ws::{TradesParam, WsChannel},
     traits::market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
 };
 use crate::errors::{InfraError, InfraResult};
@@ -17,7 +18,7 @@ use crate::errors::{InfraError, InfraResult};
 use super::{
     api_utils::*,
     auth::{HyperliquidAuth, read_hyperliquid_env_auth},
-    config_assets::{HYPERLIQUID_BASE_URL, HYPERLIQUID_GROUPING_NA, HYPERLIQUID_INFO},
+    config_assets::*,
     schemas::rest::{
         meta::RestMetaHyperliquid, spot_meta::RestSpotMetaHyperliquid,
         trade_order::RestOrderAckHyperliquid,
@@ -28,6 +29,7 @@ use super::{
 pub struct HyperliquidCli {
     pub client: Arc<Client>,
     pub auth: Option<HyperliquidAuth>,
+    pub inst_index_map: HashMap<String, u32>,
 }
 
 impl Default for HyperliquidCli {
@@ -64,14 +66,80 @@ impl LobPrivateRest for HyperliquidCli {
     }
 }
 
-impl LobWebsocket for HyperliquidCli {}
+impl LobWebsocket for HyperliquidCli {
+    async fn get_public_sub_msg(
+        &self,
+        channel: &WsChannel,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        self._get_public_sub_msg(channel, insts)
+    }
+
+    async fn get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        match channel {
+            WsChannel::Trades(Some(TradesParam::AggTrades))
+            | WsChannel::Trades(Some(TradesParam::AllTrades))
+            | WsChannel::Trades(None) => Ok(HYPERLIQUID_WS.into()),
+            _ => Err(InfraError::Unimplemented),
+        }
+    }
+}
 
 impl HyperliquidCli {
     pub fn new(shared_client: Arc<Client>) -> Self {
         Self {
             client: shared_client,
             auth: None,
+            inst_index_map: HashMap::new(),
         }
+    }
+
+    pub async fn init_inst_index_map(&mut self) -> InfraResult<()> {
+        let mut inst_index_map = HashMap::new();
+
+        for inst_info in self._get_instrument_info(InstrumentType::Perpetual).await? {
+            let inst = inst_info.inst;
+            let index = hyperliquid_asset_id_to_index(
+                InstrumentType::Perpetual,
+                inst_info.inst_code.as_deref().ok_or_else(|| {
+                    InfraError::ApiCliError(format!(
+                        "Hyperliquid perpetual instrument missing inst_code: {}",
+                        inst
+                    ))
+                })?,
+            )?;
+
+            if inst_index_map.insert(inst.clone(), index).is_some() {
+                return Err(InfraError::ApiCliError(format!(
+                    "Duplicate Hyperliquid instrument in inst_index_map: {}",
+                    inst
+                )));
+            }
+        }
+
+        for inst_info in self._get_instrument_info(InstrumentType::Spot).await? {
+            let inst = inst_info.inst;
+            let index = hyperliquid_asset_id_to_index(
+                InstrumentType::Spot,
+                inst_info.inst_code.as_deref().ok_or_else(|| {
+                    InfraError::ApiCliError(format!(
+                        "Hyperliquid spot instrument missing inst_code: {}",
+                        inst
+                    ))
+                })?,
+            )?;
+
+            if inst_index_map.insert(inst.clone(), index).is_some() {
+                return Err(InfraError::ApiCliError(format!(
+                    "Duplicate Hyperliquid instrument in inst_index_map: {}",
+                    inst
+                )));
+            }
+        }
+
+        self.inst_index_map = inst_index_map;
+
+        Ok(())
     }
 
     async fn _get_instrument_info(
@@ -110,6 +178,10 @@ impl HyperliquidCli {
     }
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        let mut order_params = order_params;
+        let asset_id = self.inst_to_asset_id(&order_params.inst)?;
+        order_params.inst = asset_id.to_string();
+
         let nonce = get_mills_timestamp();
         let action = HyperliquidOrderAction {
             kind: "order",
@@ -133,5 +205,88 @@ impl HyperliquidCli {
                 ))?;
 
         Ok(data)
+    }
+
+    fn inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
+        let index = self.inst_index_map.get(inst).copied().ok_or_else(|| {
+            if self.inst_index_map.is_empty() {
+                InfraError::ApiCliError(
+                    "Hyperliquid inst_index_map is empty, call init_inst_index_map() first".into(),
+                )
+            } else {
+                InfraError::ApiCliError(format!(
+                    "Hyperliquid inst not found in inst_index_map: {}",
+                    inst
+                ))
+            }
+        })?;
+
+        let inst_type = if inst.ends_with(&format!("_{}_PERP", HYPERLIQUID_QUOTE)) {
+            InstrumentType::Perpetual
+        } else {
+            InstrumentType::Spot
+        };
+
+        hyperliquid_index_to_asset_id(inst_type, index)
+    }
+
+    fn _get_public_sub_msg(
+        &self,
+        channel: &WsChannel,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        match channel {
+            WsChannel::Trades(Some(TradesParam::AggTrades))
+            | WsChannel::Trades(Some(TradesParam::AllTrades))
+            | WsChannel::Trades(None) => self._ws_subscribe_trades(insts),
+            _ => Err(InfraError::Unimplemented),
+        }
+    }
+
+    fn _ws_subscribe_trades(&self, insts: Option<&[String]>) -> InfraResult<String> {
+        let insts = insts.ok_or_else(|| {
+            InfraError::ApiCliError("Hyperliquid trades ws requires at least one instrument".into())
+        })?;
+
+        if insts.is_empty() {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid trades ws requires at least one instrument".into(),
+            ));
+        }
+
+        let msgs: InfraResult<Vec<String>> = insts
+            .iter()
+            .map(|inst| {
+                let coin = self._inst_to_trade_coin(inst)?;
+                Ok(ws_subscribe_msg_hyperliquid_trades(&coin))
+            })
+            .collect();
+
+        Ok(msgs?.join("\n"))
+    }
+
+    fn _inst_to_trade_coin(&self, inst: &str) -> InfraResult<String> {
+        let index = self.inst_index_map.get(inst).copied().ok_or_else(|| {
+            if self.inst_index_map.is_empty() {
+                InfraError::ApiCliError(
+                    "Hyperliquid inst_index_map is empty, call init_inst_index_map() first".into(),
+                )
+            } else {
+                InfraError::ApiCliError(format!(
+                    "Hyperliquid inst not found in inst_index_map: {}",
+                    inst
+                ))
+            }
+        })?;
+
+        if let Some(coin) = inst.strip_suffix(&format!("_{}_PERP", HYPERLIQUID_QUOTE)) {
+            return Ok(coin.to_string());
+        }
+
+        if inst == "PURR_USDC" {
+            return Ok("PURR/USDC".into());
+        }
+
+        Ok(format!("@{}", index))
     }
 }

@@ -1,8 +1,9 @@
 use serde::Serialize;
+use serde_json::json;
 
 use crate::arch::market_assets::{
     api_general::OrderParams,
-    base_data::{OrderSide, OrderType, TimeInForce},
+    base_data::{InstrumentType, OrderSide, OrderType, TimeInForce},
 };
 use crate::errors::{InfraError, InfraResult};
 
@@ -17,6 +18,42 @@ pub fn hyperliquid_spot_asset_id(index: u32) -> String {
     (HYPERLIQUID_SPOT_ASSET_OFFSET + index).to_string()
 }
 
+pub fn hyperliquid_index_to_asset_id(inst_type: InstrumentType, index: u32) -> InfraResult<u32> {
+    match inst_type {
+        InstrumentType::Perpetual => Ok(index),
+        InstrumentType::Spot => Ok(HYPERLIQUID_SPOT_ASSET_OFFSET + index),
+        _ => Err(InfraError::ApiCliError(format!(
+            "Unsupported Hyperliquid instrument type for index-to-asset conversion: {:?}",
+            inst_type
+        ))),
+    }
+}
+
+pub fn hyperliquid_asset_id_to_index(
+    inst_type: InstrumentType,
+    asset_id: &str,
+) -> InfraResult<u32> {
+    let asset_id = asset_id.parse::<u32>().map_err(|_| {
+        InfraError::ApiCliError(format!("Invalid Hyperliquid asset id: {}", asset_id))
+    })?;
+
+    match inst_type {
+        InstrumentType::Perpetual => Ok(asset_id),
+        InstrumentType::Spot => asset_id
+            .checked_sub(HYPERLIQUID_SPOT_ASSET_OFFSET)
+            .ok_or_else(|| {
+                InfraError::ApiCliError(format!(
+                    "Hyperliquid spot asset id below offset {}: {}",
+                    HYPERLIQUID_SPOT_ASSET_OFFSET, asset_id
+                ))
+            }),
+        _ => Err(InfraError::ApiCliError(format!(
+            "Unsupported Hyperliquid instrument type for asset-id to index conversion: {:?}",
+            inst_type
+        ))),
+    }
+}
+
 pub fn hyperliquid_perp_to_cli(symbol: &str) -> String {
     format!("{}_{}_PERP", symbol, HYPERLIQUID_QUOTE)
 }
@@ -27,6 +64,27 @@ pub fn hyperliquid_spot_to_cli(symbol: &str, base: &str, quote: &str) -> String 
     } else {
         format!("{}_{}", base, quote)
     }
+}
+
+pub fn hyperliquid_trade_coin_to_cli(coin: &str) -> String {
+    if coin.starts_with('@') {
+        coin.to_string()
+    } else if coin.contains('/') {
+        coin.replace('/', "_")
+    } else {
+        hyperliquid_perp_to_cli(coin)
+    }
+}
+
+pub fn ws_subscribe_msg_hyperliquid_trades(coin: &str) -> String {
+    json!({
+        "method": "subscribe",
+        "subscription": {
+            "type": "trades",
+            "coin": coin.to_string(),
+        }
+    })
+    .to_string()
 }
 
 const HYPERLIQUID_MARKET_BUY_MAX_PX: &str = "1000000000000";

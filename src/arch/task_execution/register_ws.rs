@@ -48,6 +48,10 @@ use crate::arch::market_assets::exchange::gate::{
     },
     schemas::spot_ws::account_order::WsAccountOrderGateSpot,
 };
+#[cfg(feature = "hyperliquid")]
+use crate::arch::market_assets::exchange::hyperliquid::{
+    hyperliquid_ws_msg::HyperliquidWsData, schemas::ws::trades::WsTradeHyperliquid,
+};
 #[cfg(feature = "okx")]
 use crate::arch::market_assets::exchange::okx::{
     okx_ws_msg::OkxWsData,
@@ -232,6 +236,10 @@ impl WsTaskBuilder {
 
     pub async fn ws_channel_distribution(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.market {
+            #[cfg(feature = "hyperliquid")]
+            Market::HyperLiquid => {
+                self.ws_channel_hyperliquid(ws_stream).await;
+            },
             #[cfg(feature = "binance")]
             Market::BinanceUmFutures => {
                 self.ws_channel_binance_um(ws_stream).await;
@@ -331,6 +339,29 @@ impl WsTaskBuilder {
                 )
             },
         }
+    }
+
+    #[cfg(feature = "hyperliquid")]
+    async fn ws_channel_hyperliquid(&mut self, ws_stream: &mut WsStream) {
+        match &self.ws_info.ws_channel {
+            WsChannel::Trades(..) => {
+                if let Some(tx) = find_trade(&self.board_cast_channel) {
+                    self.ws_loop::<HyperliquidWsData<WsTradeHyperliquid>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Hyperliquid Trades",
+                    );
+                }
+            },
+            c => {
+                self.log(
+                    LogLevel::Warn,
+                    &format!("Unknown Hyperliquid channel: {:?}", c),
+                );
+            },
+        };
     }
 
     #[cfg(feature = "binance")]
