@@ -3,7 +3,7 @@ pub use crate::arch::market_assets::exchange::lob_clients::LobClients;
 
 #[cfg(feature = "hyperliquid")]
 pub use crate::arch::market_assets::exchange::hyperliquid::{
-    api_key::*, hyperliquid_cli::HyperliquidCli,
+    api_utils::*, auth::*, hyperliquid_cli::HyperliquidCli,
 };
 
 #[cfg(feature = "binance")]
