@@ -1,3 +1,7 @@
+# ===== AI Agent =====
+**/Claude.md
+.claude/
+
 # ===== IDE / OS =====
 .cursor/
 .idea/
