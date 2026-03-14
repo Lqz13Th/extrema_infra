@@ -3,7 +3,7 @@ use tracing::info;
 
 use crate::arch::{
     strategy_base::{
-        command::command_core::CommandHandle,
+        command::command_core::CommandRegistry,
         handler::{alt_events::*, handler_core::*, lob_events::*},
     },
     task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
@@ -17,9 +17,9 @@ impl Strategy for HNil {
     async fn initialize(&mut self) {}
 }
 impl CommandEmitter for HNil {
-    fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {}
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        Vec::new()
+    fn command_init(&mut self, _command_handle: Arc<CommandRegistry>) {}
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        Arc::new(CommandRegistry::default())
     }
 }
 impl EventHandler for HNil {}
@@ -59,16 +59,13 @@ where
     Head: CommandEmitter,
     Tail: CommandEmitter,
 {
-    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
-        self.head.command_init(command_handle.clone());
-        self.tail.command_init(command_handle);
+    fn command_init(&mut self, registry: Arc<CommandRegistry>) {
+        self.head.command_init(registry.clone());
+        self.tail.command_init(registry);
     }
 
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        let mut all = Vec::new();
-        all.extend(self.head.command_registry());
-        all.extend(self.tail.command_registry());
-        all
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        self.head.command_registry()
     }
 }
 

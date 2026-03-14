@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
@@ -22,14 +21,14 @@ use extrema_infra::{
 /// 4. Send order execution commands to AccountModule
 #[derive(Clone)]
 struct HFTStrategy {
-    command_handles: Vec<Arc<CommandHandle>>,
+    command_registry: Arc<CommandRegistry>,
     api_cli: OkxCli,
 }
 
 impl HFTStrategy {
     pub fn new() -> Self {
         Self {
-            command_handles: Vec::new(),
+            command_registry: Arc::new(CommandRegistry::default()),
             api_cli: OkxCli::default(),
         }
     }
@@ -140,12 +139,12 @@ impl Strategy for HFTStrategy {
     }
 }
 impl CommandEmitter for HFTStrategy {
-    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
-        self.command_handles.push(command_handle);
+    fn command_init(&mut self, registry: Arc<CommandRegistry>) {
+        self.command_registry = registry;
     }
 
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        self.command_handles.clone()
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        self.command_registry.clone()
     }
 }
 
@@ -202,14 +201,14 @@ impl EventHandler for HFTStrategy {
 /// 3. Receive account/order updates from exchange
 #[derive(Clone)]
 struct AccountModule {
-    command_handles: Vec<Arc<CommandHandle>>,
+    command_registry: Arc<CommandRegistry>,
     api_cli: OkxCli,
 }
 
 impl AccountModule {
     pub fn new() -> Self {
         Self {
-            command_handles: Vec::new(),
+            command_registry: Arc::new(CommandRegistry::default()),
             api_cli: OkxCli::default(),
         }
     }
@@ -270,12 +269,12 @@ impl Strategy for AccountModule {
 }
 
 impl CommandEmitter for AccountModule {
-    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
-        self.command_handles.push(command_handle);
+    fn command_init(&mut self, registry: Arc<CommandRegistry>) {
+        self.command_registry = registry;
     }
 
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        self.command_handles.clone()
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        self.command_registry.clone()
     }
 }
 

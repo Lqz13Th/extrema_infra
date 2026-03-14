@@ -7,7 +7,7 @@ pub struct AltTaskInfo {
     pub task_base_id: Option<u64>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum AltTaskType {
     OrderExecution,
     InstIntent,

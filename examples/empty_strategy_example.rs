@@ -13,12 +13,12 @@ impl Strategy for EmptyStrategy {
 }
 
 impl CommandEmitter for EmptyStrategy {
-    fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {
+    fn command_init(&mut self, _registry: Arc<CommandRegistry>) {
         info!("[EmptyStrategy] Command channel initialized");
     }
 
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        Vec::new()
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        Arc::new(CommandRegistry::default())
     }
 }
 

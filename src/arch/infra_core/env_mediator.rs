@@ -4,7 +4,7 @@ use tokio::sync::mpsc;
 
 use crate::arch::{
     infra_core::env_core::EnvCore,
-    strategy_base::command::command_core::{CommandHandle, TaskCommand},
+    strategy_base::command::command_core::{CommandHandle, CommandRegistry, TaskCommand},
     task_execution::{
         register_alt::AltTaskBuilder, register_ws::WsTaskBuilder, task_alt::AltTaskInfo,
         task_general::TaskInfo, task_ws::WsTaskInfo,
@@ -23,10 +23,11 @@ where
 {
     pub async fn execute(mut self) {
         self.core.strategy.initialize().await;
-        let handles = self.register_tasks();
-        for handle in &handles {
-            self.core.strategy.command_init(handle.clone());
-        }
+
+        let command_handles = self.register_tasks();
+        let command_registry = Arc::new(CommandRegistry::new(command_handles));
+
+        self.core.strategy.command_init(command_registry);
 
         self.core
             .strategy

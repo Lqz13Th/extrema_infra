@@ -2,7 +2,7 @@ use std::{future::ready, sync::Arc};
 
 use crate::arch::{
     strategy_base::{
-        command::command_core::CommandHandle,
+        command::command_core::{CommandHandle, CommandRegistry},
         handler::{
             alt_events::*,
             handler_core::{BoardCastChannel, InfraMsg},
@@ -11,7 +11,6 @@ use crate::arch::{
     },
     task_execution::{
         task_alt::{AltTaskInfo, AltTaskType},
-        task_general::TaskInfo,
         task_ws::{WsChannel, WsTaskInfo},
     },
 };
@@ -30,8 +29,8 @@ pub trait Strategy: CommandEmitter + EventHandler {
 }
 
 pub trait CommandEmitter: Clone + Send + Sync + 'static {
-    fn command_init(&mut self, _command_handle: Arc<CommandHandle>);
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>>;
+    fn command_init(&mut self, registry: Arc<CommandRegistry>);
+    fn command_registry(&self) -> Arc<CommandRegistry>;
 
     fn find_alt_handle(
         &self,
@@ -39,28 +38,11 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
         task_id: u64,
     ) -> Option<Arc<CommandHandle>> {
         self.command_registry()
-            .iter()
-            .find_map(|handle| match &handle.task_info {
-                TaskInfo::AltTask(task)
-                    if &task.alt_task_type == alt_task_type && handle.task_id == task_id =>
-                {
-                    Some(handle.clone())
-                },
-                _ => None,
-            })
+            .find_alt_handle(alt_task_type, task_id)
     }
 
     fn find_ws_handle(&self, channel: &WsChannel, task_id: u64) -> Option<Arc<CommandHandle>> {
-        self.command_registry()
-            .iter()
-            .find_map(|handle| match &handle.task_info {
-                TaskInfo::WsTask(task)
-                    if task.ws_channel == *channel && handle.task_id == task_id =>
-                {
-                    Some(handle.clone())
-                },
-                _ => None,
-            })
+        self.command_registry().find_ws_handle(channel, task_id)
     }
 }
 

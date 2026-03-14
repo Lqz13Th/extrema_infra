@@ -27,16 +27,16 @@ impl Strategy for EmptyStrategy {
 
 impl CommandEmitter for EmptyStrategy {
     /// Register command channel (not used in EmptyStrategy).
-    fn command_init(&mut self, _command_handle: Arc<CommandHandle>) {
+    fn command_init(&mut self, _registry: Arc<CommandRegistry>) {
         info!(
             "[EmptyStrategy] Command channel registered: {:?}",
-            _command_handle
+            _registry
         );
     }
 
     /// No commands in this strategy.
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        Vec::new()
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        Arc::new(CommandRegistry::default())
     }
 }
 
@@ -63,14 +63,14 @@ impl EventHandler for EmptyStrategy {
 /// Note: This strategy only listens/logs data, does not trade.
 #[derive(Clone)]
 struct BinanceStrategy {
-    command_handles: Vec<Arc<CommandHandle>>,
+    command_registry: Arc<CommandRegistry>,
     binance_um_cli: BinanceUmCli, // Public Binance UM Futures client (no API keys)
 }
 
 impl BinanceStrategy {
     fn new() -> Self {
         Self {
-            command_handles: Vec::new(),
+            command_registry: Arc::new(CommandRegistry::default()),
             binance_um_cli: BinanceUmCli::default(),
         }
     }
@@ -121,16 +121,16 @@ impl Strategy for BinanceStrategy {
 }
 
 impl CommandEmitter for BinanceStrategy {
-    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
+    fn command_init(&mut self, registry: Arc<CommandRegistry>) {
         info!(
             "[BinanceStrategy] Command channel registered: {:?}",
-            command_handle
+            registry
         );
-        self.command_handles.push(command_handle);
+        self.command_registry = registry;
     }
 
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        self.command_handles.clone()
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        self.command_registry.clone()
     }
 }
 

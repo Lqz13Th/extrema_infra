@@ -2,14 +2,11 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};
 
-use extrema_infra::{
-    arch::market_assets::exchange::prelude::{BinanceUmCli, OkxCli},
-    prelude::*,
-};
+use extrema_infra::{arch::market_assets::exchange::prelude::*, prelude::*};
 
 #[derive(Clone)]
 struct AccountModule {
-    command_handles: Vec<Arc<CommandHandle>>,
+    command_registry: Arc<CommandRegistry>,
     binance_um_cli: BinanceUmCli,
     okx_cli: OkxCli,
 }
@@ -17,7 +14,7 @@ struct AccountModule {
 impl AccountModule {
     pub fn new() -> Self {
         Self {
-            command_handles: Vec::new(),
+            command_registry: Arc::new(CommandRegistry::default()),
             binance_um_cli: BinanceUmCli::default(),
             okx_cli: OkxCli::default(),
         }
@@ -90,12 +87,12 @@ impl Strategy for AccountModule {
 }
 
 impl CommandEmitter for AccountModule {
-    fn command_init(&mut self, command_handle: Arc<CommandHandle>) {
-        self.command_handles.push(command_handle);
+    fn command_init(&mut self, registry: Arc<CommandRegistry>) {
+        self.command_registry = registry;
     }
 
-    fn command_registry(&self) -> Vec<Arc<CommandHandle>> {
-        self.command_handles.clone()
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        self.command_registry.clone()
     }
 }
 
