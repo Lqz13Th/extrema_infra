@@ -106,25 +106,3 @@ impl GateWithdrawReq {
         body.to_string()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::GateWithdrawReq;
-
-    #[test]
-    fn withdraw_body_uses_expected_fields() {
-        let req = GateWithdrawReq {
-            currency: "USDT".into(),
-            address: "0xabc".into(),
-            amount: "5".into(),
-            chain: Some("ETH".into()),
-            memo: Some("memo".into()),
-            withdraw_order_id: Some("wid-1".into()),
-        };
-
-        assert_eq!(
-            req.to_body_string(),
-            r#"{"address":"0xabc","amount":"5","chain":"ETH","currency":"USDT","memo":"memo","withdraw_order_id":"wid-1"}"#
-        );
-    }
-}

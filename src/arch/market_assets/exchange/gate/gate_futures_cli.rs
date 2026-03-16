@@ -12,7 +12,9 @@ use crate::arch::{
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{OrderParams, RequestMethod, get_seconds_timestamp, value_to_f64},
-        base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TRADING_LOWER},
+        base_data::{
+            InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER, TRADING_LOWER,
+        },
     },
     task_execution::task_ws::{CandleParam, WsChannel},
     traits::{
@@ -178,6 +180,58 @@ impl GateFuturesCli {
             .into_iter()
             .map(|entry| FundingRateData::from((entry, inst)))
             .collect();
+
+        Ok(data)
+    }
+
+    pub async fn set_leverage(
+        &self,
+        inst: &str,
+        leverage: u32,
+        margin_mode: MarginMode,
+    ) -> InfraResult<RestAccountPosGateFutures> {
+        let settle = infer_settle_from_inst(inst);
+        let contract = cli_perp_to_gate_inst(inst);
+        let endpoint = GATE_FUTURES_SET_LEVERAGE
+            .replace("{settle}", &settle)
+            .replace("{contract}", &contract);
+
+        let mut params = Vec::new();
+        match margin_mode {
+            MarginMode::Cross => {
+                params.push("leverage=0".to_string());
+                params.push(format!("cross_leverage_limit={}", leverage));
+            },
+            MarginMode::Isolated => {
+                params.push(format!("leverage={}", leverage));
+            },
+            MarginMode::Unknown => {
+                return Err(InfraError::ApiCliError(format!(
+                    "unsupported Gate futures margin_mode: {:?}",
+                    margin_mode
+                )));
+            },
+        }
+
+        let res: RestResGate<RestAccountPosGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&params.join("&")),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError("No position data returned".into()))?;
 
         Ok(data)
     }

@@ -35,6 +35,8 @@ pub const GATE_FUTURES_TICKERS: &str = "/api/v4/futures/{settle}/tickers";
 pub const GATE_FUTURES_PREMIUM_INDEX: &str = "/api/v4/futures/{settle}/premium_index";
 pub const GATE_FUTURES_FUNDING_RATE: &str = "/api/v4/futures/{settle}/funding_rate";
 pub const GATE_FUTURES_SET_POSITION_MODE: &str = "/api/v4/futures/{settle}/set_position_mode";
+pub const GATE_FUTURES_SET_LEVERAGE: &str =
+    "/api/v4/futures/{settle}/positions/{contract}/leverage";
 pub const GATE_FUTURES_POSITIONS: &str = "/api/v4/futures/{settle}/positions";
 pub const GATE_FUTURES_ORDERS: &str = "/api/v4/futures/{settle}/orders";
 pub const GATE_WS_FUTURES_ORDERS: &str = "futures.orders";
