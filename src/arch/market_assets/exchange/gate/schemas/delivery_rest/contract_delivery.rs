@@ -32,12 +32,12 @@ impl From<RestContractGateDelivery> for InstrumentInfo {
         let state = if !d.status.is_empty() {
             match d.status.as_str() {
                 "trading" => InstrumentStatus::Live,
-                "delisting" => InstrumentStatus::Suspend,
+                "delisting" => InstrumentStatus::Delisting,
                 "delisted" => InstrumentStatus::Closed,
                 _ => InstrumentStatus::Unknown,
             }
         } else if d.in_delisting {
-            InstrumentStatus::Suspend
+            InstrumentStatus::Delisting
         } else {
             InstrumentStatus::Live
         };

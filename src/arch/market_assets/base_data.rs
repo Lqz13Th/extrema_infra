@@ -24,6 +24,7 @@ pub enum InstrumentStatus {
     Live,
     Suspend,
     PreOpen,
+    Delisting,
     Closed,
     #[default]
     Unknown,

@@ -2,9 +2,12 @@ use serde::Deserialize;
 
 use crate::arch::market_assets::{
     api_data::utils_data::InstrumentInfo,
+    api_general::get_mills_timestamp,
     base_data::{InstrumentStatus, InstrumentType},
     exchange::binance::api_utils::binance_fut_inst_to_cli,
 };
+
+const BINANCE_PERP_FAR_FUTURE_DELIVERY_MS: u64 = 3_786_912_000_000; // 2090-01-01T00:00:00Z
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
@@ -18,6 +21,7 @@ pub struct InstrumentInfoBinanceUM {
     pub symbol: String,
     pub contractType: String,
     pub status: String,
+    pub deliveryDate: u64,
     pub pricePrecision: i32,
     pub quantityPrecision: i32,
     filters: Vec<Filter>,
@@ -73,6 +77,7 @@ struct NotionalFilter {
 
 impl From<InstrumentInfoBinanceUM> for InstrumentInfo {
     fn from(d: InstrumentInfoBinanceUM) -> Self {
+        let now_ms = get_mills_timestamp();
         let mut tick_size = 0.0;
         let mut min_lmt_size = 0.0;
         let mut max_lmt_size = 0.0;
@@ -142,10 +147,35 @@ impl From<InstrumentInfoBinanceUM> for InstrumentInfo {
             min_notional: (min_notional > 0.0).then_some(min_notional),
             contract_value: None,
             contract_multiplier: None,
-            state: match d.status.as_str() {
-                "TRADING" => InstrumentStatus::Live,
-                _ => InstrumentStatus::Suspend,
-            },
+            state: binance_status_to_instrument_status(
+                &d.status,
+                d.contractType.as_str(),
+                d.deliveryDate,
+                now_ms,
+            ),
         }
+    }
+}
+
+fn binance_status_to_instrument_status(
+    status: &str,
+    contract_type: &str,
+    delivery_date_ms: u64,
+    now_ms: u64,
+) -> InstrumentStatus {
+    match status {
+        "SETTLING" => InstrumentStatus::Delisting,
+        "TRADING"
+            if contract_type == "PERPETUAL"
+                && delivery_date_ms > now_ms
+                && delivery_date_ms < BINANCE_PERP_FAR_FUTURE_DELIVERY_MS =>
+        {
+            InstrumentStatus::Delisting
+        },
+        "TRADING" => InstrumentStatus::Live,
+        "PENDING_TRADING" | "PRE_DELIVERING" => InstrumentStatus::PreOpen,
+        "DELIVERING" | "PRE_SETTLE" => InstrumentStatus::Delisting,
+        "CLOSE" => InstrumentStatus::Closed,
+        _ => InstrumentStatus::Suspend,
     }
 }

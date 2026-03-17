@@ -23,6 +23,8 @@ pub struct RestContractGateFutures {
     pub quanto_multiplier: String,
     #[serde(deserialize_with = "de_string_from_any")]
     pub status: String,
+    #[serde(default)]
+    pub in_delisting: bool,
     #[serde(deserialize_with = "de_string_from_any")]
     pub funding_rate: String,
     #[serde(deserialize_with = "de_u64_from_string_or_number")]
@@ -36,6 +38,16 @@ impl From<RestContractGateFutures> for InstrumentInfo {
         let lot_size = d.order_size_min.parse().unwrap_or_default();
         let max_size = d.order_size_max.parse().unwrap_or_default();
         let tick_size = d.order_price_round.parse().unwrap_or_default();
+        let state = if d.in_delisting {
+            InstrumentStatus::Delisting
+        } else {
+            match d.status.as_str() {
+                "trading" => InstrumentStatus::Live,
+                "delisting" => InstrumentStatus::Delisting,
+                "delisted" => InstrumentStatus::Closed,
+                _ => InstrumentStatus::Unknown,
+            }
+        };
 
         InstrumentInfo {
             inst: gate_fut_inst_to_cli(&d.name),
@@ -50,12 +62,7 @@ impl From<RestContractGateFutures> for InstrumentInfo {
             min_notional: None,
             contract_value: d.quanto_multiplier.parse().ok(),
             contract_multiplier: None,
-            state: match d.status.as_str() {
-                "trading" => InstrumentStatus::Live,
-                "delisting" => InstrumentStatus::Suspend,
-                "delisted" => InstrumentStatus::Closed,
-                _ => InstrumentStatus::Unknown,
-            },
+            state,
         }
     }
 }

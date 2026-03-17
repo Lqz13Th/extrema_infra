@@ -19,11 +19,18 @@ pub struct RestInstrumentsOkx {
     pub ctVal: Option<String>,
     pub ctMult: Option<String>,
     pub state: String,
+    pub expTime: Option<String>,
     pub instIdCode: Option<i64>,
 }
 
 impl From<RestInstrumentsOkx> for InstrumentInfo {
     fn from(d: RestInstrumentsOkx) -> Self {
+        let exp_time_present = d
+            .expTime
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|v| !v.is_empty() && v != "0");
+
         InstrumentInfo {
             inst: okx_inst_to_cli(&d.instId),
             inst_code: d.instIdCode.map(|x| x.to_string()),
@@ -42,10 +49,14 @@ impl From<RestInstrumentsOkx> for InstrumentInfo {
             min_notional: None,
             contract_value: d.ctVal.and_then(|p| p.parse().ok()),
             contract_multiplier: d.ctMult.and_then(|p| p.parse().ok()),
-            state: match d.state.as_str() {
-                "live" => InstrumentStatus::Live,
-                "suspend" => InstrumentStatus::Suspend,
-                _ => InstrumentStatus::Unknown,
+            state: if exp_time_present {
+                InstrumentStatus::Delisting
+            } else {
+                match d.state.as_str() {
+                    "live" => InstrumentStatus::Live,
+                    "suspend" => InstrumentStatus::Suspend,
+                    _ => InstrumentStatus::Unknown,
+                }
             },
         }
     }
