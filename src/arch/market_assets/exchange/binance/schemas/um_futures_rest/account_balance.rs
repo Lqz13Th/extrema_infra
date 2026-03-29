@@ -17,11 +17,11 @@ pub struct RestAccountBalBinanceUM {
 
 impl From<RestAccountBalBinanceUM> for BalanceData {
     fn from(d: RestAccountBalBinanceUM) -> Self {
-        let total = d.balance.parse().unwrap_or_default();
+        let wallet_balance = d.balance.parse::<f64>().unwrap_or_default();
         let available = d.availableBalance.parse().unwrap_or_default();
         let cross_un_pnl = d.crossUnPnl.parse::<f64>().unwrap_or_default();
-        let frozen = total - available - cross_un_pnl;
-
+        let total = wallet_balance + cross_un_pnl;
+        let frozen = total - available;
         BalanceData {
             timestamp: ts_to_micros(d.updateTime),
             asset: d.asset,
