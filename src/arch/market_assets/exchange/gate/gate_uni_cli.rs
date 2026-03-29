@@ -76,6 +76,31 @@ impl GateUniCli {
         }
     }
 
+    pub async fn get_eq(&self) -> InfraResult<f64> {
+        let res: RestResGate<RestAccountBalGateUnified> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                None,
+                GATE_BASE_URL,
+                GATE_UNI_ACCOUNTS,
+            )
+            .await?;
+
+        let eq = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .map(|d| d.unified_account_total_equity.parse().unwrap_or_default())
+            .unwrap_or_default();
+
+        Ok(eq)
+    }
+
     pub async fn get_borrowable(&self, insts: &[String]) -> InfraResult<Vec<BorrowableData>> {
         if insts.is_empty() {
             return Err(InfraError::ApiCliError(

@@ -8,6 +8,8 @@ use crate::arch::market_assets::{
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestAccountBalGateUnified {
+    #[serde(default)]
+    pub unified_account_total_equity: String,
     pub balances: HashMap<String, GateUnifiedBalance>,
 }
 
