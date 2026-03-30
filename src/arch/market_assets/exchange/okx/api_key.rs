@@ -1,5 +1,5 @@
 use data_encoding::BASE64;
-use hmac::{Mac, KeyInit};
+use hmac::{KeyInit, Mac};
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};

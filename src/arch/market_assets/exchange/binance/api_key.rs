@@ -1,5 +1,5 @@
 use data_encoding::HEXUPPER;
-use hmac::{Mac,KeyInit};
+use hmac::{KeyInit, Mac};
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
