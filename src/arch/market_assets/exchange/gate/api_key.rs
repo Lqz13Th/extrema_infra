@@ -1,5 +1,5 @@
 use data_encoding::HEXLOWER;
-use hmac::Mac;
+use hmac::{Mac, KeyInit};
 use sha2::{Digest, Sha512};
 
 use reqwest::Client;
