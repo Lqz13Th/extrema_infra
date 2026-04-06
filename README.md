@@ -1,4 +1,4 @@
-# Extrema Infra
+﻿# Extrema Infra
 
 A quantitative trading environment built in Rust.
 
@@ -12,10 +12,10 @@ At its core: **One unified framework for multiple exchanges, multiple strategies
 
 ## SOTA Usages
 
-Explore state-of-the-art example usages, architecture walkthroughs, and community Q&A—no need to run it, just see how strategies and data flows are structured.
+Explore state-of-the-art example usages, architecture walkthroughs, and community Q&A鈥攏o need to run it, just see how strategies and data flows are structured.
 
-👉 **Join the discussion & explore examples:**  
-[GitHub Discussions – SOTA Usages](https://github.com/Lqz13Th/extrema_infra/discussions)
+馃憠 **Join the discussion & explore examples:**  
+[GitHub Discussions 鈥?SOTA Usages](https://github.com/Lqz13Th/extrema_infra/discussions)
 
 ---
 
@@ -80,7 +80,7 @@ With **HList**:
 ## Strategy Execution Model
 - Trait-driven: `on_trade`, `on_candle`, `on_lob`.
 - HList ensures safe registration of multiple strategy types.
-- All infra timestamps are unified to microseconds (µs).
+- All infra timestamps are unified to microseconds (碌s).
 - All instrument names returned by the internal API are automatically normalized.
 
 Instrument naming conventions:
@@ -187,7 +187,7 @@ This framework relies on `rustls` for secure REST and WebSocket connections
 Starting from **rustls v0.23**, the TLS crypto backend (e.g. `aws-lc-rs` or `ring`)
 **must be explicitly selected by the final binary**.
 
-### ⚠️ Required for binaries that use TLS-enabled REST/WebSocket functionality
+### 鈿狅笍 Required for binaries that use TLS-enabled REST/WebSocket functionality
 
 Before using any TLS-enabled functionality (REST / WebSocket),
 the executable **must install a default CryptoProvider**:
@@ -299,7 +299,7 @@ For a practical implementation, see the [complex strategy example](examples/comp
 
 - **Supporting tasks**
   - Order execution, feature generation, Risk checks, Position management etc.
-  - These tasks communicate with the latency-sensitive task via channels (**CommandEmitter** → **OrderExecute**) or Rwlock.
+  - These tasks communicate with the latency-sensitive task via channels (**CommandEmitter** 鈫?**OrderExecute**) or Rwlock.
   - Using **AltTask** for feature extraction, sending data to Torch prediction via command handle, then generating signals to execute orders.
 
 Latency-sensitive logic can be decomposed into multiple tasks.
@@ -311,5 +311,5 @@ with each task focusing on a single role to maintain clarity and modularity.
 ![Extrema Infra Architecture](complex_example.png)
 
 ---
-
-© 2025 **Extrema Intelligence**. Licensed under the [Apache License 2.0](LICENSE).
+## License
+This project is licensed under the [Apache 2.0 license](LICENSE).
