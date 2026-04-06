@@ -21,7 +21,6 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 
 ## Key Features
 - **Machine Learning Integration Across Languages**
-  - Rust generates high-throughput features for low-latency trading.
   - Features can be sent via ZeroMQ to Python ML models (Torch, GBM, Transformer, etc.).
   - ONNX models can also run directly inside `extrema_infra` without an external Python service.
   - `AltTensor` is the common dense tensor payload for feature input and model output.
