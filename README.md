@@ -87,7 +87,7 @@ With **HList**:
 Instrument naming conventions:
 
 - Crypto: underscore-separated, e.g., BTC_USDT_PERP
-- Stock: exchange dot notation, e.g., AAPL_NASDAQ_EQ
+- Stock: underscore-separated, e.g., AAPL_NASDAQ_EQ
 
 ---
 
