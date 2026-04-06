@@ -16,6 +16,7 @@ tungstenite = "0.29.0"
 futures = "0.3.32"
 futures-util = "0.3.32"
 zeromq = "0.5.0"
+tract-onnx = "0.22.1"
 
 # Data & Feature processing
 polars = { version = "0.53.0", default-features = false }

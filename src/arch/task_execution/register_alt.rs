@@ -1,17 +1,17 @@
-use rmp_serde::{Deserializer, Serializer};
-use serde::{Deserialize, Serialize};
+mod model_onnx;
+mod model_zmq;
+
 use std::{sync::Arc, time::Duration};
 use tokio::{
     select,
     sync::{broadcast, mpsc},
-    time::{interval, sleep, timeout},
+    time::{interval, sleep},
 };
-use zeromq::{ReqSocket, Socket, SocketRecv, SocketSend};
 
 use tracing::{error, info, warn};
 
 use super::{
-    task_alt::{AltTaskInfo, AltTaskType},
+    task_alt::{AltTaskInfo, AltTaskType, ModelRunner},
     task_general::LogLevel,
 };
 use crate::arch::{
@@ -35,6 +35,26 @@ pub(crate) struct AltTaskBuilder {
 }
 
 impl AltTaskBuilder {
+    async fn recv_feat_input(&mut self) -> Option<AltTensor> {
+        loop {
+            match self.cmd_rx.recv().await {
+                Some(TaskCommand::FeatInput(tensor)) => return Some(tensor),
+                Some(cmd) => self.handle_cmd(cmd),
+                None => {
+                    self.log(LogLevel::Error, "Command channel closed");
+                    return None;
+                },
+            }
+        }
+    }
+
+    fn emit_model_preds(&self, tx: &broadcast::Sender<InfraMsg<AltTensor>>, tensor: AltTensor) {
+        let _ = tx.send(InfraMsg {
+            task_id: self.task_id,
+            data: Arc::new(tensor),
+        });
+    }
+
     fn handle_cmd(&self, cmd: TaskCommand) {
         self.log(
             LogLevel::Warn,
@@ -73,88 +93,6 @@ impl AltTaskBuilder {
         }
     }
 
-    async fn model_preds(&mut self, tx: broadcast::Sender<InfraMsg<AltTensor>>, port: u64) {
-        let mut zmq_socket = ReqSocket::new();
-        let address = format!("tcp://127.0.0.1:{}", port);
-
-        self.log(
-            LogLevel::Info,
-            &format!("Connecting to model ZMQ server at {address}..."),
-        );
-        if let Err(e) = zmq_socket.connect(&address).await {
-            self.log(LogLevel::Error, &format!("ZMQ connect failed: {:?}", e));
-            return;
-        }
-        self.log(
-            LogLevel::Info,
-            &format!("Connected to model ZMQ server at {address}."),
-        );
-
-        let model_inference_timeout = Duration::from_secs(20);
-        loop {
-            let tensor = match self.cmd_rx.recv().await {
-                Some(TaskCommand::FeatInput(t)) => t,
-                Some(cmd) => {
-                    self.handle_cmd(cmd);
-                    continue;
-                },
-                None => {
-                    self.log(LogLevel::Error, "Command channel closed");
-                    break;
-                },
-            };
-
-            let mut buf = Vec::new();
-            if let Err(e) = tensor.serialize(&mut Serializer::new(&mut buf)) {
-                self.log(
-                    LogLevel::Error,
-                    &format!("Failed to serialize tensor: {:?}", e),
-                );
-                break;
-            }
-
-            if let Err(e) = zmq_socket.send(buf.into()).await {
-                self.log(LogLevel::Error, &format!("ZMQ send error: {:?}", e));
-                break;
-            }
-
-            match timeout(model_inference_timeout, zmq_socket.recv()).await {
-                Ok(Ok(msg)) => {
-                    if let Some(bytes) = msg.get(0) {
-                        let mut de = Deserializer::new(&bytes[..]);
-                        match AltTensor::deserialize(&mut de) {
-                            Ok(matrix) => {
-                                let _ = tx.send(InfraMsg {
-                                    task_id: self.task_id,
-                                    data: Arc::new(matrix),
-                                });
-                            },
-                            Err(e) => {
-                                self.log(
-                                    LogLevel::Error,
-                                    &format!("Failed to deserialize ZMQ msg: {:?}", e),
-                                );
-                            },
-                        };
-                    } else {
-                        self.log(LogLevel::Error, "ZMQ msg had no frame");
-                    }
-                },
-                Ok(Err(e)) => {
-                    self.log(LogLevel::Error, &format!("ZMQ recv error: {:?}", e));
-                    break;
-                },
-                Err(_) => {
-                    self.log(
-                        LogLevel::Warn,
-                        "Model prediction TIMEOUT - skipping this tick",
-                    );
-                    continue;
-                },
-            };
-        }
-    }
-
     async fn time_scheduler(
         &mut self,
         tx: broadcast::Sender<InfraMsg<AltScheduleEvent>>,
@@ -188,7 +126,7 @@ impl AltTaskBuilder {
     }
 
     async fn alt_task_distribution(&mut self) {
-        match self.alt_info.alt_task_type {
+        match self.alt_info.alt_task_type.clone() {
             AltTaskType::OrderExecution => {
                 if let Some(tx) = find_order_execution(&self.board_cast_channel) {
                     self.order_execution(tx).await
@@ -209,13 +147,23 @@ impl AltTaskBuilder {
                     );
                 }
             },
-            AltTaskType::ModelPreds(port) => {
+            AltTaskType::ModelPreds(ModelRunner::Zmq(port)) => {
                 if let Some(tx) = find_model_preds(&self.board_cast_channel) {
-                    self.model_preds(tx, port).await
+                    self.model_preds_zmq(tx, port).await
                 } else {
                     self.log(
                         LogLevel::Error,
-                        "No broadcast channel found for model preds",
+                        "No broadcast channel found for model preds zmq",
+                    );
+                }
+            },
+            AltTaskType::ModelPreds(ModelRunner::Onnx(config_path)) => {
+                if let Some(tx) = find_model_preds(&self.board_cast_channel) {
+                    self.model_preds_onnx(tx, config_path).await
+                } else {
+                    self.log(
+                        LogLevel::Error,
+                        "No broadcast channel found for model preds onnx",
                     );
                 }
             },

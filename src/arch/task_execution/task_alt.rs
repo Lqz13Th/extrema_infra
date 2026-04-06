@@ -11,6 +11,12 @@ pub struct AltTaskInfo {
 pub enum AltTaskType {
     OrderExecution,
     InstIntent,
-    ModelPreds(u64),
+    ModelPreds(ModelRunner),
     TimeScheduler(Duration),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ModelRunner {
+    Zmq(u64),
+    Onnx(String),
 }

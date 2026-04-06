@@ -22,8 +22,10 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 ## Key Features
 - **Machine Learning Integration Across Languages**
   - Rust generates high-throughput features for low-latency trading.
-  - Features are sent via ZeroMQ to Python ML models (Torch, GBM, Transformer, etc.).
-  - Predictions returned asynchronously to Rust for signal generation and order execution.
+  - Features can be sent via ZeroMQ to Python ML models (Torch, GBM, Transformer, etc.).
+  - ONNX models can also run directly inside `extrema_infra` without an external Python service.
+  - `AltTensor` is the common dense tensor payload for feature input and model output.
+  - Predictions return asynchronously to Rust for signal generation and order execution.
 
 - **Unified Exchange Abstraction**
   - All exchanges (Hyperliquid, Binance, etc.) normalized into unified `Market` enum + structs.
@@ -108,6 +110,61 @@ A minimal strategy must implement at least `Strategy` + `CommandEmitter` + `Even
 
 ---
 
+## ONNX Model Runner
+
+`extrema_infra` supports local ONNX inference through `AltTaskType::ModelPreds(ModelRunner::Onnx(...))`.
+
+- The ONNX model is loaded once during task initialization.
+- Inference requests are routed through a dedicated worker thread owned by the ONNX task.
+- Callers send an `AltTensor` feature payload and receive an `AltTensor` prediction payload.
+- For multi-output models, select a specific output with `output_index`; otherwise the runner picks the first decodable tensor output.
+
+You can initialize the runner in two ways:
+
+1. Pass a direct `.onnx` path.
+2. Pass a JSON config path:
+
+```json
+{
+  "model_path": "models/demo.onnx",
+  "model_name": "demo_model",
+  "output_index": 0
+}
+```
+
+The JSON config supports:
+
+- `model_path`: required, relative or absolute path to the ONNX file
+- `model_name`: optional, added into prediction metadata
+- `output_index`: optional, useful for multi-output models such as classifier label + probability outputs
+
+### `AltTensor` Contract
+
+`AltTensor` is a generic dense tensor carrier:
+
+- `data`: row-major / C-order flattened `Vec<f32>`
+- `shape`: original tensor shape before flattening
+- `data.len()` must equal the product of `shape`
+- infra does not perform implicit transpose / squeeze / reshape
+
+Typical examples:
+
+- Tabular feature row: `shape=[1, 4]`, `data=[f1, f2, f3, f4]`
+- Multi-asset feature row: `shape=[1, assets, features]`
+- Conv input: `shape=[1, 1, 3, 3]`
+- Regression output: `shape=[1, 1]`
+- Classification probabilities: `shape=[1, classes]`
+
+When exporting from PyTorch, the intended semantics are equivalent to:
+
+```python
+tensor = tensor.to(torch.float32).contiguous()
+data = tensor.view(-1).tolist()
+shape = list(tensor.shape)
+```
+
+---
+
 ## LOB Exchange API Traits
 
 These traits apply only to LOB-based exchanges (Binance, OKX, dYdX, Hyperliquid, etc.)
@@ -131,7 +188,7 @@ This framework relies on `rustls` for secure REST and WebSocket connections
 Starting from **rustls v0.23**, the TLS crypto backend (e.g. `aws-lc-rs` or `ring`)
 **must be explicitly selected by the final binary**.
 
-### ⚠️ Required for all binary crates
+### ⚠️ Required for binaries that use TLS-enabled REST/WebSocket functionality
 
 Before using any TLS-enabled functionality (REST / WebSocket),
 the executable **must install a default CryptoProvider**:

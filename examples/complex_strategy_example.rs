@@ -68,7 +68,9 @@ impl HFTStrategy {
 
     /// Send feature matrix to model A
     async fn send_feat_to_model_a(&mut self, feat: AltTensor) -> InfraResult<()> {
-        if let Some(handle) = self.find_alt_handle(&AltTaskType::ModelPreds(1111), 1111) {
+        if let Some(handle) =
+            self.find_alt_handle(&AltTaskType::ModelPreds(ModelRunner::Zmq(1111)), 1111)
+        {
             let cmd = TaskCommand::FeatInput(feat);
             handle.send_command(cmd, None).await?;
         } else {
@@ -79,7 +81,9 @@ impl HFTStrategy {
 
     /// Send feature matrix to model B
     async fn send_feat_to_model_b(&mut self, feat: AltTensor) -> InfraResult<()> {
-        if let Some(handle) = self.find_alt_handle(&AltTaskType::ModelPreds(2222), 2222) {
+        if let Some(handle) =
+            self.find_alt_handle(&AltTaskType::ModelPreds(ModelRunner::Zmq(2222)), 2222)
+        {
             let cmd = TaskCommand::FeatInput(feat);
             handle.send_command(cmd, None).await?;
         } else {
@@ -346,13 +350,13 @@ async fn main() {
     };
 
     let model_a_task = AltTaskInfo {
-        alt_task_type: AltTaskType::ModelPreds(1111), // Zeromq port
+        alt_task_type: AltTaskType::ModelPreds(ModelRunner::Zmq(1111)), // Zeromq port
         chunk: 1,
         task_base_id: Some(1111), // Custom task ID
     };
 
     let model_b_task = AltTaskInfo {
-        alt_task_type: AltTaskType::ModelPreds(2222), // Zeromq port
+        alt_task_type: AltTaskType::ModelPreds(ModelRunner::Zmq(2222)), // Zeromq port
         chunk: 1,
         task_base_id: Some(2222), // Custom task ID
     };
