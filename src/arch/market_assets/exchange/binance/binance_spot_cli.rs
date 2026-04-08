@@ -116,7 +116,8 @@ impl BinanceSpotCli {
         &self,
         req: BinanceUniversalTransferReq,
     ) -> InfraResult<RestUserUniversalTransferBinance> {
-        self.api_key
+        let res: RestResBinance<RestUserUniversalTransferBinance> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -126,7 +127,17 @@ impl BinanceSpotCli {
                 BINANCE_SPOT_BASE_URL,
                 BINANCE_USER_UNIVERSAL_TRANSFER,
             )
-            .await
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No transfer response data returned".into(),
+            ))?;
+
+        Ok(data)
     }
 
     pub async fn transfer_spot_to_um(
@@ -164,7 +175,8 @@ impl BinanceSpotCli {
     }
 
     pub async fn withdraw(&self, req: BinanceWithdrawReq) -> InfraResult<RestWithdrawBinance> {
-        self.api_key
+        let res: RestResBinance<RestWithdrawBinance> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -174,7 +186,17 @@ impl BinanceSpotCli {
                 BINANCE_SPOT_BASE_URL,
                 BINANCE_WITHDRAW_APPLY,
             )
-            .await
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No withdraw response data returned".into(),
+            ))?;
+
+        Ok(data)
     }
 
     async fn _get_tickers(
@@ -210,9 +232,19 @@ impl BinanceSpotCli {
 
         let responds = self.client.get(&url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestExchangeInfoBinanceSpot = from_slice(&mut res_bytes)?;
+        let res: RestResBinance<RestExchangeInfoBinanceSpot> = from_slice(&mut res_bytes)?;
 
-        let data = res.symbols.into_iter().map(InstrumentInfo::from).collect();
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No exchange info data returned".into(),
+            ))?
+            .symbols
+            .into_iter()
+            .map(InstrumentInfo::from)
+            .collect();
 
         Ok(data)
     }
@@ -325,7 +357,7 @@ impl BinanceSpotCli {
     }
 
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
-        let res: RestAccountInfoBinanceSpot = self
+        let res: RestResBinance<RestAccountInfoBinanceSpot> = self
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
@@ -339,6 +371,12 @@ impl BinanceSpotCli {
             .await?;
 
         let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No spot account info data returned".into(),
+            ))?
             .balances
             .into_iter()
             .filter(|b| match assets {

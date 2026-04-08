@@ -112,7 +112,7 @@ impl BinanceCmCli {
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?;
 
-        let listen_key: BinanceListenKey = api_key
+        let res: RestResBinance<BinanceListenKey> = api_key
             .send_signed_request(
                 &self.client,
                 RequestMethod::Post,
@@ -121,6 +121,14 @@ impl BinanceCmCli {
                 BINANCE_CM_FUTURES_LISTEN_KEY,
             )
             .await?;
+
+        let listen_key = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No CM listen key data returned".into(),
+            ))?;
 
         Ok(listen_key)
     }
@@ -131,7 +139,7 @@ impl BinanceCmCli {
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?;
 
-        let listen_key: BinanceListenKey = api_key
+        let res: RestResBinance<BinanceListenKey> = api_key
             .send_signed_request(
                 &self.client,
                 RequestMethod::Put,
@@ -140,6 +148,14 @@ impl BinanceCmCli {
                 BINANCE_CM_FUTURES_LISTEN_KEY,
             )
             .await?;
+
+        let listen_key = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No CM listen key data returned".into(),
+            ))?;
 
         Ok(listen_key)
     }
@@ -206,9 +222,15 @@ impl BinanceCmCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestExchangeInfoBinanceCM = from_slice(&mut res_bytes)?;
+        let res: RestResBinance<RestExchangeInfoBinanceCM> = from_slice(&mut res_bytes)?;
 
         let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No CM exchange info data returned".into(),
+            ))?
             .symbols
             .into_iter()
             .map(InstrumentInfo::from)
@@ -227,9 +249,15 @@ impl BinanceCmCli {
 
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestExchangeInfoBinanceCM = from_slice(&mut res_bytes)?;
+        let res: RestResBinance<RestExchangeInfoBinanceCM> = from_slice(&mut res_bytes)?;
 
         let data: Vec<String> = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No CM exchange info data returned".into(),
+            ))?
             .symbols
             .into_iter()
             .filter(|ins| ins.contractType == PERPETUAL && ins.contractStatus == TRADING)
