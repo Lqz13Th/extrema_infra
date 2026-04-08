@@ -110,7 +110,8 @@ impl GateSpotCli {
     }
 
     pub async fn withdraw(&self, req: GateWithdrawReq) -> InfraResult<RestWithdrawGate> {
-        self.api_key
+        let res: RestResGate<RestWithdrawGate> = self
+            .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
@@ -121,7 +122,17 @@ impl GateSpotCli {
                 GATE_BASE_URL,
                 GATE_WITHDRAWALS,
             )
-            .await
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No withdraw response data returned".into(),
+            ))?;
+
+        Ok(data)
     }
 
     fn ws_subscribe_private(&self, channel: &str) -> InfraResult<String> {
