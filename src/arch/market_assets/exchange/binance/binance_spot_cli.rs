@@ -131,21 +131,35 @@ impl BinanceSpotCli {
 
     pub async fn transfer_spot_to_um(
         &self,
-        req: BinanceSpotUmTransferReq,
+        asset: &str,
+        amount: &str,
+        recv_window: Option<u64>,
     ) -> InfraResult<RestUserUniversalTransferBinance> {
-        self.user_universal_transfer(
-            req.into_universal_req(BinanceUniversalTransferType::MainUmFuture),
-        )
+        self.user_universal_transfer(BinanceUniversalTransferReq {
+            transfer_type: BinanceUniversalTransferType::MainUmFuture,
+            asset: asset.to_string(),
+            amount: amount.to_string(),
+            from_symbol: None,
+            to_symbol: None,
+            recv_window,
+        })
         .await
     }
 
     pub async fn transfer_um_to_spot(
         &self,
-        req: BinanceSpotUmTransferReq,
+        asset: &str,
+        amount: &str,
+        recv_window: Option<u64>,
     ) -> InfraResult<RestUserUniversalTransferBinance> {
-        self.user_universal_transfer(
-            req.into_universal_req(BinanceUniversalTransferType::UmFutureMain),
-        )
+        self.user_universal_transfer(BinanceUniversalTransferReq {
+            transfer_type: BinanceUniversalTransferType::UmFutureMain,
+            asset: asset.to_string(),
+            amount: amount.to_string(),
+            from_symbol: None,
+            to_symbol: None,
+            recv_window,
+        })
         .await
     }
 

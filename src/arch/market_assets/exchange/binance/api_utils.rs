@@ -86,29 +86,6 @@ impl BinanceUniversalTransferReq {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BinanceSpotUmTransferReq {
-    pub asset: String,
-    pub amount: String,
-    pub recv_window: Option<u64>,
-}
-
-impl BinanceSpotUmTransferReq {
-    pub(crate) fn into_universal_req(
-        self,
-        transfer_type: BinanceUniversalTransferType,
-    ) -> BinanceUniversalTransferReq {
-        BinanceUniversalTransferReq {
-            transfer_type,
-            asset: self.asset,
-            amount: self.amount,
-            from_symbol: None,
-            to_symbol: None,
-            recv_window: self.recv_window,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BinanceWithdrawReq {
     pub coin: String,
     pub address: String,
