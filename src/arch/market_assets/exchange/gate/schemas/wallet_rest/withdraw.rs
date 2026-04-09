@@ -15,7 +15,7 @@ pub struct RestWithdrawGate {
     #[serde(default)]
     pub chain: String,
     #[serde(default)]
-    pub memo: String,
+    pub memo: Option<String>,
     #[serde(default)]
     pub status: String,
     #[serde(default)]
