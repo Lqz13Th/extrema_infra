@@ -1,6 +1,4 @@
 use serde::Deserialize;
-use serde_json::Value;
-use std::collections::HashMap;
 
 use crate::arch::market_assets::api_general::de_string_from_any;
 
@@ -20,6 +18,4 @@ pub struct RestCurrencyChainGate {
     pub is_withdraw_disabled: String,
     #[serde(default)]
     pub reason: String,
-    #[serde(flatten)]
-    pub extra: HashMap<String, Value>,
 }

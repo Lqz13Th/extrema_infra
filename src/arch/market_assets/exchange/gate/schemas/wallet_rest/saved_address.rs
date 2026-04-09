@@ -1,6 +1,4 @@
 use serde::Deserialize;
-use serde_json::Value;
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct RestSavedAddressGate {
@@ -16,6 +14,4 @@ pub struct RestSavedAddressGate {
     pub memo: String,
     #[serde(default)]
     pub verified: String,
-    #[serde(flatten)]
-    pub extra: HashMap<String, Value>,
 }
