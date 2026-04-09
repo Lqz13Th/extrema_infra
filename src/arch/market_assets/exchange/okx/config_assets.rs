@@ -7,10 +7,12 @@ pub const OKX_BASE_URL: &str = "https://www.okx.com";
 /// REST endpoints
 pub const OKX_ACCOUNT_BALANCE: &str = "/api/v5/account/balance";
 pub const OKX_ACCOUNT_POSITIONS: &str = "/api/v5/account/positions";
+pub const OKX_ACCOUNT_SET_LEVERAGE: &str = "/api/v5/account/set-leverage";
 pub const OKX_TRADE_ORDER: &str = "/api/v5/trade/order";
 pub const OKX_TRADE_ORDERS_HISTORY: &str = "/api/v5/trade/orders-history";
 pub const OKX_PUBLIC_INSTRUMENTS: &str = "/api/v5/public/instruments";
 pub const OKX_PUBLIC_FUNDING_RATE: &str = "/api/v5/public/funding-rate";
+pub const OKX_PUBLIC_FUNDING_RATE_HISTORY: &str = "/api/v5/public/funding-rate-history";
 pub const OKX_MARKET_TICKER: &str = "/api/v5/market/ticker";
 pub const OKX_MARKET_TICKERS: &str = "/api/v5/market/tickers";
 pub const OKX_MARKET_CANDLES: &str = "/api/v5/market/candles";

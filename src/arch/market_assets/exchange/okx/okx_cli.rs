@@ -25,13 +25,15 @@ use super::{
     okx_rest_msg::RestResOkx,
     schemas::rest::{
         account_balance::RestAccountBalOkx, account_positions::RestAccountPosOkx,
+        account_set_leverage::RestAccountSetLeverageOkx,
         ct_current_lead_traders::RestLeadtraderOkx,
         ct_public_current_subpositions::RestSubPositionOkx,
         ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
         ct_public_lead_traders::RestPubLeadTradersOkx,
         ct_public_subpositions_history::RestSubPositionHistoryOkx,
-        funding_rate::RestFundingRateOkx, market_ticker::RestMarketTickerOkx,
-        public_instruments::RestInstrumentsOkx, trade_order::RestOrderAckOkx,
+        funding_rate::RestFundingRateOkx, funding_rate_history::RestFundingRateHistoryOkx,
+        market_ticker::RestMarketTickerOkx, public_instruments::RestInstrumentsOkx,
+        trade_order::RestOrderAckOkx,
     },
 };
 
@@ -169,6 +171,59 @@ impl OkxCli {
         });
 
         Ok(msg.to_string())
+    }
+
+    pub async fn set_leverage(
+        &self,
+        inst: &str,
+        leverage: u32,
+        margin_mode: MarginMode,
+    ) -> InfraResult<RestAccountSetLeverageOkx> {
+        if leverage == 0 {
+            return Err(InfraError::ApiCliError(
+                "OKX leverage must be greater than 0".into(),
+            ));
+        }
+
+        let mgn_mode = match margin_mode {
+            MarginMode::Cross => "cross",
+            MarginMode::Isolated => "isolated",
+            MarginMode::Unknown => {
+                return Err(InfraError::ApiCliError(
+                    "Unknown margin mode for OKX set_leverage".into(),
+                ));
+            },
+        };
+
+        let body = json!({
+            "instId": cli_perp_to_okx_inst(inst),
+            "lever": leverage.to_string(),
+            "mgnMode": mgn_mode,
+        })
+        .to_string();
+
+        let res: RestResOkx<RestAccountSetLeverageOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                body,
+                OKX_BASE_URL,
+                OKX_ACCOUNT_SET_LEVERAGE,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No OKX leverage data returned".into(),
+            ))?;
+
+        Ok(data)
     }
 
     pub async fn get_current_lead_traders(
@@ -437,6 +492,44 @@ impl OkxCli {
         let responds = self.client.get(url).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
         let res: RestResOkx<RestFundingRateOkx> = from_slice(&mut res_bytes)?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(FundingRateData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_funding_rate_history(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+        before_ms: Option<u64>,
+        after_ms: Option<u64>,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        let mut params = vec![format!("instId={}", cli_perp_to_okx_inst(inst))];
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        if let Some(b) = before_ms {
+            params.push(format!("before={}", b));
+        }
+        if let Some(a) = after_ms {
+            params.push(format!("after={}", a));
+        }
+
+        let url = format!(
+            "{}{}?{}",
+            OKX_BASE_URL,
+            OKX_PUBLIC_FUNDING_RATE_HISTORY,
+            params.join("&")
+        );
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestFundingRateHistoryOkx> = from_slice(&mut res_bytes)?;
 
         let data = res
             .into_vec()?
