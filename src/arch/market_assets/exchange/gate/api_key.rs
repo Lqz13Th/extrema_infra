@@ -65,7 +65,7 @@ impl GateKey {
         })
     }
 
-    pub(crate) fn sign_now(
+    pub fn sign_now(
         &self,
         method: &str,
         full_path: &str,
