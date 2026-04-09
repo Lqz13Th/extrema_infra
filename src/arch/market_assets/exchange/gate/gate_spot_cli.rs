@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde_json::json;
 use simd_json::from_slice;
 use std::sync::Arc;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::arch::{
     market_assets::{
@@ -111,19 +111,23 @@ impl GateSpotCli {
     }
 
     pub async fn withdraw(&self, req: GateWithdrawReq) -> InfraResult<RestWithdrawGate> {
-        let res: RestResGate<RestWithdrawGate> = self
+        let api_key = self
             .api_key
             .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_request(
-                &self.client,
-                RequestMethod::Post,
-                None,
-                Some(&req.to_body_string()),
-                GATE_BASE_URL,
-                GATE_WITHDRAWALS,
-            )
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+        let body = req.to_body_string();
+        let signature = api_key.sign_now("POST", GATE_WITHDRAWALS, None, Some(&body))?;
+        let url = format!("{}{}", GATE_BASE_URL, GATE_WITHDRAWALS);
+
+        let mut raw = api_key
+            .post_request(&self.client, &signature, &body, &url)
             .await?;
+        info!(
+            request = %body,
+            response = %String::from_utf8_lossy(&raw),
+            "Gate withdraw raw response"
+        );
+        let res: RestResGate<RestWithdrawGate> = from_slice(&mut raw)?;
 
         let data = res
             .into_vec()?
