@@ -23,7 +23,7 @@ pub struct RestWithdrawGate {
     #[serde(default)]
     pub txid: String,
     #[serde(default)]
-    pub fee: String,
+    pub fee_amount: String,
     #[serde(default, deserialize_with = "de_u64_from_string_or_number")]
     pub timestamp: u64,
     #[serde(flatten)]
