@@ -11,7 +11,7 @@ pub struct RestSavedAddressGate {
     #[serde(default)]
     pub name: String,
     #[serde(default)]
-    pub memo: String,
+    pub tag: String,
     #[serde(default)]
     pub verified: String,
 }

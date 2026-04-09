@@ -14,6 +14,8 @@ pub struct RestMultiChainAddressGate {
     pub payment_name: String,
     #[serde(default, deserialize_with = "de_string_from_any")]
     pub obtain_failed: String,
+    #[serde(default, deserialize_with = "de_string_from_any")]
+    pub min_confirms: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -22,6 +24,8 @@ pub struct RestDepositAddressGate {
     pub currency: String,
     #[serde(default)]
     pub address: String,
+    #[serde(default)]
+    pub min_deposit_amount: String,
     #[serde(default)]
     pub multichain_addresses: Vec<RestMultiChainAddressGate>,
 }

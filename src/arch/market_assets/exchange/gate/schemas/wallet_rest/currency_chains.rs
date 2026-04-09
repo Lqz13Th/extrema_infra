@@ -10,6 +10,8 @@ pub struct RestCurrencyChainGate {
     pub name_cn: String,
     #[serde(default)]
     pub name_en: String,
+    #[serde(default)]
+    pub contract_address: String,
     #[serde(default, deserialize_with = "de_string_from_any")]
     pub is_disabled: String,
     #[serde(default, deserialize_with = "de_string_from_any")]
@@ -17,5 +19,7 @@ pub struct RestCurrencyChainGate {
     #[serde(default, deserialize_with = "de_string_from_any")]
     pub is_withdraw_disabled: String,
     #[serde(default)]
-    pub reason: String,
+    pub decimal: String,
+    #[serde(default, deserialize_with = "de_string_from_any")]
+    pub is_tag: String,
 }
