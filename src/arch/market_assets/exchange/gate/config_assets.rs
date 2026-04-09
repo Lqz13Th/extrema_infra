@@ -54,4 +54,7 @@ pub const GATE_ACCOUNT_DETAIL: &str = "/api/v4/account/detail";
 pub const GATE_ACCOUNT_MAIN_KEYS: &str = "/api/v4/account/main_keys";
 
 /// Wallet REST endpoints
+pub const GATE_WALLET_CURRENCY_CHAINS: &str = "/api/v4/wallet/currency_chains";
+pub const GATE_WALLET_DEPOSIT_ADDRESS: &str = "/api/v4/wallet/deposit_address";
+pub const GATE_WALLET_SAVED_ADDRESS: &str = "/api/v4/wallet/saved_address";
 pub const GATE_WITHDRAWALS: &str = "/api/v4/withdrawals";

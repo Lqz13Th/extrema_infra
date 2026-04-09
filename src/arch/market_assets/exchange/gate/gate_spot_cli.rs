@@ -12,17 +12,18 @@ use crate::arch::{
         api_general::{OrderParams, RequestMethod, get_seconds_timestamp},
         base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TimeInForce},
         exchange::gate::{
-            config_assets::{
-                GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS, GATE_SPOT_ORDERS, GATE_SPOT_TICKERS,
-                GATE_WITHDRAWALS, GATE_WS_BASE_URL, GATE_WS_SPOT_ORDERS_V2,
-            },
+            config_assets::*,
             gate_rest_msg::RestResGate,
             schemas::{
                 spot_rest::{
                     currency_pair::RestCurrencyPairGateSpot, order::RestOrderGateSpot,
                     ticker::RestTickerGateSpot,
                 },
-                wallet_rest::withdraw::RestWithdrawGate,
+                wallet_rest::{
+                    currency_chains::RestCurrencyChainGate,
+                    deposit_address::RestDepositAddressGate, saved_address::RestSavedAddressGate,
+                    withdraw::RestWithdrawGate,
+                },
             },
         },
     },
@@ -133,6 +134,87 @@ impl GateSpotCli {
             ))?;
 
         Ok(data)
+    }
+
+    pub async fn get_currency_chains(
+        &self,
+        currency: &str,
+    ) -> InfraResult<Vec<RestCurrencyChainGate>> {
+        let query = format!("currency={}", currency.to_uppercase());
+        let res: RestResGate<RestCurrencyChainGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_CURRENCY_CHAINS,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_deposit_address(&self, currency: &str) -> InfraResult<RestDepositAddressGate> {
+        let query = format!("currency={}", currency.to_uppercase());
+        let res: RestResGate<RestDepositAddressGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_DEPOSIT_ADDRESS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No deposit address data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_saved_addresses(
+        &self,
+        currency: &str,
+        chain: Option<&str>,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<RestSavedAddressGate>> {
+        let mut query_parts = vec![format!("currency={}", currency.to_uppercase())];
+        if let Some(chain) = chain {
+            query_parts.push(format!("chain={chain}"));
+        }
+        if let Some(limit) = limit {
+            query_parts.push(format!("limit={limit}"));
+        }
+
+        let query = query_parts.join("&");
+        let res: RestResGate<RestSavedAddressGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_SAVED_ADDRESS,
+            )
+            .await?;
+
+        res.into_vec()
     }
 
     fn ws_subscribe_private(&self, channel: &str) -> InfraResult<String> {
