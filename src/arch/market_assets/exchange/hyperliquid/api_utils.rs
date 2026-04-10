@@ -87,7 +87,7 @@ pub fn ws_subscribe_msg_hyperliquid_trades(coin: &str) -> String {
     .to_string()
 }
 
-const HYPERLIQUID_MARKET_BUY_MAX_PX: &str = "1000000000000";
+const HYPERLIQUID_MARKET_BUY_MAX_PX: &str = "10000000";
 const HYPERLIQUID_MARKET_SELL_MIN_PX: &str = "0";
 
 #[derive(Clone, Debug, Serialize)]

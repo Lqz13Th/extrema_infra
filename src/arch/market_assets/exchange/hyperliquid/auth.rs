@@ -94,10 +94,9 @@ impl HyperliquidAuth {
             .header("Content-Type", "application/json")
             .body(body_string)
             .send()
-            .await?
-            .error_for_status()?;
-        let mut response = response.bytes().await?.to_vec();
+            .await?;
 
+        let mut response = response.bytes().await?.to_vec();
         let result: RestResHyperliquid<T> = from_slice(&mut response)?;
         result.into_vec()
     }
@@ -136,8 +135,13 @@ impl HyperliquidAuth {
         bytes.extend(nonce.to_be_bytes());
 
         match vault_address {
-            Some(address) => bytes.extend(parse_address_bytes(address)?),
-            None => bytes.extend([0u8; 20]),
+            Some(address) => {
+                bytes.push(1);
+                bytes.extend(parse_address_bytes(address)?);
+            },
+            None => {
+                bytes.push(0);
+            },
         }
 
         Ok(keccak256(&bytes))
