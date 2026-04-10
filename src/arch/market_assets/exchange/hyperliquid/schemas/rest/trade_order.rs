@@ -39,24 +39,28 @@ impl From<RestOrderAckHyperliquid> for OrderAckData {
                 order_status: OrderStatus::Live,
                 order_id: resting.oid.to_string(),
                 cli_order_id: None,
+                msg: None,
             },
             Some(RestOrderStatusHyperliquid::Filled { filled }) => OrderAckData {
                 timestamp: 0,
                 order_status: OrderStatus::Filled,
                 order_id: filled.oid.to_string(),
                 cli_order_id: None,
+                msg: None,
             },
-            Some(RestOrderStatusHyperliquid::Error { .. }) => OrderAckData {
+            Some(RestOrderStatusHyperliquid::Error { error }) => OrderAckData {
                 timestamp: 0,
                 order_status: OrderStatus::Rejected,
                 order_id: String::new(),
                 cli_order_id: None,
+                msg: Some(error),
             },
             None => OrderAckData {
                 timestamp: 0,
                 order_status: OrderStatus::Unknown,
                 order_id: String::new(),
                 cli_order_id: None,
+                msg: None,
             },
         }
     }

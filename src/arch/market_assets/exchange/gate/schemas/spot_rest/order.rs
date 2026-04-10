@@ -30,6 +30,7 @@ impl From<RestOrderGateSpot> for OrderAckData {
             },
             order_id: d.id,
             cli_order_id: d.text,
+            msg: None,
         }
     }
 }

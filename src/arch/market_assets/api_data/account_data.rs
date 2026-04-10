@@ -38,6 +38,7 @@ pub struct OrderAckData {
     pub order_status: OrderStatus,
     pub order_id: String,
     pub cli_order_id: Option<String>,
+    pub msg: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

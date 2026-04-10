@@ -17,6 +17,12 @@ pub struct RestOrderAckOkx {
 
 impl From<RestOrderAckOkx> for OrderAckData {
     fn from(d: RestOrderAckOkx) -> Self {
+        let msg = if d.sMsg.is_empty() {
+            None
+        } else {
+            Some(d.sMsg.clone())
+        };
+
         OrderAckData {
             timestamp: ts_to_micros(d.ts.parse().unwrap_or_default()),
             order_status: if d.sCode == "0" {
@@ -26,6 +32,7 @@ impl From<RestOrderAckOkx> for OrderAckData {
             },
             order_id: d.ordId,
             cli_order_id: d.clOrdId,
+            msg,
         }
     }
 }

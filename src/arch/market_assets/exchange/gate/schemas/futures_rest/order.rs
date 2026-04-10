@@ -34,11 +34,14 @@ impl From<RestFuturesOrderGateFutures> for OrderAckData {
             },
             _ => OrderStatus::Unknown,
         };
+        let msg = d.finish_as.clone().filter(|value| !value.is_empty());
+
         OrderAckData {
             timestamp: ts_to_micros(ts as u64),
             order_status: status,
             order_id: d.id.to_string(),
             cli_order_id: d.text,
+            msg,
         }
     }
 }

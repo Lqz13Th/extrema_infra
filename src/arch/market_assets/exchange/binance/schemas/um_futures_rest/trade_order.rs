@@ -28,6 +28,7 @@ impl From<RestOrderAckBinanceUM> for OrderAckData {
             },
             order_id: d.orderId.to_string(),
             cli_order_id: d.clientOrderId,
+            msg: None,
         }
     }
 }
