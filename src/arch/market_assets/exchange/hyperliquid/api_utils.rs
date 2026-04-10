@@ -87,9 +87,6 @@ pub fn ws_subscribe_msg_hyperliquid_trades(coin: &str) -> String {
     .to_string()
 }
 
-const HYPERLIQUID_MARKET_BUY_MAX_PX: &str = "10000000";
-const HYPERLIQUID_MARKET_SELL_MIN_PX: &str = "0";
-
 #[derive(Clone, Debug, Serialize)]
 pub struct HyperliquidOrderAction {
     #[serde(rename = "type")]
@@ -145,14 +142,11 @@ pub fn hyperliquid_order_from_params(
     let size = normalize_hyperliquid_num_str(&order_params.size);
 
     let (price, tif) = match order_params.order_type {
-        OrderType::Market => (
-            if is_buy {
-                HYPERLIQUID_MARKET_BUY_MAX_PX.to_string()
-            } else {
-                HYPERLIQUID_MARKET_SELL_MIN_PX.to_string()
-            },
-            "Ioc",
-        ),
+        OrderType::Market => {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid market orders are disabled in this client; use IOC/FOK/limit with an explicit price".into(),
+            ));
+        },
         OrderType::PostOnly => (
             normalize_hyperliquid_num_str(order_params.price.as_deref().ok_or(
                 InfraError::ApiCliError("Hyperliquid post-only order requires price".into()),
