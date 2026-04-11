@@ -22,14 +22,14 @@ pub fn read_hyperliquid_env_auth() -> InfraResult<HyperliquidAuth> {
         .to_ascii_lowercase();
     let agent_private_key = std::env::var("HYPERLIQUID_AGENT_PRIVATE_KEY")
         .map_err(|_| InfraError::EnvVarMissing("HYPERLIQUID_AGENT_PRIVATE_KEY".into()))?;
-    let target_address = std::env::var("HYPERLIQUID_TARGET_ADDRESS")
+    let vault_address = std::env::var("HYPERLIQUID_VAULT_ADDRESS")
         .ok()
         .map(|address| address.to_ascii_lowercase());
 
     Ok(HyperliquidAuth {
         owner_address,
         agent_private_key,
-        target_address,
+        vault_address,
     })
 }
 
@@ -37,7 +37,7 @@ pub fn read_hyperliquid_env_auth() -> InfraResult<HyperliquidAuth> {
 pub struct HyperliquidAuth {
     pub owner_address: String,
     pub agent_private_key: String,
-    pub target_address: Option<String>,
+    pub vault_address: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -77,12 +77,12 @@ impl HyperliquidAuth {
         T: DeserializeOwned + Send + std::fmt::Debug,
         A: Serialize,
     {
-        let signature = self.sign_l1_action(action, nonce, self.target_address.as_deref())?;
+        let signature = self.sign_l1_action(action, nonce, self.vault_address.as_deref())?;
         let body = HyperliquidExchangeRequest {
             action,
             nonce,
             signature,
-            vault_address: self.target_address.as_deref(),
+            vault_address: self.vault_address.as_deref(),
         };
         let body_string = serde_json::to_string(&body).map_err(|e| {
             InfraError::ApiCliError(format!("Serialize Hyperliquid exchange body failed: {}", e))
