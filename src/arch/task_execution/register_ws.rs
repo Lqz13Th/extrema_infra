@@ -50,7 +50,11 @@ use crate::arch::market_assets::exchange::gate::{
 };
 #[cfg(feature = "hyperliquid")]
 use crate::arch::market_assets::exchange::hyperliquid::{
-    hyperliquid_ws_msg::HyperliquidWsData, schemas::ws::trades::WsTradeHyperliquid,
+    hyperliquid_ws_msg::HyperliquidWsData,
+    schemas::ws::{
+        account_order::WsAccountOrderHyperliquid,
+        account_position::WsAccountPositionMsgHyperliquid, trades::WsTradeHyperliquid,
+    },
 };
 #[cfg(feature = "okx")]
 use crate::arch::market_assets::exchange::okx::{
@@ -352,6 +356,28 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Hyperliquid Trades",
+                    );
+                }
+            },
+            WsChannel::AccountOrders => {
+                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
+                    self.ws_loop::<HyperliquidWsData<WsAccountOrderHyperliquid>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Hyperliquid Acc Order",
+                    );
+                }
+            },
+            WsChannel::AccountPositions => {
+                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
+                    self.ws_loop::<WsAccountPositionMsgHyperliquid>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Hyperliquid Acc Position",
                     );
                 }
             },

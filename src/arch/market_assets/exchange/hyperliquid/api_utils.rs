@@ -87,12 +87,33 @@ pub fn ws_subscribe_msg_hyperliquid_trades(coin: &str) -> String {
     .to_string()
 }
 
+pub fn ws_subscribe_msg_hyperliquid_user(subscription_type: &str, user: &str) -> String {
+    json!({
+        "method": "subscribe",
+        "subscription": {
+            "type": subscription_type,
+            "user": user,
+        }
+    })
+    .to_string()
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct HyperliquidOrderAction {
     #[serde(rename = "type")]
     pub kind: &'static str,
     pub orders: Vec<HyperliquidOrderRequest>,
     pub grouping: &'static str,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct HyperliquidUpdateLeverageAction {
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    pub asset: u32,
+    #[serde(rename = "isCross")]
+    pub is_cross: bool,
+    pub leverage: u32,
 }
 
 #[derive(Clone, Debug, Serialize)]
