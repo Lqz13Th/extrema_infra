@@ -1,7 +1,10 @@
 use reqwest::Client;
 use serde_json::{Value, json};
 use simd_json::from_slice;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tracing::error;
 
 use crate::arch::{
@@ -150,20 +153,26 @@ impl HyperliquidCli {
     }
 
     fn inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
-        let index = self.inst_index_map.get(inst).copied().ok_or_else(|| {
-            if self.inst_index_map.is_empty() {
-                InfraError::ApiCliError(
-                    "Hyperliquid inst_index_map is empty, call init_inst_index_map() first".into(),
-                )
-            } else {
-                InfraError::ApiCliError(format!(
-                    "Hyperliquid inst not found in inst_index_map: {}",
-                    inst
-                ))
-            }
-        })?;
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        let index = self
+            .inst_index_map
+            .get(&normalized_inst)
+            .copied()
+            .ok_or_else(|| {
+                if self.inst_index_map.is_empty() {
+                    InfraError::ApiCliError(
+                        "Hyperliquid inst_index_map is empty, call init_inst_index_map() first"
+                            .into(),
+                    )
+                } else {
+                    InfraError::ApiCliError(format!(
+                        "Hyperliquid inst not found in inst_index_map: {}",
+                        inst
+                    ))
+                }
+            })?;
 
-        let inst_type = if inst.ends_with(&format!("_{}_PERP", HYPERLIQUID_QUOTE)) {
+        let inst_type = if normalized_inst.ends_with(HYPERLIQUID_PERP_SUFFIX) {
             InstrumentType::Perpetual
         } else {
             InstrumentType::Spot
@@ -232,7 +241,7 @@ impl HyperliquidCli {
             ));
         }
 
-        if !inst.ends_with(&format!("_{}_PERP", HYPERLIQUID_QUOTE)) {
+        if !inst.ends_with(HYPERLIQUID_PERP_SUFFIX) {
             return Err(InfraError::ApiCliError(
                 "Hyperliquid set_leverage supports perpetual instruments only".into(),
             ));
@@ -304,7 +313,7 @@ impl HyperliquidCli {
                 let mut tickers = self._get_perp_tickers(None).await?;
                 tickers.extend(self._get_spot_tickers(None).await?);
 
-                if let Some(insts) = insts {
+                if let Some(insts) = normalize_inst_filters(insts) {
                     tickers.retain(|ticker| insts.contains(&ticker.inst));
                 }
 
@@ -316,18 +325,16 @@ impl HyperliquidCli {
     async fn _get_perp_tickers(&self, insts: Option<&[String]>) -> InfraResult<Vec<TickerData>> {
         let mids: RestAllMidsHyperliquid = self.post_info(&json!({ "type": "allMids" })).await?;
         let inst_infos = self._get_instrument_info(InstrumentType::Perpetual).await?;
+        let normalized_insts = normalize_inst_filters(insts);
 
         let tickers = inst_infos
             .into_iter()
-            .filter(|inst_info| match insts {
+            .filter(|inst_info| match &normalized_insts {
                 Some(insts) => insts.contains(&inst_info.inst),
                 None => true,
             })
             .filter_map(|inst_info| {
-                let coin = inst_info
-                    .inst
-                    .strip_suffix(&format!("_{}_PERP", HYPERLIQUID_QUOTE))?
-                    .to_string();
+                let coin = hyperliquid_cli_inst_to_raw_trade_coin(&inst_info.inst)?;
                 let price = mids.0.get(&coin)?.parse::<f64>().ok()?;
 
                 Some(TickerData {
@@ -347,11 +354,12 @@ impl HyperliquidCli {
             .post_info(&json!({ "type": "spotMetaAndAssetCtxs" }))
             .await?;
         let inst_infos = res.0.into_instrument_info();
+        let normalized_insts = normalize_inst_filters(insts);
 
         let tickers = inst_infos
             .into_iter()
             .zip(res.1.into_iter())
-            .filter(|(inst_info, _)| match insts {
+            .filter(|(inst_info, _)| match &normalized_insts {
                 Some(insts) => insts.contains(&inst_info.inst),
                 None => true,
             })
@@ -411,12 +419,13 @@ impl HyperliquidCli {
                 "user": user,
             }))
             .await?;
+        let normalized_assets = normalize_asset_filters(assets);
 
         let balances = res
             .balances
             .into_iter()
             .map(BalanceData::from)
-            .filter(|balance| match assets {
+            .filter(|balance| match &normalized_assets {
                 Some(assets) => assets.contains(&balance.asset),
                 None => true,
             })
@@ -436,6 +445,7 @@ impl HyperliquidCli {
         let ctxs: RestMetaAndAssetCtxsHyperliquid = self
             .post_info(&json!({ "type": "metaAndAssetCtxs" }))
             .await?;
+        let normalized_insts = normalize_inst_filters(insts);
 
         let mark_px_by_coin: HashMap<String, f64> = ctxs
             .0
@@ -461,7 +471,7 @@ impl HyperliquidCli {
                     .unwrap_or_default();
                 position.into_position_data(mark_price)
             })
-            .filter(|position| match insts {
+            .filter(|position| match &normalized_insts {
                 Some(insts) => insts.contains(&position.inst),
                 None => true,
             })
@@ -519,27 +529,47 @@ impl HyperliquidCli {
     }
 
     fn _inst_to_trade_coin(&self, inst: &str) -> InfraResult<String> {
-        if let Some(coin) = inst.strip_suffix(&format!("_{}_PERP", HYPERLIQUID_QUOTE)) {
-            return Ok(coin.to_string());
+        if let Some(coin) = hyperliquid_cli_inst_to_raw_trade_coin(inst) {
+            return Ok(coin);
         }
 
-        if inst == "PURR_USDC" {
-            return Ok("PURR/USDC".into());
-        }
-
-        let index = self.inst_index_map.get(inst).copied().ok_or_else(|| {
-            if self.inst_index_map.is_empty() {
-                InfraError::ApiCliError(
-                    "Hyperliquid inst_index_map is empty, call init_inst_index_map() first".into(),
-                )
-            } else {
-                InfraError::ApiCliError(format!(
-                    "Hyperliquid inst not found in inst_index_map: {}",
-                    inst
-                ))
-            }
-        })?;
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        let index = self
+            .inst_index_map
+            .get(&normalized_inst)
+            .copied()
+            .ok_or_else(|| {
+                if self.inst_index_map.is_empty() {
+                    InfraError::ApiCliError(
+                        "Hyperliquid inst_index_map is empty, call init_inst_index_map() first"
+                            .into(),
+                    )
+                } else {
+                    InfraError::ApiCliError(format!(
+                        "Hyperliquid inst not found in inst_index_map: {}",
+                        inst
+                    ))
+                }
+            })?;
 
         Ok(format!("@{}", index))
     }
+}
+
+fn normalize_inst_filters(insts: Option<&[String]>) -> Option<HashSet<String>> {
+    insts.map(|insts| {
+        insts
+            .iter()
+            .map(|inst| normalize_hyperliquid_cli_inst(inst))
+            .collect()
+    })
+}
+
+fn normalize_asset_filters(assets: Option<&[String]>) -> Option<HashSet<String>> {
+    assets.map(|assets| {
+        assets
+            .iter()
+            .map(|asset| hyperliquid_symbol_to_cli_symbol(asset))
+            .collect()
+    })
 }

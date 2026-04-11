@@ -4,7 +4,7 @@ use crate::arch::{
     market_assets::{
         api_general::ts_to_micros,
         base_data::{InstrumentType, OrderSide, OrderStatus, OrderType},
-        exchange::hyperliquid::api_utils::hyperliquid_trade_coin_to_cli,
+        exchange::hyperliquid::api_utils::hyperliquid_inst_to_cli,
         market_core::Market,
     },
     strategy_base::handler::lob_events::WsAccOrder,
@@ -44,7 +44,7 @@ impl IntoWsData for WsAccountOrderHyperliquid {
         WsAccOrder {
             timestamp: ts_to_micros(self.statusTimestamp.max(self.order.timestamp)),
             market: Market::HyperLiquid,
-            inst: hyperliquid_trade_coin_to_cli(&self.order.coin),
+            inst: hyperliquid_inst_to_cli(&self.order.coin),
             inst_type: infer_inst_type(&self.order.coin),
             price: self.order.limitPx.parse().unwrap_or_default(),
             size: orig_size,

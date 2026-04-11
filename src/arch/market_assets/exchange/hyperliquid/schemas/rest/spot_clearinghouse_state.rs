@@ -1,7 +1,10 @@
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::arch::market_assets::{api_data::account_data::BalanceData, api_general::value_to_f64};
+use crate::arch::market_assets::{
+    api_data::account_data::BalanceData, api_general::value_to_f64,
+    exchange::hyperliquid::api_utils::hyperliquid_symbol_to_cli_symbol,
+};
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
@@ -26,7 +29,7 @@ impl From<RestSpotBalanceHyperliquid> for BalanceData {
 
         BalanceData {
             timestamp: 0,
-            asset: d.coin,
+            asset: hyperliquid_symbol_to_cli_symbol(&d.coin),
             total,
             frozen,
             available: (total - frozen).max(0.0),

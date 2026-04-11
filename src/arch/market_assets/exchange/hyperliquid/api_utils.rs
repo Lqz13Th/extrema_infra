@@ -8,7 +8,10 @@ use crate::arch::market_assets::{
 use crate::errors::{InfraError, InfraResult};
 
 pub const HYPERLIQUID_QUOTE: &str = "USDC";
+pub const HYPERLIQUID_PERP_SUFFIX: &str = "_USDC_PERP";
 pub const HYPERLIQUID_SPOT_ASSET_OFFSET: u32 = 10_000;
+const HYPERLIQUID_KILO_PREFIX: &str = "k";
+const CLI_KILO_PREFIX: &str = "1000";
 
 pub fn hyperliquid_perp_asset_id(index: usize) -> String {
     index.to_string()
@@ -54,26 +57,96 @@ pub fn hyperliquid_asset_id_to_index(
     }
 }
 
+pub fn hyperliquid_symbol_to_cli_symbol(symbol: &str) -> String {
+    if let Some(rest) = symbol.strip_prefix(HYPERLIQUID_KILO_PREFIX)
+        && is_hyperliquid_kilo_symbol(rest)
+    {
+        return format!("{}{}", CLI_KILO_PREFIX, rest);
+    }
+
+    symbol.to_string()
+}
+
+fn hyperliquid_cli_symbol_to_raw_symbol(symbol: &str) -> String {
+    if let Some(rest) = symbol.strip_prefix(CLI_KILO_PREFIX)
+        && is_hyperliquid_kilo_symbol(rest)
+    {
+        return format!("{}{}", HYPERLIQUID_KILO_PREFIX, rest);
+    }
+
+    symbol.to_string()
+}
+
+pub(crate) fn normalize_hyperliquid_cli_inst(inst: &str) -> String {
+    if let Some(base) = inst.strip_suffix(HYPERLIQUID_PERP_SUFFIX) {
+        return format!(
+            "{}{}",
+            hyperliquid_symbol_to_cli_symbol(base),
+            HYPERLIQUID_PERP_SUFFIX
+        );
+    }
+
+    if let Some((base, quote)) = inst.split_once('_') {
+        return format!(
+            "{}_{}",
+            hyperliquid_symbol_to_cli_symbol(base),
+            hyperliquid_symbol_to_cli_symbol(quote)
+        );
+    }
+
+    hyperliquid_symbol_to_cli_symbol(inst)
+}
+
+pub(crate) fn hyperliquid_cli_inst_to_raw_trade_coin(inst: &str) -> Option<String> {
+    if let Some(base) = inst.strip_suffix(HYPERLIQUID_PERP_SUFFIX) {
+        return Some(hyperliquid_cli_symbol_to_raw_symbol(base));
+    }
+
+    if inst == "PURR_USDC" {
+        return Some("PURR/USDC".into());
+    }
+
+    None
+}
+
 pub fn hyperliquid_perp_to_cli(symbol: &str) -> String {
-    format!("{}_{}_PERP", symbol, HYPERLIQUID_QUOTE)
+    format!(
+        "{}{}",
+        hyperliquid_symbol_to_cli_symbol(symbol),
+        HYPERLIQUID_PERP_SUFFIX
+    )
 }
 
 pub fn hyperliquid_spot_to_cli(symbol: &str, base: &str, quote: &str) -> String {
-    if symbol.contains('/') {
-        symbol.replace('/', "_")
-    } else {
-        format!("{}_{}", base, quote)
+    if let Some((base, quote)) = symbol.split_once('/') {
+        return format!(
+            "{}_{}",
+            hyperliquid_symbol_to_cli_symbol(base),
+            hyperliquid_symbol_to_cli_symbol(quote)
+        );
     }
+
+    format!(
+        "{}_{}",
+        hyperliquid_symbol_to_cli_symbol(base),
+        hyperliquid_symbol_to_cli_symbol(quote)
+    )
 }
 
-pub fn hyperliquid_trade_coin_to_cli(coin: &str) -> String {
+pub fn hyperliquid_inst_to_cli(coin: &str) -> String {
     if coin.starts_with('@') {
-        coin.to_string()
-    } else if coin.contains('/') {
-        coin.replace('/', "_")
-    } else {
-        hyperliquid_perp_to_cli(coin)
+        return coin.to_string();
     }
+
+    if let Some((base, quote)) = coin.split_once('/') {
+        return format!(
+            "{}_{}",
+            hyperliquid_symbol_to_cli_symbol(base),
+            hyperliquid_symbol_to_cli_symbol(quote)
+        );
+    }
+
+    hyperliquid_perp_to_cli(coin)
 }
 
 pub fn ws_subscribe_msg_hyperliquid_trades(coin: &str) -> String {
@@ -221,4 +294,11 @@ pub fn normalize_hyperliquid_num_str(input: &str) -> String {
     } else {
         trimmed.to_string()
     }
+}
+
+fn is_hyperliquid_kilo_symbol(symbol: &str) -> bool {
+    !symbol.is_empty()
+        && symbol
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
 }
