@@ -130,6 +130,48 @@ impl HyperliquidCli {
         }
     }
 
+    fn owner_address(&self) -> InfraResult<&str> {
+        self.auth
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)
+            .map(|auth| auth.owner_address.as_str())
+    }
+
+    async fn post_info<T>(&self, body: &Value) -> InfraResult<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let url = format!("{}{}", HYPERLIQUID_BASE_URL, HYPERLIQUID_INFO);
+        let responds = self.client.post(url).json(body).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: T = from_slice(&mut res_bytes)?;
+
+        Ok(res)
+    }
+
+    fn inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
+        let index = self.inst_index_map.get(inst).copied().ok_or_else(|| {
+            if self.inst_index_map.is_empty() {
+                InfraError::ApiCliError(
+                    "Hyperliquid inst_index_map is empty, call init_inst_index_map() first".into(),
+                )
+            } else {
+                InfraError::ApiCliError(format!(
+                    "Hyperliquid inst not found in inst_index_map: {}",
+                    inst
+                ))
+            }
+        })?;
+
+        let inst_type = if inst.ends_with(&format!("_{}_PERP", HYPERLIQUID_QUOTE)) {
+            InstrumentType::Perpetual
+        } else {
+            InstrumentType::Spot
+        };
+
+        hyperliquid_index_to_asset_id(inst_type, index)
+    }
+
     pub async fn init_inst_index_map(&mut self) -> InfraResult<()> {
         let mut inst_index_map = HashMap::new();
 
@@ -426,48 +468,6 @@ impl HyperliquidCli {
             .collect();
 
         Ok(positions)
-    }
-
-    async fn post_info<T>(&self, body: &Value) -> InfraResult<T>
-    where
-        T: serde::de::DeserializeOwned,
-    {
-        let url = format!("{}{}", HYPERLIQUID_BASE_URL, HYPERLIQUID_INFO);
-        let responds = self.client.post(url).json(body).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: T = from_slice(&mut res_bytes)?;
-
-        Ok(res)
-    }
-
-    fn owner_address(&self) -> InfraResult<&str> {
-        self.auth
-            .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)
-            .map(|auth| auth.owner_address.as_str())
-    }
-
-    fn inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
-        let index = self.inst_index_map.get(inst).copied().ok_or_else(|| {
-            if self.inst_index_map.is_empty() {
-                InfraError::ApiCliError(
-                    "Hyperliquid inst_index_map is empty, call init_inst_index_map() first".into(),
-                )
-            } else {
-                InfraError::ApiCliError(format!(
-                    "Hyperliquid inst not found in inst_index_map: {}",
-                    inst
-                ))
-            }
-        })?;
-
-        let inst_type = if inst.ends_with(&format!("_{}_PERP", HYPERLIQUID_QUOTE)) {
-            InstrumentType::Perpetual
-        } else {
-            InstrumentType::Spot
-        };
-
-        hyperliquid_index_to_asset_id(inst_type, index)
     }
 
     fn _get_public_sub_msg(
