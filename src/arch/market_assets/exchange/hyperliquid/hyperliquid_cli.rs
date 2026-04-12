@@ -132,68 +132,6 @@ impl HyperliquidCli {
         }
     }
 
-    fn owner_address(&self) -> InfraResult<&str> {
-        self.auth
-            .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)
-            .map(|auth| auth.owner_address.as_str())
-    }
-
-    async fn post_info_raw<T>(&self, body: &Value) -> InfraResult<RestResHyperliquid<T>>
-    where
-        T: serde::de::DeserializeOwned,
-    {
-        let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_INFO].concat();
-        let responds = self.client.post(url).json(body).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResHyperliquid<T> = from_slice(&mut res_bytes)?;
-
-        Ok(res)
-    }
-
-    async fn get_meta_and_asset_ctxs(&self) -> InfraResult<RestMetaAndAssetCtxsHyperliquid> {
-        let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
-            .post_info_raw(&json!({ "type": "metaAndAssetCtxs" }))
-            .await?;
-
-        ctxs_res
-            .into_vec()?
-            .into_iter()
-            .next()
-            .ok_or(InfraError::ApiCliError(
-                "No Hyperliquid metaAndAssetCtxs returned".into(),
-            ))
-    }
-
-    fn inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
-        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
-        let index = self
-            .inst_index_map
-            .get(&normalized_inst)
-            .copied()
-            .ok_or_else(|| {
-                if self.inst_index_map.is_empty() {
-                    InfraError::ApiCliError(
-                        "Hyperliquid inst_index_map is empty, call init_inst_index_map() first"
-                            .into(),
-                    )
-                } else {
-                    InfraError::ApiCliError(format!(
-                        "Hyperliquid inst not found in inst_index_map: {}",
-                        inst
-                    ))
-                }
-            })?;
-
-        let inst_type = if normalized_inst.ends_with(HYPERLIQUID_PERP_SUFFIX) {
-            InstrumentType::Perpetual
-        } else {
-            InstrumentType::Spot
-        };
-
-        hyperliquid_index_to_asset_id(inst_type, index)
-    }
-
     pub async fn init_inst_index_map(&mut self) -> InfraResult<()> {
         let mut inst_index_map = HashMap::new();
 
@@ -249,7 +187,7 @@ impl HyperliquidCli {
         let target_inst = normalize_funding_inst_filter(inst)?;
 
         let data = self
-            .get_meta_and_asset_ctxs()
+            ._get_meta_and_asset_ctxs()
             .await?
             .into_funding_rate_data()?
             .into_iter()
@@ -269,7 +207,7 @@ impl HyperliquidCli {
         let target_inst = normalize_funding_inst_filter(inst)?;
 
         let data = self
-            .get_meta_and_asset_ctxs()
+            ._get_meta_and_asset_ctxs()
             .await?
             .into_funding_rate_info()?
             .into_iter()
@@ -309,7 +247,7 @@ impl HyperliquidCli {
         }
 
         let res: RestResHyperliquid<RestFundingHistoryHyperliquid> =
-            self.post_info_raw(&body).await?;
+            self._post_info_raw(&body).await?;
 
         let data = res
             .into_vec()?
@@ -340,7 +278,7 @@ impl HyperliquidCli {
 
         let action = HyperliquidUpdateLeverageAction {
             kind: "updateLeverage",
-            asset: self.inst_to_asset_id(inst)?,
+            asset: self._inst_to_asset_id(inst)?,
             is_cross: match margin_mode {
                 MarginMode::Cross => true,
                 MarginMode::Isolated => false,
@@ -370,7 +308,7 @@ impl HyperliquidCli {
             InstrumentType::Perpetual => {
                 let body = json!({ "type": "meta" });
                 let res: RestResHyperliquid<RestMetaHyperliquid> =
-                    self.post_info_raw(&body).await?;
+                    self._post_info_raw(&body).await?;
 
                 let data = res
                     .into_vec()?
@@ -385,7 +323,7 @@ impl HyperliquidCli {
             InstrumentType::Spot => {
                 let body = json!({ "type": "spotMeta" });
                 let res: RestResHyperliquid<RestSpotMetaHyperliquid> =
-                    self.post_info_raw(&body).await?;
+                    self._post_info_raw(&body).await?;
 
                 let data = res
                     .into_vec()?
@@ -412,7 +350,7 @@ impl HyperliquidCli {
             InstrumentType::Perpetual => {
                 let body = json!({ "type": "allMids" });
                 let res: RestResHyperliquid<RestAllMidsHyperliquid> =
-                    self.post_info_raw(&body).await?;
+                    self._post_info_raw(&body).await?;
 
                 let data = res
                     .into_vec()?
@@ -434,7 +372,7 @@ impl HyperliquidCli {
             InstrumentType::Spot => {
                 let mids_body = json!({ "type": "allMids" });
                 let mids_res: RestResHyperliquid<RestAllMidsHyperliquid> =
-                    self.post_info_raw(&mids_body).await?;
+                    self._post_info_raw(&mids_body).await?;
                 let mids =
                     mids_res
                         .into_vec()?
@@ -446,7 +384,7 @@ impl HyperliquidCli {
 
                 let meta_body = json!({ "type": "spotMeta" });
                 let meta_res: RestResHyperliquid<RestSpotMetaHyperliquid> =
-                    self.post_info_raw(&meta_body).await?;
+                    self._post_info_raw(&meta_body).await?;
                 let meta =
                     meta_res
                         .into_vec()?
@@ -476,7 +414,7 @@ impl HyperliquidCli {
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         let mut order_params = order_params;
-        let asset_id = self.inst_to_asset_id(&order_params.inst)?;
+        let asset_id = self._inst_to_asset_id(&order_params.inst)?;
         order_params.inst = asset_id.to_string();
 
         let action = HyperliquidOrderAction {
@@ -505,9 +443,9 @@ impl HyperliquidCli {
     }
 
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
-        let user = self.owner_address()?;
+        let user = self._owner_address()?;
         let res: RestResHyperliquid<RestSpotClearinghouseStateHyperliquid> = self
-            .post_info_raw(&json!({
+            ._post_info_raw(&json!({
                 "type": "spotClearinghouseState",
                 "user": user,
             }))
@@ -534,9 +472,9 @@ impl HyperliquidCli {
     }
 
     async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
-        let user = self.owner_address()?;
+        let user = self._owner_address()?;
         let state_res: RestResHyperliquid<RestClearinghouseStateHyperliquid> = self
-            .post_info_raw(&json!({
+            ._post_info_raw(&json!({
                 "type": "clearinghouseState",
                 "user": user,
             }))
@@ -552,7 +490,7 @@ impl HyperliquidCli {
 
         let normalized_insts = normalize_inst_filters(insts);
         let mark_px_by_coin = self
-            .get_meta_and_asset_ctxs()
+            ._get_meta_and_asset_ctxs()
             .await?
             .into_perp_mark_px_by_coin()?;
 
@@ -582,7 +520,7 @@ impl HyperliquidCli {
     }
 
     fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        let user = self.owner_address()?;
+        let user = self._owner_address()?;
 
         match channel {
             WsChannel::AccountOrders => Ok(ws_subscribe_msg_hyperliquid_user("orderUpdates", user)),
@@ -641,5 +579,67 @@ impl HyperliquidCli {
             })?;
 
         Ok(format!("@{}", index))
+    }
+
+    fn _owner_address(&self) -> InfraResult<&str> {
+        self.auth
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)
+            .map(|auth| auth.owner_address.as_str())
+    }
+
+    async fn _post_info_raw<T>(&self, body: &Value) -> InfraResult<RestResHyperliquid<T>>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_INFO].concat();
+        let responds = self.client.post(url).json(body).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResHyperliquid<T> = from_slice(&mut res_bytes)?;
+
+        Ok(res)
+    }
+
+    async fn _get_meta_and_asset_ctxs(&self) -> InfraResult<RestMetaAndAssetCtxsHyperliquid> {
+        let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
+            ._post_info_raw(&json!({ "type": "metaAndAssetCtxs" }))
+            .await?;
+
+        ctxs_res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid metaAndAssetCtxs returned".into(),
+            ))
+    }
+
+    fn _inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        let index = self
+            .inst_index_map
+            .get(&normalized_inst)
+            .copied()
+            .ok_or_else(|| {
+                if self.inst_index_map.is_empty() {
+                    InfraError::ApiCliError(
+                        "Hyperliquid inst_index_map is empty, call init_inst_index_map() first"
+                            .into(),
+                    )
+                } else {
+                    InfraError::ApiCliError(format!(
+                        "Hyperliquid inst not found in inst_index_map: {}",
+                        inst
+                    ))
+                }
+            })?;
+
+        let inst_type = if normalized_inst.ends_with(HYPERLIQUID_PERP_SUFFIX) {
+            InstrumentType::Perpetual
+        } else {
+            InstrumentType::Spot
+        };
+
+        hyperliquid_index_to_asset_id(inst_type, index)
     }
 }
