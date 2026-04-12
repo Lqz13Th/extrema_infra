@@ -1,3 +1,6 @@
+use crate::arch::market_assets::api_general::get_mills_timestamp;
+use crate::arch::traits::conversion::IntoInfraVec;
+use crate::errors::{InfraError, InfraResult};
 use data_encoding::HEXLOWER;
 use reqwest::Client;
 use rmp_serde::to_vec_named;
@@ -5,9 +8,6 @@ use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha3::{Digest, Keccak256};
 use simd_json::from_slice;
-
-use crate::arch::traits::conversion::IntoInfraVec;
-use crate::errors::{InfraError, InfraResult};
 
 use super::{
     config_assets::{HYPERLIQUID_BASE_URL, HYPERLIQUID_EXCHANGE, HYPERLIQUID_MAINNET_SOURCE},
@@ -67,16 +67,16 @@ where
 }
 
 impl HyperliquidAuth {
-    pub async fn send_signed_exchange_action<T, A>(
+    pub async fn send_signed_exchange_action_raw<T, A>(
         &self,
         client: &Client,
         action: &A,
-        nonce: u64,
-    ) -> InfraResult<Vec<T>>
+    ) -> InfraResult<T>
     where
         T: DeserializeOwned + Send + std::fmt::Debug,
         A: Serialize,
     {
+        let nonce = get_mills_timestamp();
         let signature = self.sign_l1_action(action, nonce, self.vault_address.as_deref())?;
         let body = HyperliquidExchangeRequest {
             action,
@@ -97,8 +97,9 @@ impl HyperliquidAuth {
             .await?;
 
         let mut response = response.bytes().await?.to_vec();
-        let result: RestResHyperliquid<T> = from_slice(&mut response)?;
-        result.into_vec()
+        let result: T = from_slice(&mut response)?;
+
+        Ok(result)
     }
 
     pub fn sign_l1_action<A>(

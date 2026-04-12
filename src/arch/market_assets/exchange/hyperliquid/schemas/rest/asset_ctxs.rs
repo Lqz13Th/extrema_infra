@@ -13,6 +13,8 @@ pub struct RestMetaAndAssetCtxsHyperliquid(
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestPerpAssetCtxHyperliquid {
     #[serde(default)]
+    pub funding: Value,
+    #[serde(default)]
     pub markPx: Value,
     #[serde(default)]
     pub midPx: Value,

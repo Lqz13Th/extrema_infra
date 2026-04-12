@@ -11,14 +11,16 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{BalanceData, OrderAckData, PositionData},
-            price_data::TickerData,
             utils_data::InstrumentInfo,
         },
-        api_general::{OrderParams, get_mills_timestamp, value_to_f64},
+        api_general::{OrderParams, value_to_f64},
         base_data::{InstrumentType, MarginMode},
     },
     task_execution::task_ws::{TradesParam, WsChannel},
-    traits::market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
+    traits::{
+        conversion::IntoInfraVec,
+        market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
+    },
 };
 use crate::errors::{InfraError, InfraResult};
 
@@ -26,14 +28,12 @@ use super::{
     api_utils::*,
     auth::{HyperliquidAuth, read_hyperliquid_env_auth},
     config_assets::*,
+    hyperliquid_rest_msg::RestResHyperliquid,
     schemas::rest::{
-        all_mids::RestAllMidsHyperliquid,
-        asset_ctxs::{RestMetaAndAssetCtxsHyperliquid, RestSpotMetaAndAssetCtxsHyperliquid},
-        clearinghouse_state::RestClearinghouseStateHyperliquid,
-        meta::RestMetaHyperliquid,
+        asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
+        clearinghouse_state::RestClearinghouseStateHyperliquid, meta::RestMetaHyperliquid,
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
-        spot_meta::RestSpotMetaHyperliquid,
-        trade_order::RestOrderAckHyperliquid,
+        spot_meta::RestSpotMetaHyperliquid, trade_order::RestOrderAckHyperliquid,
     },
 };
 
@@ -53,13 +53,13 @@ impl Default for HyperliquidCli {
 impl MarketLobApi for HyperliquidCli {}
 
 impl LobPublicRest for HyperliquidCli {
-    async fn get_tickers(
-        &self,
-        insts: Option<&[String]>,
-        inst_type: Option<InstrumentType>,
-    ) -> InfraResult<Vec<TickerData>> {
-        self._get_tickers(insts, inst_type).await
-    }
+    // async fn get_tickers(
+    //     &self,
+    //     insts: Option<&[String]>,
+    //     inst_type: Option<InstrumentType>,
+    // ) -> InfraResult<Vec<TickerData>> {
+    //     // self._get_tickers(insts, inst_type).await
+    // }
 
     async fn get_instrument_info(
         &self,
@@ -140,14 +140,14 @@ impl HyperliquidCli {
             .map(|auth| auth.owner_address.as_str())
     }
 
-    async fn post_info<T>(&self, body: &Value) -> InfraResult<T>
+    async fn post_info_raw<T>(&self, body: &Value) -> InfraResult<RestResHyperliquid<T>>
     where
         T: serde::de::DeserializeOwned,
     {
-        let url = format!("{}{}", HYPERLIQUID_BASE_URL, HYPERLIQUID_INFO);
+        let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_INFO].concat();
         let responds = self.client.post(url).json(body).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: T = from_slice(&mut res_bytes)?;
+        let res: RestResHyperliquid<T> = from_slice(&mut res_bytes)?;
 
         Ok(res)
     }
@@ -262,10 +262,11 @@ impl HyperliquidCli {
             leverage,
         };
 
-        self.auth
+        let res: RestResHyperliquid<Value> = self
+            .auth
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_exchange_action::<Value, _>(&self.client, &action, get_mills_timestamp())
+            .send_signed_exchange_action_raw(&self.client, &action)
             .await?;
 
         Ok(())
@@ -278,15 +279,33 @@ impl HyperliquidCli {
         match inst_type {
             InstrumentType::Perpetual => {
                 let body = json!({ "type": "meta" });
-                let res: RestMetaHyperliquid = self.post_info(&body).await?;
+                let res: RestResHyperliquid<RestMetaHyperliquid> =
+                    self.post_info_raw(&body).await?;
 
-                Ok(res.into_instrument_info())
+                let data = res
+                    .into_vec()?
+                    .into_iter()
+                    .next()
+                    .ok_or(InfraError::ApiCliError(
+                        "No Hyperliquid perpetual instrument info returned".into(),
+                    ))?;
+
+                Ok(data.into_instrument_info())
             },
             InstrumentType::Spot => {
                 let body = json!({ "type": "spotMeta" });
-                let res: RestSpotMetaHyperliquid = self.post_info(&body).await?;
+                let res: RestResHyperliquid<RestSpotMetaHyperliquid> =
+                    self.post_info_raw(&body).await?;
 
-                Ok(res.into_instrument_info())
+                let data = res
+                    .into_vec()?
+                    .into_iter()
+                    .next()
+                    .ok_or(InfraError::ApiCliError(
+                        "No Hyperliquid spot instrument info returned".into(),
+                    ))?;
+
+                Ok(data.into_instrument_info())
             },
             _ => Err(InfraError::ApiCliError(
                 "Hyperliquid get_instrument_info currently supports Spot and Perpetual only".into(),
@@ -294,131 +313,51 @@ impl HyperliquidCli {
         }
     }
 
-    async fn _get_tickers(
-        &self,
-        insts: Option<&[String]>,
-        inst_type: Option<InstrumentType>,
-    ) -> InfraResult<Vec<TickerData>> {
-        match inst_type {
-            Some(InstrumentType::Perpetual) => self._get_perp_tickers(insts).await,
-            Some(InstrumentType::Spot) => self._get_spot_tickers(insts).await,
-            Some(InstrumentType::Unknown) => {
-                Err(InfraError::ApiCliError("Unknown instrument type".into()))
-            },
-            Some(other) => Err(InfraError::ApiCliError(format!(
-                "Hyperliquid get_tickers does not support {:?}",
-                other
-            ))),
-            None => {
-                let mut tickers = self._get_perp_tickers(None).await?;
-                tickers.extend(self._get_spot_tickers(None).await?);
-
-                if let Some(insts) = normalize_inst_filters(insts) {
-                    tickers.retain(|ticker| insts.contains(&ticker.inst));
-                }
-
-                Ok(tickers)
-            },
-        }
-    }
-
-    async fn _get_perp_tickers(&self, insts: Option<&[String]>) -> InfraResult<Vec<TickerData>> {
-        let mids: RestAllMidsHyperliquid = self.post_info(&json!({ "type": "allMids" })).await?;
-        let inst_infos = self._get_instrument_info(InstrumentType::Perpetual).await?;
-        let normalized_insts = normalize_inst_filters(insts);
-
-        let tickers = inst_infos
-            .into_iter()
-            .filter(|inst_info| match &normalized_insts {
-                Some(insts) => insts.contains(&inst_info.inst),
-                None => true,
-            })
-            .filter_map(|inst_info| {
-                let coin = hyperliquid_cli_inst_to_raw_trade_coin(&inst_info.inst)?;
-                let price = mids.0.get(&coin)?.parse::<f64>().ok()?;
-
-                Some(TickerData {
-                    timestamp: 0,
-                    inst: inst_info.inst,
-                    inst_type: InstrumentType::Perpetual,
-                    price,
-                })
-            })
-            .collect();
-
-        Ok(tickers)
-    }
-
-    async fn _get_spot_tickers(&self, insts: Option<&[String]>) -> InfraResult<Vec<TickerData>> {
-        let res: RestSpotMetaAndAssetCtxsHyperliquid = self
-            .post_info(&json!({ "type": "spotMetaAndAssetCtxs" }))
-            .await?;
-        let inst_infos = res.0.into_instrument_info();
-        let normalized_insts = normalize_inst_filters(insts);
-
-        let tickers = inst_infos
-            .into_iter()
-            .zip(res.1.into_iter())
-            .filter(|(inst_info, _)| match &normalized_insts {
-                Some(insts) => insts.contains(&inst_info.inst),
-                None => true,
-            })
-            .map(|(inst_info, ctx)| {
-                let price = match value_to_f64(&ctx.midPx) {
-                    0.0 => value_to_f64(&ctx.markPx),
-                    mid => mid,
-                };
-
-                TickerData {
-                    timestamp: 0,
-                    inst: inst_info.inst,
-                    inst_type: InstrumentType::Spot,
-                    price,
-                }
-            })
-            .collect();
-
-        Ok(tickers)
-    }
-
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         let mut order_params = order_params;
         let asset_id = self.inst_to_asset_id(&order_params.inst)?;
         order_params.inst = asset_id.to_string();
 
-        let nonce = get_mills_timestamp();
         let action = HyperliquidOrderAction {
             kind: "order",
             orders: vec![hyperliquid_order_from_params(order_params)?],
             grouping: HYPERLIQUID_GROUPING_NA,
         };
 
-        let data: Vec<RestOrderAckHyperliquid> = self
+        let res: RestResHyperliquid<RestOrderAckHyperliquid> = self
             .auth
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_exchange_action(&self.client, &action, nonce)
+            .send_signed_exchange_action_raw(&self.client, &action)
             .await?;
 
-        let data: OrderAckData =
-            data.into_iter()
-                .map(OrderAckData::from)
-                .next()
-                .ok_or(InfraError::ApiCliError(
-                    "No Hyperliquid order ack data returned".into(),
-                ))?;
+        let data: OrderAckData = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid order ack data returned".into(),
+            ))?;
 
         Ok(data)
     }
 
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         let user = self.owner_address()?;
-        let res: RestSpotClearinghouseStateHyperliquid = self
-            .post_info(&json!({
+        let res: RestResHyperliquid<RestSpotClearinghouseStateHyperliquid> = self
+            .post_info_raw(&json!({
                 "type": "spotClearinghouseState",
                 "user": user,
             }))
             .await?;
+        let res = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid spotClearinghouseState returned".into(),
+            ))?;
         let normalized_assets = normalize_asset_filters(assets);
 
         let balances = res
@@ -436,15 +375,29 @@ impl HyperliquidCli {
 
     async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         let user = self.owner_address()?;
-        let state: RestClearinghouseStateHyperliquid = self
-            .post_info(&json!({
+        let state_res: RestResHyperliquid<RestClearinghouseStateHyperliquid> = self
+            .post_info_raw(&json!({
                 "type": "clearinghouseState",
                 "user": user,
             }))
             .await?;
-        let ctxs: RestMetaAndAssetCtxsHyperliquid = self
-            .post_info(&json!({ "type": "metaAndAssetCtxs" }))
+        let state = state_res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid clearinghouse state returned".into(),
+            ))?;
+        let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
+            .post_info_raw(&json!({ "type": "metaAndAssetCtxs" }))
             .await?;
+        let ctxs = ctxs_res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid metaAndAssetCtxs returned".into(),
+            ))?;
         let normalized_insts = normalize_inst_filters(insts);
 
         let mark_px_by_coin: HashMap<String, f64> = ctxs
