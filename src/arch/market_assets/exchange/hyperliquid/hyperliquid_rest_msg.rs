@@ -7,6 +7,7 @@ use crate::errors::{InfraError, InfraResult};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum RestResHyperliquid<T> {
+    Null,
     Exchange {
         status: String,
         response: Option<RestResHyperliquidPayload<T>>,
@@ -33,6 +34,7 @@ where
 {
     fn into_vec(self) -> InfraResult<Vec<T>> {
         match self {
+            Self::Null => Ok(vec![]),
             Self::Data(v) => Ok(v),
             Self::Object(o) => Ok(vec![o]),
             Self::Exchange { status, response } => {
