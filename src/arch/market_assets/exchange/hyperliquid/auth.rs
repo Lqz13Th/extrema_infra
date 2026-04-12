@@ -1,5 +1,4 @@
 use crate::arch::market_assets::api_general::get_mills_timestamp;
-use crate::arch::traits::conversion::IntoInfraVec;
 use crate::errors::{InfraError, InfraResult};
 use data_encoding::HEXLOWER;
 use reqwest::Client;
@@ -9,10 +8,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha3::{Digest, Keccak256};
 use simd_json::from_slice;
 
-use super::{
-    config_assets::{HYPERLIQUID_BASE_URL, HYPERLIQUID_EXCHANGE, HYPERLIQUID_MAINNET_SOURCE},
-    hyperliquid_rest_msg::RestResHyperliquid,
-};
+use super::config_assets::*;
 
 pub fn read_hyperliquid_env_auth() -> InfraResult<HyperliquidAuth> {
     let _ = dotenvy::dotenv();

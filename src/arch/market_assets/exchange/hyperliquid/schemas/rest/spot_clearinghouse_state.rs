@@ -12,6 +12,12 @@ pub struct RestSpotClearinghouseStateHyperliquid {
     pub balances: Vec<RestSpotBalanceHyperliquid>,
 }
 
+impl RestSpotClearinghouseStateHyperliquid {
+    pub fn into_balance_data(self) -> Vec<BalanceData> {
+        self.balances.into_iter().map(BalanceData::from).collect()
+    }
+}
+
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestSpotBalanceHyperliquid {

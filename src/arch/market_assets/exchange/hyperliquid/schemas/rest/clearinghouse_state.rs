@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -13,6 +15,21 @@ use crate::arch::strategy_base::handler::lob_events::WsAccPosition;
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestClearinghouseStateHyperliquid {
     pub assetPositions: Vec<RestAssetPositionHyperliquid>,
+}
+
+impl RestClearinghouseStateHyperliquid {
+    pub fn into_position_data(self, mark_px_by_coin: &HashMap<String, f64>) -> Vec<PositionData> {
+        self.assetPositions
+            .into_iter()
+            .map(|position| {
+                let mark_price = mark_px_by_coin
+                    .get(&position.position.coin)
+                    .copied()
+                    .unwrap_or_default();
+                position.into_position_data(mark_price)
+            })
+            .collect()
+    }
 }
 
 #[allow(non_snake_case)]

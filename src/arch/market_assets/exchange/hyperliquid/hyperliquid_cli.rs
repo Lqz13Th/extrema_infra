@@ -13,7 +13,7 @@ use crate::arch::{
             account_data::{BalanceData, OrderAckData, PositionData},
             utils_data::InstrumentInfo,
         },
-        api_general::{OrderParams, value_to_f64},
+        api_general::OrderParams,
         base_data::{InstrumentType, MarginMode},
     },
     task_execution::task_ws::{TradesParam, WsChannel},
@@ -262,11 +262,10 @@ impl HyperliquidCli {
             leverage,
         };
 
-        let res: RestResHyperliquid<Value> = self
-            .auth
+        self.auth
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_exchange_action_raw(&self.client, &action)
+            .send_signed_exchange_action_raw::<Value, _>(&self.client, &action)
             .await?;
 
         Ok(())
@@ -351,6 +350,7 @@ impl HyperliquidCli {
                 "user": user,
             }))
             .await?;
+
         let res = res
             .into_vec()?
             .into_iter()
@@ -358,13 +358,11 @@ impl HyperliquidCli {
             .ok_or(InfraError::ApiCliError(
                 "No Hyperliquid spotClearinghouseState returned".into(),
             ))?;
-        let normalized_assets = normalize_asset_filters(assets);
 
         let balances = res
-            .balances
+            .into_balance_data()
             .into_iter()
-            .map(BalanceData::from)
-            .filter(|balance| match &normalized_assets {
+            .filter(|balance| match &normalize_asset_filters(assets) {
                 Some(assets) => assets.contains(&balance.asset),
                 None => true,
             })
@@ -381,6 +379,7 @@ impl HyperliquidCli {
                 "user": user,
             }))
             .await?;
+
         let state = state_res
             .into_vec()?
             .into_iter()
@@ -388,6 +387,7 @@ impl HyperliquidCli {
             .ok_or(InfraError::ApiCliError(
                 "No Hyperliquid clearinghouse state returned".into(),
             ))?;
+
         let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
             .post_info_raw(&json!({ "type": "metaAndAssetCtxs" }))
             .await?;
@@ -398,32 +398,13 @@ impl HyperliquidCli {
             .ok_or(InfraError::ApiCliError(
                 "No Hyperliquid metaAndAssetCtxs returned".into(),
             ))?;
-        let normalized_insts = normalize_inst_filters(insts);
 
-        let mark_px_by_coin: HashMap<String, f64> = ctxs
-            .0
-            .universe
-            .into_iter()
-            .zip(ctxs.1.into_iter())
-            .map(|(meta, ctx)| {
-                let mark_price = match value_to_f64(&ctx.markPx) {
-                    0.0 => value_to_f64(&ctx.midPx),
-                    mark => mark,
-                };
-                (meta.name, mark_price)
-            })
-            .collect();
+        let normalized_insts = normalize_inst_filters(insts);
+        let mark_px_by_coin = ctxs.into_perp_mark_px_by_coin()?;
 
         let positions = state
-            .assetPositions
+            .into_position_data(&mark_px_by_coin)
             .into_iter()
-            .map(|position| {
-                let mark_price = mark_px_by_coin
-                    .get(&position.position.coin)
-                    .copied()
-                    .unwrap_or_default();
-                position.into_position_data(mark_price)
-            })
             .filter(|position| match &normalized_insts {
                 Some(insts) => insts.contains(&position.inst),
                 None => true,
