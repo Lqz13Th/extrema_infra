@@ -1,5 +1,6 @@
 use serde::Serialize;
 use serde_json::json;
+use std::collections::HashSet;
 
 use crate::arch::market_assets::{
     api_general::OrderParams,
@@ -10,6 +11,8 @@ use crate::errors::{InfraError, InfraResult};
 pub const HYPERLIQUID_QUOTE: &str = "USDC";
 pub const HYPERLIQUID_PERP_SUFFIX: &str = "_USDC_PERP";
 pub const HYPERLIQUID_SPOT_ASSET_OFFSET: u32 = 10_000;
+pub const HYPERLIQUID_FUNDING_INTERVAL_HOURS: u64 = 1;
+const HYPERLIQUID_FUNDING_INTERVAL_MS: u64 = HYPERLIQUID_FUNDING_INTERVAL_HOURS * 60 * 60 * 1000;
 const HYPERLIQUID_KILO_PREFIX: &str = "k";
 const CLI_KILO_PREFIX: &str = "1000";
 
@@ -97,9 +100,23 @@ pub(crate) fn normalize_hyperliquid_cli_inst(inst: &str) -> String {
     hyperliquid_symbol_to_cli_symbol(inst)
 }
 
+pub fn hyperliquid_cli_inst_to_raw_perp_coin(inst: &str) -> InfraResult<String> {
+    let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+
+    normalized_inst
+        .strip_suffix(HYPERLIQUID_PERP_SUFFIX)
+        .map(hyperliquid_cli_symbol_to_raw_symbol)
+        .ok_or_else(|| {
+            InfraError::ApiCliError(format!(
+                "Hyperliquid funding supports perpetual instruments only: {}",
+                inst
+            ))
+        })
+}
+
 pub(crate) fn hyperliquid_cli_inst_to_raw_trade_coin(inst: &str) -> Option<String> {
-    if let Some(base) = inst.strip_suffix(HYPERLIQUID_PERP_SUFFIX) {
-        return Some(hyperliquid_cli_symbol_to_raw_symbol(base));
+    if let Ok(coin) = hyperliquid_cli_inst_to_raw_perp_coin(inst) {
+        return Some(coin);
     }
 
     if inst == "PURR_USDC" {
@@ -147,6 +164,55 @@ pub fn hyperliquid_inst_to_cli(coin: &str) -> String {
     }
 
     hyperliquid_perp_to_cli(coin)
+}
+
+pub fn hyperliquid_funding_interval_hours() -> u64 {
+    HYPERLIQUID_FUNDING_INTERVAL_HOURS
+}
+
+pub fn hyperliquid_funding_interval_sec() -> f64 {
+    HYPERLIQUID_FUNDING_INTERVAL_MS as f64 / 1000.0
+}
+
+pub fn hyperliquid_next_funding_time_ms(now_ms: u64) -> u64 {
+    (now_ms / HYPERLIQUID_FUNDING_INTERVAL_MS)
+        .saturating_add(1)
+        .saturating_mul(HYPERLIQUID_FUNDING_INTERVAL_MS)
+}
+
+pub fn normalize_inst_filters(insts: Option<&[String]>) -> Option<HashSet<String>> {
+    insts.map(|insts| {
+        insts
+            .iter()
+            .map(|inst| normalize_hyperliquid_cli_inst(inst))
+            .collect()
+    })
+}
+
+pub fn normalize_funding_inst_filter(inst: Option<&str>) -> InfraResult<Option<String>> {
+    match inst {
+        Some(inst) => {
+            let normalized = normalize_hyperliquid_cli_inst(inst);
+            if !normalized.ends_with(HYPERLIQUID_PERP_SUFFIX) {
+                return Err(InfraError::ApiCliError(format!(
+                    "Hyperliquid funding supports perpetual instruments only: {}",
+                    inst
+                )));
+            }
+
+            Ok(Some(normalized))
+        },
+        None => Ok(None),
+    }
+}
+
+pub fn normalize_asset_filters(assets: Option<&[String]>) -> Option<HashSet<String>> {
+    assets.map(|assets| {
+        assets
+            .iter()
+            .map(|asset| hyperliquid_symbol_to_cli_symbol(asset))
+            .collect()
+    })
 }
 
 pub fn ws_subscribe_msg_hyperliquid_trades(coin: &str) -> String {

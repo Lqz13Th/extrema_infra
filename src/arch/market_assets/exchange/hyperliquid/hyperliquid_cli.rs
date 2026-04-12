@@ -1,10 +1,7 @@
 use reqwest::Client;
 use serde_json::{Value, json};
 use simd_json::from_slice;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 
 use crate::arch::{
@@ -12,7 +9,7 @@ use crate::arch::{
         api_data::{
             account_data::{BalanceData, OrderAckData, PositionData},
             price_data::TickerData,
-            utils_data::InstrumentInfo,
+            utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{OrderParams, get_micros_timestamp},
         base_data::{InstrumentType, MarginMode},
@@ -32,7 +29,8 @@ use super::{
     hyperliquid_rest_msg::RestResHyperliquid,
     schemas::rest::{
         all_mids::RestAllMidsHyperliquid, asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
-        clearinghouse_state::RestClearinghouseStateHyperliquid, meta::RestMetaHyperliquid,
+        clearinghouse_state::RestClearinghouseStateHyperliquid,
+        funding_history::RestFundingHistoryHyperliquid, meta::RestMetaHyperliquid,
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
         spot_meta::RestSpotMetaHyperliquid, trade_order::RestOrderAckHyperliquid,
     },
@@ -153,6 +151,20 @@ impl HyperliquidCli {
         Ok(res)
     }
 
+    async fn get_meta_and_asset_ctxs(&self) -> InfraResult<RestMetaAndAssetCtxsHyperliquid> {
+        let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
+            .post_info_raw(&json!({ "type": "metaAndAssetCtxs" }))
+            .await?;
+
+        ctxs_res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid metaAndAssetCtxs returned".into(),
+            ))
+    }
+
     fn inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
         let normalized_inst = normalize_hyperliquid_cli_inst(inst);
         let index = self
@@ -228,6 +240,84 @@ impl HyperliquidCli {
         self.inst_index_map = inst_index_map;
 
         Ok(())
+    }
+
+    pub async fn get_funding_rate_live(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        let target_inst = normalize_funding_inst_filter(inst)?;
+
+        let data = self
+            .get_meta_and_asset_ctxs()
+            .await?
+            .into_funding_rate_data()?
+            .into_iter()
+            .filter(|entry| match &target_inst {
+                Some(inst) => entry.inst == *inst,
+                None => true,
+            })
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_funding_rate_info(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<FundingRateInfo>> {
+        let target_inst = normalize_funding_inst_filter(inst)?;
+
+        let data = self
+            .get_meta_and_asset_ctxs()
+            .await?
+            .into_funding_rate_info()?
+            .into_iter()
+            .filter(|entry| match &target_inst {
+                Some(inst) => entry.inst == *inst,
+                None => true,
+            })
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_funding_rate_history(
+        &self,
+        inst: &str,
+        start_time_ms: u64,
+        end_time_ms: Option<u64>,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        if let Some(end_time_ms) = end_time_ms
+            && end_time_ms < start_time_ms
+        {
+            return Err(InfraError::ApiCliError(format!(
+                "Hyperliquid funding history end_time_ms {} is earlier than start_time_ms {}",
+                end_time_ms, start_time_ms
+            )));
+        }
+
+        let coin = hyperliquid_cli_inst_to_raw_perp_coin(inst)?;
+        let mut body = json!({
+            "type": "fundingHistory",
+            "coin": coin,
+            "startTime": start_time_ms,
+        });
+
+        if let Some(end_time_ms) = end_time_ms {
+            body["endTime"] = json!(end_time_ms);
+        }
+
+        let res: RestResHyperliquid<RestFundingHistoryHyperliquid> =
+            self.post_info_raw(&body).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(FundingRateData::from)
+            .collect();
+
+        Ok(data)
     }
 
     pub async fn set_leverage(
@@ -460,19 +550,11 @@ impl HyperliquidCli {
                 "No Hyperliquid clearinghouse state returned".into(),
             ))?;
 
-        let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
-            .post_info_raw(&json!({ "type": "metaAndAssetCtxs" }))
-            .await?;
-        let ctxs = ctxs_res
-            .into_vec()?
-            .into_iter()
-            .next()
-            .ok_or(InfraError::ApiCliError(
-                "No Hyperliquid metaAndAssetCtxs returned".into(),
-            ))?;
-
         let normalized_insts = normalize_inst_filters(insts);
-        let mark_px_by_coin = ctxs.into_perp_mark_px_by_coin()?;
+        let mark_px_by_coin = self
+            .get_meta_and_asset_ctxs()
+            .await?
+            .into_perp_mark_px_by_coin()?;
 
         let positions = state
             .into_position_data(&mark_px_by_coin)
@@ -560,22 +642,4 @@ impl HyperliquidCli {
 
         Ok(format!("@{}", index))
     }
-}
-
-fn normalize_inst_filters(insts: Option<&[String]>) -> Option<HashSet<String>> {
-    insts.map(|insts| {
-        insts
-            .iter()
-            .map(|inst| normalize_hyperliquid_cli_inst(inst))
-            .collect()
-    })
-}
-
-fn normalize_asset_filters(assets: Option<&[String]>) -> Option<HashSet<String>> {
-    assets.map(|assets| {
-        assets
-            .iter()
-            .map(|asset| hyperliquid_symbol_to_cli_symbol(asset))
-            .collect()
-    })
 }
