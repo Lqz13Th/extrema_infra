@@ -11,9 +11,10 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{BalanceData, OrderAckData, PositionData},
+            price_data::TickerData,
             utils_data::InstrumentInfo,
         },
-        api_general::OrderParams,
+        api_general::{OrderParams, get_micros_timestamp},
         base_data::{InstrumentType, MarginMode},
     },
     task_execution::task_ws::{TradesParam, WsChannel},
@@ -30,7 +31,7 @@ use super::{
     config_assets::*,
     hyperliquid_rest_msg::RestResHyperliquid,
     schemas::rest::{
-        asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
+        all_mids::RestAllMidsHyperliquid, asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
         clearinghouse_state::RestClearinghouseStateHyperliquid, meta::RestMetaHyperliquid,
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
         spot_meta::RestSpotMetaHyperliquid, trade_order::RestOrderAckHyperliquid,
@@ -53,13 +54,13 @@ impl Default for HyperliquidCli {
 impl MarketLobApi for HyperliquidCli {}
 
 impl LobPublicRest for HyperliquidCli {
-    // async fn get_tickers(
-    //     &self,
-    //     insts: Option<&[String]>,
-    //     inst_type: Option<InstrumentType>,
-    // ) -> InfraResult<Vec<TickerData>> {
-    //     // self._get_tickers(insts, inst_type).await
-    // }
+    async fn get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        self._get_tickers(insts, inst_type).await
+    }
 
     async fn get_instrument_info(
         &self,
@@ -308,6 +309,77 @@ impl HyperliquidCli {
             },
             _ => Err(InfraError::ApiCliError(
                 "Hyperliquid get_instrument_info currently supports Spot and Perpetual only".into(),
+            )),
+        }
+    }
+
+    async fn _get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        match inst_type.unwrap_or(InstrumentType::Perpetual) {
+            InstrumentType::Perpetual => {
+                let body = json!({ "type": "allMids" });
+                let res: RestResHyperliquid<RestAllMidsHyperliquid> =
+                    self.post_info_raw(&body).await?;
+
+                let data = res
+                    .into_vec()?
+                    .into_iter()
+                    .next()
+                    .ok_or(InfraError::ApiCliError(
+                        "No Hyperliquid allMids data returned".into(),
+                    ))?
+                    .into_perp_ticker_data(get_micros_timestamp())
+                    .into_iter()
+                    .filter(|ticker| match insts {
+                        Some(list) => list.contains(&ticker.inst),
+                        None => true,
+                    })
+                    .collect();
+
+                Ok(data)
+            },
+            InstrumentType::Spot => {
+                let mids_body = json!({ "type": "allMids" });
+                let mids_res: RestResHyperliquid<RestAllMidsHyperliquid> =
+                    self.post_info_raw(&mids_body).await?;
+                let mids =
+                    mids_res
+                        .into_vec()?
+                        .into_iter()
+                        .next()
+                        .ok_or(InfraError::ApiCliError(
+                            "No Hyperliquid allMids data returned".into(),
+                        ))?;
+
+                let meta_body = json!({ "type": "spotMeta" });
+                let meta_res: RestResHyperliquid<RestSpotMetaHyperliquid> =
+                    self.post_info_raw(&meta_body).await?;
+                let meta =
+                    meta_res
+                        .into_vec()?
+                        .into_iter()
+                        .next()
+                        .ok_or(InfraError::ApiCliError(
+                            "No Hyperliquid spot instrument info returned".into(),
+                        ))?;
+
+                let spot_inst_by_coin = meta.into_spot_inst_by_coin();
+                let data = mids
+                    .into_spot_ticker_data(get_micros_timestamp(), &spot_inst_by_coin)
+                    .into_iter()
+                    .filter(|ticker| match insts {
+                        Some(list) => list.contains(&ticker.inst),
+                        None => true,
+                    })
+                    .collect();
+
+                Ok(data)
+            },
+            _ => Err(InfraError::ApiCliError(
+                "Hyperliquid get_tickers currently supports Spot and Perpetual only".into(),
             )),
         }
     }

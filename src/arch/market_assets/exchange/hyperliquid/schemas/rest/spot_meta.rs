@@ -56,9 +56,37 @@ impl RestSpotMetaHyperliquid {
             .filter_map(|pair| pair.into_instrument_info(&token_map))
             .collect()
     }
+
+    pub fn into_spot_inst_by_coin(self) -> HashMap<String, String> {
+        let token_map: HashMap<u32, RestSpotTokenHyperliquid> = self
+            .tokens
+            .into_iter()
+            .map(|token| (token.index, token))
+            .collect();
+
+        self.universe
+            .into_iter()
+            .filter_map(|pair| pair.into_spot_inst_entries(&token_map))
+            .flatten()
+            .collect()
+    }
 }
 
 impl RestSpotUniverseHyperliquid {
+    fn into_spot_inst_entries(
+        self,
+        token_map: &HashMap<u32, RestSpotTokenHyperliquid>,
+    ) -> Option<Vec<(String, String)>> {
+        let base = token_map.get(&self.tokens[0])?;
+        let quote = token_map.get(&self.tokens[1])?;
+        let cli_inst = hyperliquid_spot_to_cli(&self.name, &base.name, &quote.name);
+
+        Some(vec![
+            (self.name.clone(), cli_inst.clone()),
+            (format!("@{}", self.index), cli_inst),
+        ])
+    }
+
     fn into_instrument_info(
         self,
         token_map: &HashMap<u32, RestSpotTokenHyperliquid>,
