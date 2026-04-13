@@ -1,5 +1,4 @@
 use serde::Serialize;
-use serde_json::json;
 use std::collections::HashSet;
 
 use crate::arch::market_assets::{
@@ -213,28 +212,6 @@ pub fn normalize_asset_filters(assets: Option<&[String]>) -> Option<HashSet<Stri
             .map(|asset| hyperliquid_symbol_to_cli_symbol(asset))
             .collect()
     })
-}
-
-pub fn ws_subscribe_msg_hyperliquid_trades(coin: &str) -> String {
-    json!({
-        "method": "subscribe",
-        "subscription": {
-            "type": "trades",
-            "coin": coin.to_string(),
-        }
-    })
-    .to_string()
-}
-
-pub fn ws_subscribe_msg_hyperliquid_user(subscription_type: &str, user: &str) -> String {
-    json!({
-        "method": "subscribe",
-        "subscription": {
-            "type": subscription_type,
-            "user": user,
-        }
-    })
-    .to_string()
 }
 
 #[derive(Clone, Debug, Serialize)]

@@ -33,10 +33,12 @@ where
         match self {
             HyperliquidWsData::Channel(c) => c.data.into_iter().map(|d| d.into_ws()).collect(),
             HyperliquidWsData::Event(event) => {
-                info!(
-                    "Hyperliquid WS event: channel = {:?}, data = {:?}",
-                    event.channel, event.data
-                );
+                if !matches!(event.channel.as_deref(), Some("pong")) {
+                    info!(
+                        "Hyperliquid WS event: channel = {:?}, data = {:?}",
+                        event.channel, event.data
+                    );
+                }
                 Vec::new()
             },
         }

@@ -41,6 +41,7 @@ pub struct HyperliquidCli {
     pub client: Arc<Client>,
     pub auth: Option<HyperliquidAuth>,
     pub inst_index_map: HashMap<String, u32>,
+    pub default_perp_dex: Option<String>,
 }
 
 impl Default for HyperliquidCli {
@@ -129,7 +130,15 @@ impl HyperliquidCli {
             client: shared_client,
             auth: None,
             inst_index_map: HashMap::new(),
+            default_perp_dex: None,
         }
+    }
+
+    pub fn set_perp_dex(&mut self, dex: Option<String>) {
+        self.default_perp_dex = dex.and_then(|dex| {
+            let dex = dex.trim().to_string();
+            (!dex.is_empty()).then_some(dex)
+        });
     }
 
     pub async fn init_inst_index_map(&mut self) -> InfraResult<()> {
@@ -306,7 +315,7 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<InstrumentInfo>> {
         match inst_type {
             InstrumentType::Perpetual => {
-                let body = json!({ "type": "meta" });
+                let body = json!({ "type": "meta", "dex": self._perp_dex() });
                 let res: RestResHyperliquid<RestMetaHyperliquid> =
                     self._post_info_raw(&body).await?;
 
@@ -348,7 +357,7 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<TickerData>> {
         match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Perpetual => {
-                let body = json!({ "type": "allMids" });
+                let body = json!({ "type": "allMids", "dex": self._perp_dex() });
                 let res: RestResHyperliquid<RestAllMidsHyperliquid> =
                     self._post_info_raw(&body).await?;
 
@@ -477,6 +486,7 @@ impl HyperliquidCli {
             ._post_info_raw(&json!({
                 "type": "clearinghouseState",
                 "user": user,
+                "dex": self._perp_dex(),
             }))
             .await?;
 
@@ -523,11 +533,23 @@ impl HyperliquidCli {
         let user = self._owner_address()?;
 
         match channel {
-            WsChannel::AccountOrders => Ok(ws_subscribe_msg_hyperliquid_user("orderUpdates", user)),
-            WsChannel::AccountPositions => Ok(ws_subscribe_msg_hyperliquid_user(
-                "clearinghouseState",
-                user,
-            )),
+            WsChannel::AccountOrders => Ok(json!({
+                "method": "subscribe",
+                "subscription": {
+                    "type": "orderUpdates",
+                    "user": user,
+                }
+            })
+            .to_string()),
+            WsChannel::AccountPositions => Ok(json!({
+                "method": "subscribe",
+                "subscription": {
+                    "type": "clearinghouseState",
+                    "user": user,
+                    "dex": self._perp_dex(),
+                }
+            })
+            .to_string()),
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -547,7 +569,14 @@ impl HyperliquidCli {
             .iter()
             .map(|inst| {
                 let coin = self._inst_to_trade_coin(inst)?;
-                Ok(ws_subscribe_msg_hyperliquid_trades(&coin))
+                Ok(json!({
+                    "method": "subscribe",
+                    "subscription": {
+                        "type": "trades",
+                        "coin": coin.to_string(),
+                    }
+                })
+                .to_string())
             })
             .collect();
 
@@ -588,6 +617,10 @@ impl HyperliquidCli {
             .map(|auth| auth.owner_address.as_str())
     }
 
+    fn _perp_dex(&self) -> &str {
+        self.default_perp_dex.as_deref().unwrap_or("")
+    }
+
     async fn _post_info_raw<T>(&self, body: &Value) -> InfraResult<RestResHyperliquid<T>>
     where
         T: serde::de::DeserializeOwned,
@@ -602,7 +635,7 @@ impl HyperliquidCli {
 
     async fn _get_meta_and_asset_ctxs(&self) -> InfraResult<RestMetaAndAssetCtxsHyperliquid> {
         let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
-            ._post_info_raw(&json!({ "type": "metaAndAssetCtxs" }))
+            ._post_info_raw(&json!({ "type": "metaAndAssetCtxs", "dex": self._perp_dex() }))
             .await?;
 
         ctxs_res

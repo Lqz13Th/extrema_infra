@@ -160,8 +160,16 @@ impl WsTaskBuilder {
                 return true;
             },
             Err(_) => {
-                if let Err(e) = ws_stream.send(Message::Ping(PING.clone())).await {
-                    self.log(LogLevel::Error, &format!("Failed to send ping: {:?}", e));
+                let keepalive = match &self.ws_info.market {
+                    Market::HyperLiquid => Message::Text("{\"method\":\"ping\"}".into()),
+                    _ => Message::Ping(PING.clone()),
+                };
+
+                if let Err(e) = ws_stream.send(keepalive).await {
+                    self.log(
+                        LogLevel::Error,
+                        &format!("Failed to send keepalive: {:?}", e),
+                    );
                     return true;
                 }
             },
