@@ -447,7 +447,7 @@ impl WsTaskBuilder {
             },
             WsChannel::AccountPositions => {
                 if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<WsAccountPositionBinanceUM>(tx, ws_stream)
+                    self.ws_loop::<BinanceWsData<WsAccountPositionBinanceUM>>(tx, ws_stream)
                         .await;
                 } else {
                     self.log(

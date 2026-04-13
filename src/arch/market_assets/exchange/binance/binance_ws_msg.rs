@@ -9,7 +9,20 @@ use crate::arch::traits::conversion::IntoWsData;
 pub enum BinanceWsData<T> {
     ChannelSingle(T),
     ChannelBatch(Vec<T>),
+    AccountPositions(BinanceWsAccountPositions<T>),
     Event(BinanceWsRes),
+}
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+pub struct BinanceWsAccountPositions<T> {
+    pub a: BinanceWsAccountPositionsData<T>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+pub struct BinanceWsAccountPositionsData<T> {
+    pub P: Vec<T>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -25,15 +38,23 @@ pub struct BinanceWsError {
     pub code: i64,
     pub msg: String,
 }
+
 impl<T> IntoWsData for BinanceWsData<T>
 where
     T: IntoWsData + for<'de> Deserialize<'de>,
 {
     type Output = Vec<T::Output>;
+
     fn into_ws(self) -> Self::Output {
         match self {
             BinanceWsData::ChannelSingle(c) => vec![c.into_ws()],
             BinanceWsData::ChannelBatch(c) => c.into_iter().map(|d| d.into_ws()).collect(),
+            BinanceWsData::AccountPositions(c) => {
+                c.a.P
+                    .into_iter()
+                    .map(|position| position.into_ws())
+                    .collect()
+            },
             BinanceWsData::Event(res) => {
                 let id = res.id.to_string();
                 if let Some(result) = &res.result {

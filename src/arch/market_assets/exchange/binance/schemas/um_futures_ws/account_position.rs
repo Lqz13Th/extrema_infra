@@ -12,18 +12,6 @@ use crate::arch::{
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct WsAccountPositionBinanceUM {
-    a: AccountUpdate,
-}
-
-#[allow(non_snake_case)]
-#[derive(Clone, Debug, Deserialize)]
-struct AccountUpdate {
-    P: Vec<AccountPosition>,
-}
-
-#[allow(non_snake_case)]
-#[derive(Clone, Debug, Deserialize)]
-struct AccountPosition {
     s: String,  // Symbol
     pa: String, // Position amount
     ep: String, // Entry price
@@ -32,33 +20,29 @@ struct AccountPosition {
 }
 
 impl IntoWsData for WsAccountPositionBinanceUM {
-    type Output = Vec<WsAccPosition>;
+    type Output = WsAccPosition;
 
-    fn into_ws(self) -> Vec<WsAccPosition> {
-        self.a
-            .P
-            .into_iter()
-            .map(|pos| WsAccPosition {
-                inst: binance_fut_inst_to_cli(&pos.s),
-                inst_type: if pos.s.contains('_') {
-                    InstrumentType::Futures
-                } else {
-                    InstrumentType::Perpetual
-                },
-                size: pos.pa.parse().unwrap_or_default(),
-                avg_price: pos.ep.parse().unwrap_or_default(),
-                position_side: match pos.ps.as_str() {
-                    "LONG" => PositionSide::Long,
-                    "SHORT" => PositionSide::Short,
-                    "BOTH" => PositionSide::Both,
-                    _ => PositionSide::Unknown,
-                },
-                margin_mode: match pos.mt.to_lowercase().as_str() {
-                    "cross" => MarginMode::Cross,
-                    "isolated" => MarginMode::Isolated,
-                    _ => MarginMode::Unknown,
-                },
-            })
-            .collect()
+    fn into_ws(self) -> WsAccPosition {
+        WsAccPosition {
+            inst: binance_fut_inst_to_cli(&self.s),
+            inst_type: if self.s.contains('_') {
+                InstrumentType::Futures
+            } else {
+                InstrumentType::Perpetual
+            },
+            size: self.pa.parse().unwrap_or_default(),
+            avg_price: self.ep.parse().unwrap_or_default(),
+            position_side: match self.ps.as_str() {
+                "LONG" => PositionSide::Long,
+                "SHORT" => PositionSide::Short,
+                "BOTH" => PositionSide::Both,
+                _ => PositionSide::Unknown,
+            },
+            margin_mode: match self.mt.to_lowercase().as_str() {
+                "cross" => MarginMode::Cross,
+                "isolated" => MarginMode::Isolated,
+                _ => MarginMode::Unknown,
+            },
+        }
     }
 }
