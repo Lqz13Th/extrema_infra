@@ -52,8 +52,8 @@ use crate::arch::market_assets::exchange::gate::{
 use crate::arch::market_assets::exchange::hyperliquid::{
     hyperliquid_ws_msg::HyperliquidWsData,
     schemas::ws::{
-        account_order::WsAccountOrderHyperliquid,
-        account_position::WsAccountPositionMsgHyperliquid, trades::WsTradeHyperliquid,
+        account_order::WsAccountOrderHyperliquid, account_position::WsAccountPositionHyperliquid,
+        trades::WsTradeHyperliquid,
     },
 };
 #[cfg(feature = "okx")]
@@ -380,7 +380,7 @@ impl WsTaskBuilder {
             },
             WsChannel::AccountPositions => {
                 if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<WsAccountPositionMsgHyperliquid>(tx, ws_stream)
+                    self.ws_loop::<HyperliquidWsData<WsAccountPositionHyperliquid>>(tx, ws_stream)
                         .await;
                 } else {
                     self.log(

@@ -6,10 +6,9 @@ use serde_json::Value;
 use crate::arch::market_assets::{
     api_data::account_data::PositionData,
     api_general::value_to_f64,
-    base_data::{InstrumentType, MarginMode, PositionSide},
+    base_data::{InstrumentType, PositionSide},
     exchange::hyperliquid::api_utils::hyperliquid_perp_to_cli,
 };
-use crate::arch::strategy_base::handler::lob_events::WsAccPosition;
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
@@ -80,29 +79,6 @@ impl RestAssetPositionHyperliquid {
             mark_price,
             margin: value_to_f64(&self.position.marginUsed),
             leverage: self.position.leverage.value,
-        }
-    }
-
-    pub fn into_ws_position(self) -> WsAccPosition {
-        let size = value_to_f64(&self.position.szi);
-
-        WsAccPosition {
-            inst: hyperliquid_perp_to_cli(&self.position.coin),
-            inst_type: InstrumentType::Perpetual,
-            avg_price: value_to_f64(&self.position.entryPx),
-            size,
-            position_side: if size > 0.0 {
-                PositionSide::Long
-            } else if size < 0.0 {
-                PositionSide::Short
-            } else {
-                PositionSide::Both
-            },
-            margin_mode: match self.position.leverage.kind.as_str() {
-                "cross" => MarginMode::Cross,
-                "isolated" => MarginMode::Isolated,
-                _ => MarginMode::Unknown,
-            },
         }
     }
 }
