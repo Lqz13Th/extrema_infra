@@ -113,7 +113,7 @@ impl LobPrivateRest for OkxCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
@@ -766,7 +766,7 @@ impl OkxCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         let okx_inst = cli_perp_to_okx_inst(inst);
         let mut query = format!("instId={}", okx_inst);

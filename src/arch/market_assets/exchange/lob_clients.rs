@@ -185,7 +185,7 @@ impl LobPrivateRest for LobClients {
         start_time: Option<u64>,
         end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         match self {
             LobClients::Hyperliquid(c) => {

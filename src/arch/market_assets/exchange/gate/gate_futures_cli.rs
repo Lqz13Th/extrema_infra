@@ -97,7 +97,7 @@ impl LobPrivateRest for GateFuturesCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
@@ -571,7 +571,7 @@ impl GateFuturesCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         let settle = infer_settle_from_inst(inst);
         let contract = cli_perp_to_gate_inst(inst);
@@ -580,7 +580,7 @@ impl GateFuturesCli {
             (
                 GATE_FUTURES_ORDER
                     .replace("{settle}", &settle)
-                    .replace("{order_id}", &order_id.to_string()),
+                    .replace("{order_id}", order_id),
                 None,
             )
         } else {

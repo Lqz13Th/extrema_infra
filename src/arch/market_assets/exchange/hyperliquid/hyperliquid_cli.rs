@@ -100,7 +100,7 @@ impl LobPrivateRest for HyperliquidCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
@@ -535,14 +535,19 @@ impl HyperliquidCli {
         _start_time: Option<u64>,
         _end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         let user = self._owner_address()?;
         let body = match order_id {
             Some(order_id) => json!({
                 "type": "orderStatus",
                 "user": user,
-                "oid": order_id,
+                "oid": order_id.parse::<u64>().map_err(|_| {
+                    InfraError::ApiCliError(format!(
+                        "Invalid Hyperliquid order_id, expected u64 string: {}",
+                        order_id
+                    ))
+                })?,
             }),
             None => json!({
                 "type": "historicalOrders",

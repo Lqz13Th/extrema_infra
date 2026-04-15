@@ -91,7 +91,7 @@ pub trait LobPrivateRest: Send + Sync {
         _start_time: Option<u64>,
         _end_time: Option<u64>,
         _limit: Option<u32>,
-        _order_id: Option<u64>,
+        _order_id: Option<&str>,
     ) -> impl Future<Output = InfraResult<Vec<HistoOrderData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }

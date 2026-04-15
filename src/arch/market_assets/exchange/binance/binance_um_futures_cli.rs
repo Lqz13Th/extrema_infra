@@ -99,7 +99,7 @@ impl LobPrivateRest for BinanceUmCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
@@ -634,7 +634,7 @@ impl BinanceUmCli {
         start_time: Option<u64>,
         end_time: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<u64>,
+        order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         let mut query_string = format!("symbol={}", cli_perp_to_pure_uppercase(inst));
 
