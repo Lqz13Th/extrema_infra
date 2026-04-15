@@ -39,6 +39,7 @@ pub const GATE_FUTURES_SET_LEVERAGE: &str =
     "/api/v4/futures/{settle}/positions/{contract}/leverage";
 pub const GATE_FUTURES_POSITIONS: &str = "/api/v4/futures/{settle}/positions";
 pub const GATE_FUTURES_ORDERS: &str = "/api/v4/futures/{settle}/orders";
+pub const GATE_FUTURES_ORDER: &str = "/api/v4/futures/{settle}/orders/{order_id}";
 pub const GATE_WS_FUTURES_ORDERS: &str = "futures.orders";
 pub const GATE_WS_FUTURES_BALANCES: &str = "futures.balances";
 pub const GATE_WS_FUTURES_POSITIONS: &str = "futures.positions";

@@ -188,7 +188,19 @@ impl LobPrivateRest for LobClients {
         order_id: Option<u64>,
     ) -> InfraResult<Vec<HistoOrderData>> {
         match self {
+            LobClients::Hyperliquid(c) => {
+                c.get_order_history(inst, start_time, end_time, limit, order_id)
+                    .await
+            },
             LobClients::BinanceUm(c) => {
+                c.get_order_history(inst, start_time, end_time, limit, order_id)
+                    .await
+            },
+            LobClients::GateFutures(c) => {
+                c.get_order_history(inst, start_time, end_time, limit, order_id)
+                    .await
+            },
+            LobClients::Okx(c) => {
                 c.get_order_history(inst, start_time, end_time, limit, order_id)
                     .await
             },

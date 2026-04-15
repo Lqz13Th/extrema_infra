@@ -7,7 +7,7 @@ use tracing::error;
 use crate::arch::{
     market_assets::{
         api_data::{
-            account_data::{OrderAckData, PositionData},
+            account_data::{HistoOrderData, OrderAckData, PositionData},
             price_data::TickerData,
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
@@ -32,7 +32,7 @@ use super::{
     schemas::futures_rest::{
         account_position::RestAccountPosGateFutures, contract_futures::RestContractGateFutures,
         funding_rate::RestFundingRateGateFutures, order::RestFuturesOrderGateFutures,
-        ticker::RestTickerGateFutures,
+        order_history::RestFuturesOrderHistoryGateFutures, ticker::RestTickerGateFutures,
     },
 };
 
@@ -89,6 +89,18 @@ impl LobPrivateRest for GateFuturesCli {
 
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        self._get_order_history(inst, start_time, end_time, limit, order_id)
+            .await
     }
 }
 
@@ -549,6 +561,65 @@ impl GateFuturesCli {
                     .map(PositionData::from),
             );
         }
+
+        Ok(data)
+    }
+
+    async fn _get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        let settle = infer_settle_from_inst(inst);
+        let contract = cli_perp_to_gate_inst(inst);
+
+        let (endpoint, query_string) = if let Some(order_id) = order_id {
+            (
+                GATE_FUTURES_ORDER
+                    .replace("{settle}", &settle)
+                    .replace("{order_id}", &order_id.to_string()),
+                None,
+            )
+        } else {
+            let mut query = format!("status=finished&contract={}", contract);
+            if let Some(start_time) = start_time {
+                query.push_str(&format!("&from={}", start_time));
+            }
+            if let Some(end_time) = end_time {
+                query.push_str(&format!("&to={}", end_time));
+            }
+            if let Some(limit) = limit {
+                query.push_str(&format!("&limit={}", limit));
+            }
+            (
+                GATE_FUTURES_ORDERS.replace("{settle}", &settle),
+                Some(query),
+            )
+        };
+
+        let res: RestResGate<RestFuturesOrderHistoryGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query_string.as_deref(),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data: Vec<HistoOrderData> = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.contract == contract)
+            .map(HistoOrderData::from)
+            .collect();
 
         Ok(data)
     }

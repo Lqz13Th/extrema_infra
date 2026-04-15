@@ -9,5 +9,6 @@ pub mod ct_public_subpositions_history;
 pub mod funding_rate;
 pub mod funding_rate_history;
 pub mod market_ticker;
+pub mod order_history;
 pub mod public_instruments;
 pub mod trade_order;

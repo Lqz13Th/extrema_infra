@@ -7,7 +7,7 @@ use tracing::error;
 use crate::arch::{
     market_assets::{
         api_data::{
-            account_data::{BalanceData, OrderAckData, PositionData},
+            account_data::{BalanceData, HistoOrderData, OrderAckData, PositionData},
             price_data::TickerData,
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
@@ -31,6 +31,7 @@ use super::{
         all_mids::RestAllMidsHyperliquid, asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
         clearinghouse_state::RestClearinghouseStateHyperliquid,
         funding_history::RestFundingHistoryHyperliquid, meta::RestMetaHyperliquid,
+        order_status::RestOrderStatusHyperliquid,
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
         spot_meta::RestSpotMetaHyperliquid, trade_order::RestOrderAckHyperliquid,
     },
@@ -91,6 +92,18 @@ impl LobPrivateRest for HyperliquidCli {
 
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        self._get_order_history(inst, start_time, end_time, limit, order_id)
+            .await
     }
 }
 
@@ -482,7 +495,7 @@ impl HyperliquidCli {
 
     async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         let user = self._owner_address()?;
-        let state_res: RestResHyperliquid<RestClearinghouseStateHyperliquid> = self
+        let res: RestResHyperliquid<RestClearinghouseStateHyperliquid> = self
             ._post_info_raw(&json!({
                 "type": "clearinghouseState",
                 "user": user,
@@ -490,7 +503,7 @@ impl HyperliquidCli {
             }))
             .await?;
 
-        let state = state_res
+        let data = res
             .into_vec()?
             .into_iter()
             .next()
@@ -504,7 +517,7 @@ impl HyperliquidCli {
             .await?
             .into_perp_mark_px_by_coin()?;
 
-        let positions = state
+        let positions = data
             .into_position_data(&mark_px_by_coin)
             .into_iter()
             .filter(|position| match &normalized_insts {
@@ -514,6 +527,47 @@ impl HyperliquidCli {
             .collect();
 
         Ok(positions)
+    }
+
+    async fn _get_order_history(
+        &self,
+        inst: &str,
+        _start_time: Option<u64>,
+        _end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        let user = self._owner_address()?;
+        let body = match order_id {
+            Some(order_id) => json!({
+                "type": "orderStatus",
+                "user": user,
+                "oid": order_id,
+            }),
+            None => json!({
+                "type": "historicalOrders",
+                "user": user,
+            }),
+        };
+
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+
+        let res: RestResHyperliquid<RestOrderStatusHyperliquid> =
+            self._post_info_raw(&body).await?;
+
+        let mut data: Vec<HistoOrderData> = res
+            .into_vec()?
+            .into_iter()
+            .map(HistoOrderData::from)
+            .filter(|order| order.inst == normalized_inst)
+            .collect();
+
+        data.sort_by(|a, b| b.update_time.cmp(&a.update_time));
+        if let Some(limit) = limit {
+            data.truncate(limit as usize);
+        }
+
+        Ok(data)
     }
 
     fn _get_public_sub_msg(
@@ -621,14 +675,14 @@ impl HyperliquidCli {
         self.default_perp_dex.as_deref().unwrap_or("")
     }
 
-    async fn _post_info_raw<T>(&self, body: &Value) -> InfraResult<RestResHyperliquid<T>>
+    async fn _post_info_raw<T>(&self, body: &Value) -> InfraResult<T>
     where
         T: serde::de::DeserializeOwned,
     {
         let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_INFO].concat();
         let responds = self.client.post(url).json(body).send().await?;
         let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResHyperliquid<T> = from_slice(&mut res_bytes)?;
+        let res: T = from_slice(&mut res_bytes)?;
 
         Ok(res)
     }

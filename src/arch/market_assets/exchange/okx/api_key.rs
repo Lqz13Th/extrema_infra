@@ -3,6 +3,7 @@ use hmac::{KeyInit, Mac};
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::Value;
 use simd_json::from_slice;
 
 use crate::arch::market_assets::api_general::*;
@@ -70,7 +71,6 @@ impl OkxKey {
         &self,
         client: &Client,
         signature: &Signature<String>,
-        body: String,
         url: &str,
     ) -> InfraResult<Vec<u8>> {
         let res = client
@@ -80,7 +80,6 @@ impl OkxKey {
             .header("OK-ACCESS-TIMESTAMP", &signature.timestamp)
             .header("OK-ACCESS-PASSPHRASE", &self.passphrase)
             .header("Content-Type", "application/json")
-            .body(body)
             .send()
             .await?;
 
@@ -140,28 +139,77 @@ impl OkxKey {
     where
         T: DeserializeOwned + Send,
     {
-        let url = [base_url, endpoint].concat();
-
         let mut response = match method {
             RequestMethod::Get => {
-                let signature = self.sign_now("GET", endpoint, Some(&body))?;
-                self.get_request(client, &signature, body, &url).await?
+                let query = okx_normalize_get_query(&body)?;
+                let request_path = okx_request_path_with_query(endpoint, query.as_deref());
+                let url = [base_url, &request_path].concat();
+                let signature = self.sign_now("GET", &request_path, None)?;
+                self.get_request(client, &signature, &url).await?
             },
             RequestMethod::Post => {
+                let url = [base_url, endpoint].concat();
                 let signature = self.sign_now("POST", endpoint, Some(&body))?;
                 self.post_request(client, &signature, body, &url).await?
             },
             RequestMethod::Put => {
+                let url = [base_url, endpoint].concat();
                 let signature = self.sign_now("PUT", endpoint, Some(&body))?;
                 self.put_request(client, &signature, body, &url).await?
             },
             RequestMethod::Delete => {
+                let url = [base_url, endpoint].concat();
                 let signature = self.sign_now("DELETE", endpoint, Some(&body))?;
-                self.get_request(client, &signature, body, &url).await?
+                self.get_request(client, &signature, &url).await?
             },
         };
 
         let result: T = from_slice(&mut response)?;
         Ok(result)
     }
+}
+
+fn okx_request_path_with_query(endpoint: &str, query: Option<&str>) -> String {
+    match query {
+        Some(query) if !query.is_empty() => format!("{}?{}", endpoint, query),
+        _ => endpoint.to_string(),
+    }
+}
+
+fn okx_normalize_get_query(body: &str) -> InfraResult<Option<String>> {
+    let trimmed = body.trim();
+    if trimmed.is_empty() || trimmed == "{}" {
+        return Ok(None);
+    }
+
+    if trimmed.starts_with('{') {
+        let value: Value = serde_json::from_str(trimmed)
+            .map_err(|e| InfraError::ApiCliError(format!("Invalid OKX GET body JSON: {}", e)))?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| InfraError::ApiCliError("OKX GET body JSON must be an object".into()))?;
+
+        let mut pairs = Vec::new();
+        for (key, value) in object {
+            let value = match value {
+                Value::Null => continue,
+                Value::String(s) => s.clone(),
+                Value::Number(n) => n.to_string(),
+                Value::Bool(b) => b.to_string(),
+                _ => {
+                    return Err(InfraError::ApiCliError(format!(
+                        "Unsupported OKX GET JSON value for key {}",
+                        key
+                    )));
+                },
+            };
+            if !value.is_empty() {
+                pairs.push(format!("{}={}", key, value));
+            }
+        }
+
+        return Ok((!pairs.is_empty()).then_some(pairs.join("&")));
+    }
+
+    Ok(Some(trimmed.to_string()))
 }

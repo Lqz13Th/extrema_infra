@@ -32,8 +32,8 @@ use super::{
         ct_public_lead_traders::RestPubLeadTradersOkx,
         ct_public_subpositions_history::RestSubPositionHistoryOkx,
         funding_rate::RestFundingRateOkx, funding_rate_history::RestFundingRateHistoryOkx,
-        market_ticker::RestMarketTickerOkx, public_instruments::RestInstrumentsOkx,
-        trade_order::RestOrderAckOkx,
+        market_ticker::RestMarketTickerOkx, order_history::RestOrderHistoryOkx,
+        public_instruments::RestInstrumentsOkx, trade_order::RestOrderAckOkx,
     },
 };
 
@@ -105,6 +105,18 @@ impl LobPrivateRest for OkxCli {
 
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        self._get_order_history(inst, start_time, end_time, limit, order_id)
+            .await
     }
 }
 
@@ -743,6 +755,55 @@ impl OkxCli {
             .into_vec()?
             .into_iter()
             .map(PositionData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<u64>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        let okx_inst = cli_perp_to_okx_inst(inst);
+        let mut query = format!("instId={}", okx_inst);
+        let endpoint = if let Some(order_id) = order_id {
+            query.push_str(&format!("&ordId={}", order_id));
+            OKX_TRADE_ORDER
+        } else {
+            query.push_str("&instType=SWAP");
+            if let Some(start_time) = start_time {
+                query.push_str(&format!("&begin={}", start_time));
+            }
+            if let Some(end_time) = end_time {
+                query.push_str(&format!("&end={}", end_time));
+            }
+            if let Some(limit) = limit {
+                query.push_str(&format!("&limit={}", limit));
+            }
+            OKX_TRADE_ORDERS_HISTORY
+        };
+
+        let res: RestResOkx<RestOrderHistoryOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query,
+                OKX_BASE_URL,
+                endpoint,
+            )
+            .await?;
+
+        let data: Vec<HistoOrderData> = res
+            .into_vec()?
+            .into_iter()
+            .map(HistoOrderData::from)
             .collect();
 
         Ok(data)
