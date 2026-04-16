@@ -12,12 +12,12 @@ pub enum RestResHyperliquid<T> {
         status: String,
         order: T,
     },
-    StatusOnly {
-        status: String,
-    },
     Exchange {
         status: String,
         response: Option<RestResHyperliquidPayload<T>>,
+    },
+    StatusOnly {
+        status: String,
     },
     Data(Vec<T>),
     Object(T),
@@ -53,6 +53,25 @@ where
                     )))
                 }
             },
+            Self::Exchange { status, response } => {
+                if status != "ok" {
+                    warn!("Hyperliquid REST error {}: {:?}", status, response);
+                    return Err(InfraError::ApiCliError(format!(
+                        "Hyperliquid REST error (status={}): {:?}",
+                        status, response
+                    )));
+                }
+
+                match response {
+                    Some(RestResHyperliquidPayload::Typed {
+                             data: Some(data), ..
+                         }) => Ok(vec![data]),
+                    Some(RestResHyperliquidPayload::Typed { data: None, .. }) => Ok(vec![]),
+                    Some(RestResHyperliquidPayload::Data(v)) => Ok(v),
+                    Some(RestResHyperliquidPayload::Object(o)) => Ok(vec![o]),
+                    None => Ok(vec![]),
+                }
+            },
             Self::StatusOnly { status } => {
                 if status == "unknownOid" {
                     Ok(vec![])
@@ -66,25 +85,6 @@ where
             },
             Self::Data(v) => Ok(v),
             Self::Object(o) => Ok(vec![o]),
-            Self::Exchange { status, response } => {
-                if status != "ok" {
-                    warn!("Hyperliquid REST error {}: {:?}", status, response);
-                    return Err(InfraError::ApiCliError(format!(
-                        "Hyperliquid REST error (status={}): {:?}",
-                        status, response
-                    )));
-                }
-
-                match response {
-                    Some(RestResHyperliquidPayload::Typed {
-                        data: Some(data), ..
-                    }) => Ok(vec![data]),
-                    Some(RestResHyperliquidPayload::Typed { data: None, .. }) => Ok(vec![]),
-                    Some(RestResHyperliquidPayload::Data(v)) => Ok(v),
-                    Some(RestResHyperliquidPayload::Object(o)) => Ok(vec![o]),
-                    None => Ok(vec![]),
-                }
-            },
         }
     }
 }
