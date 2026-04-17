@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde_json::json;
 use simd_json::from_slice;
 use std::{collections::HashMap, sync::Arc};
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::arch::{
     market_assets::{
@@ -684,8 +684,6 @@ impl OkxCli {
                 OKX_TRADE_ORDER,
             )
             .await?;
-
-        warn!("{:#?}", res);
 
         let data: OrderAckData = res
             .into_vec()?

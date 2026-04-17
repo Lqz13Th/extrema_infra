@@ -64,8 +64,8 @@ where
 
                 match response {
                     Some(RestResHyperliquidPayload::Typed {
-                             data: Some(data), ..
-                         }) => Ok(vec![data]),
+                        data: Some(data), ..
+                    }) => Ok(vec![data]),
                     Some(RestResHyperliquidPayload::Typed { data: None, .. }) => Ok(vec![]),
                     Some(RestResHyperliquidPayload::Data(v)) => Ok(v),
                     Some(RestResHyperliquidPayload::Object(o)) => Ok(vec![o]),

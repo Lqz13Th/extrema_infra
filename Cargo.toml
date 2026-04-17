@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 # Async runtime
-tokio = { version = "1.52.0", features = ["full"] }
+tokio = { version = "1.52.1", features = ["full"] }
 futures = "0.3.32"
 futures-util = "0.3.32"
 

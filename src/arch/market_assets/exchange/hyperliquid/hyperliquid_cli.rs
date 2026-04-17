@@ -567,7 +567,7 @@ impl HyperliquidCli {
             .filter(|order| order.inst == normalized_inst)
             .collect();
 
-        data.sort_by(|a, b| b.update_time.cmp(&a.update_time));
+        data.sort_by_key(|b| std::cmp::Reverse(b.update_time));
         if let Some(limit) = limit {
             data.truncate(limit as usize);
         }
