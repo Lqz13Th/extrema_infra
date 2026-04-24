@@ -280,6 +280,15 @@ impl HyperliquidCli {
         Ok(data)
     }
 
+    pub async fn get_perps_at_open_interest_cap(&self) -> InfraResult<Vec<String>> {
+        let body = json!({
+            "type": "perpsAtOpenInterestCap",
+            "dex": self._perp_dex(),
+        });
+        let res: Vec<String> = self._post_info_raw(&body).await?;
+        Ok(res)
+    }
+
     pub async fn set_leverage(
         &self,
         inst: &str,
