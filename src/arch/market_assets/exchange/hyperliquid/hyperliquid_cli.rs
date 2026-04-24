@@ -285,8 +285,8 @@ impl HyperliquidCli {
             "type": "perpsAtOpenInterestCap",
             "dex": self._perp_dex(),
         });
-        let res: Vec<String> = self._post_info_raw(&body).await?;
-        Ok(res)
+        let res: RestResHyperliquid<String> = self._post_info_raw(&body).await?;
+        res.into_vec()
     }
 
     pub async fn set_leverage(

@@ -33,7 +33,8 @@ use super::{
         ct_public_subpositions_history::RestSubPositionHistoryOkx,
         funding_rate::RestFundingRateOkx, funding_rate_history::RestFundingRateHistoryOkx,
         market_ticker::RestMarketTickerOkx, order_history::RestOrderHistoryOkx,
-        public_instruments::RestInstrumentsOkx, trade_order::RestOrderAckOkx,
+        price_limit::RestPriceLimitOkx, public_instruments::RestInstrumentsOkx,
+        trade_order::RestOrderAckOkx,
     },
 };
 
@@ -550,6 +551,21 @@ impl OkxCli {
             .collect();
 
         Ok(data)
+    }
+
+    pub async fn get_price_limit(&self, inst: &str) -> InfraResult<Vec<RestPriceLimitOkx>> {
+        let url = format!(
+            "{}{}?instId={}",
+            OKX_BASE_URL,
+            OKX_PUBLIC_PRICE_LIMIT,
+            cli_perp_to_okx_inst(inst)
+        );
+
+        let responds = self.client.get(url).send().await?;
+        let mut res_bytes = responds.bytes().await?.to_vec();
+        let res: RestResOkx<RestPriceLimitOkx> = from_slice(&mut res_bytes)?;
+
+        res.into_vec()
     }
 
     async fn _get_tickers(
