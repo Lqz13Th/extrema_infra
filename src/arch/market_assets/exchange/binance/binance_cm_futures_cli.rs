@@ -85,16 +85,12 @@ impl LobWebsocket for BinanceCmCli {
         Ok(String::new())
     }
 
-    async fn get_public_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
-        Ok(BINANCE_CM_FUTURES_WS.into())
+    async fn get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_public_connect_msg(channel)
     }
 
-    async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
-        let listen_key = self.create_listen_key().await?;
-        Ok(format!(
-            "{}/{}",
-            BINANCE_CM_FUTURES_WS, listen_key.listenKey
-        ))
+    async fn get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_private_connect_msg(channel).await
     }
 }
 
@@ -306,6 +302,31 @@ impl BinanceCmCli {
             WsChannel::Lob => Err(InfraError::Unimplemented),
             _ => Err(InfraError::Unimplemented),
         }
+    }
+
+    fn _get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        let url = match channel {
+            WsChannel::Candles(_) | WsChannel::Trades(_) => BINANCE_CM_FUTURES_WS_MKT,
+            WsChannel::Tick | WsChannel::Lob => BINANCE_CM_FUTURES_WS_PUB,
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        Ok(url.into())
+    }
+
+    async fn _get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        let events = match channel {
+            WsChannel::AccountOrders => "ORDER_TRADE_UPDATE",
+            WsChannel::AccountPositions | WsChannel::AccountBalAndPos => "ACCOUNT_UPDATE",
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        let listen_key = self.create_listen_key().await?;
+
+        Ok(format!(
+            "{}?listenKey={}&events={}",
+            BINANCE_CM_FUTURES_WS_PRI, listen_key.listenKey, events
+        ))
     }
 
     fn _ws_subscribe_candle(

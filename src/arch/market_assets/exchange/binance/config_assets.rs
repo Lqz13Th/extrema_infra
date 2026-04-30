@@ -34,7 +34,9 @@ pub const BINANCE_UM_FUTURES_LISTEN_KEY: &str = "/fapi/v1/listenKey";
 pub const BINANCE_UM_FUTURES_ALL_ORDERS: &str = "/fapi/v1/allOrders";
 
 /// CmFutures API
-pub const BINANCE_CM_FUTURES_WS: &str = "wss://dstream.binance.com/ws";
+pub const BINANCE_CM_FUTURES_WS_PRI: &str = "wss://dstream.binance.com/private/ws";
+pub const BINANCE_CM_FUTURES_WS_PUB: &str = "wss://dstream.binance.com/public/ws";
+pub const BINANCE_CM_FUTURES_WS_MKT: &str = "wss://dstream.binance.com/market/ws";
 pub const BINANCE_CM_FUTURES_BASE_URL: &str = "https://dapi.binance.com";
 pub const BINANCE_CM_FUTURES_EXCHANGE_INFO: &str = "/dapi/v1/exchangeInfo";
 
