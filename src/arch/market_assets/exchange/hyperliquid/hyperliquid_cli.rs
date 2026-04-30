@@ -121,19 +121,11 @@ impl LobWebsocket for HyperliquidCli {
     }
 
     async fn get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        match channel {
-            WsChannel::Trades(Some(TradesParam::AggTrades))
-            | WsChannel::Trades(Some(TradesParam::AllTrades))
-            | WsChannel::Trades(None) => Ok(HYPERLIQUID_WS.into()),
-            _ => Err(InfraError::Unimplemented),
-        }
+        self._get_public_connect_msg(channel)
     }
 
     async fn get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        match channel {
-            WsChannel::AccountOrders | WsChannel::AccountPositions => Ok(HYPERLIQUID_WS.into()),
-            _ => Err(InfraError::Unimplemented),
-        }
+        self._get_private_connect_msg(channel)
     }
 }
 
@@ -582,6 +574,22 @@ impl HyperliquidCli {
         }
 
         Ok(data)
+    }
+
+    fn _get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        match channel {
+            WsChannel::Trades(Some(TradesParam::AggTrades))
+            | WsChannel::Trades(Some(TradesParam::AllTrades))
+            | WsChannel::Trades(None) => Ok(HYPERLIQUID_WS.into()),
+            _ => Err(InfraError::Unimplemented),
+        }
+    }
+
+    fn _get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        match channel {
+            WsChannel::AccountOrders | WsChannel::AccountPositions => Ok(HYPERLIQUID_WS.into()),
+            _ => Err(InfraError::Unimplemented),
+        }
     }
 
     fn _get_public_sub_msg(

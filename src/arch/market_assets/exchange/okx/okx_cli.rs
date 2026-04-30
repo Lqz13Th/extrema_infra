@@ -135,19 +135,7 @@ impl LobWebsocket for OkxCli {
     }
 
     async fn get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        let url = match channel {
-            WsChannel::Trades(Some(trades_param)) => match trades_param {
-                TradesParam::AggTrades => OKX_WS_PUB,
-                TradesParam::AllTrades => OKX_WS_BUS,
-            },
-            WsChannel::Candles(_) | WsChannel::Tick | WsChannel::Lob | WsChannel::Trades(None) => {
-                OKX_WS_PUB
-            },
-            WsChannel::Other(s) if s == "instruments" || s == "funding-rate" => OKX_WS_BUS,
-            _ => return Err(InfraError::Unimplemented),
-        };
-
-        Ok(url.into())
+        self._get_public_connect_msg(channel)
     }
 
     async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
@@ -821,6 +809,22 @@ impl OkxCli {
             .collect();
 
         Ok(data)
+    }
+
+    fn _get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        let url = match channel {
+            WsChannel::Trades(Some(trades_param)) => match trades_param {
+                TradesParam::AggTrades => OKX_WS_PUB,
+                TradesParam::AllTrades => OKX_WS_BUS,
+            },
+            WsChannel::Candles(_) | WsChannel::Tick | WsChannel::Lob | WsChannel::Trades(None) => {
+                OKX_WS_PUB
+            },
+            WsChannel::Other(s) if s == "instruments" || s == "funding-rate" => OKX_WS_BUS,
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        Ok(url.into())
     }
 
     fn _get_public_sub_msg(
