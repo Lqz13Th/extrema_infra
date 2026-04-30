@@ -1,9 +1,8 @@
 use data_encoding::HEXUPPER;
 use hmac::{KeyInit, Mac};
 
-use reqwest::Client;
+use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use simd_json::from_slice;
 
 use crate::arch::market_assets::api_general::*;
 use crate::errors::{InfraError, InfraResult};
@@ -70,7 +69,7 @@ impl BinanceKey {
         signature: &Signature<u64>,
         query_string: Option<&str>,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
@@ -79,7 +78,7 @@ impl BinanceKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn post_request(
@@ -88,7 +87,7 @@ impl BinanceKey {
         signature: &Signature<u64>,
         query_string: Option<&str>,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
@@ -97,7 +96,7 @@ impl BinanceKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn put_request(
@@ -106,7 +105,7 @@ impl BinanceKey {
         signature: &Signature<u64>,
         query_string: Option<&str>,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
@@ -115,7 +114,7 @@ impl BinanceKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn delete_request(
@@ -124,7 +123,7 @@ impl BinanceKey {
         signature: &Signature<u64>,
         query_string: Option<&str>,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let full_url = binance_build_full_url(url, query_string, signature);
 
         let res = client
@@ -133,7 +132,7 @@ impl BinanceKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn send_signed_request<T>(
@@ -151,7 +150,7 @@ impl BinanceKey {
         let signature = self.sign_now(encoded_query.as_deref())?;
         let url = [base_url, endpoint].concat();
 
-        let mut response = match method {
+        let response = match method {
             RequestMethod::Get => {
                 self.get_request(client, &signature, encoded_query.as_deref(), &url)
                     .await?
@@ -170,8 +169,8 @@ impl BinanceKey {
             },
         };
 
-        let result: T = from_slice(&mut response)?;
-        Ok(result)
+        let label = format!("Binance {:?} {}", method, endpoint);
+        parse_json_response(&label, response).await
     }
 }
 

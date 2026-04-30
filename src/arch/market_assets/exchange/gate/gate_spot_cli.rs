@@ -1,6 +1,5 @@
 use reqwest::Client;
 use serde_json::json;
-use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
@@ -9,7 +8,7 @@ use crate::arch::{
         api_data::{
             account_data::OrderAckData, price_data::TickerData, utils_data::InstrumentInfo,
         },
-        api_general::{OrderParams, RequestMethod, get_seconds_timestamp},
+        api_general::{OrderParams, RequestMethod, get_seconds_timestamp, parse_json_response},
         base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TimeInForce},
         exchange::gate::{
             config_assets::*,
@@ -245,9 +244,9 @@ impl GateSpotCli {
     ) -> InfraResult<Vec<TickerData>> {
         let url = [GATE_BASE_URL, GATE_SPOT_TICKERS].concat();
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestTickerGateSpot> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestTickerGateSpot> =
+            parse_json_response("GateSpot tickers", response).await?;
 
         let data = res
             .into_vec()?
@@ -268,9 +267,9 @@ impl GateSpotCli {
     ) -> InfraResult<Vec<InstrumentInfo>> {
         let url = [GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS].concat();
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestCurrencyPairGateSpot> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestCurrencyPairGateSpot> =
+            parse_json_response("GateSpot instrument_info", response).await?;
 
         let data = res
             .into_vec()?
@@ -284,9 +283,9 @@ impl GateSpotCli {
     async fn _get_live_instruments(&self, _inst_type: InstrumentType) -> InfraResult<Vec<String>> {
         let url = [GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS].concat();
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestCurrencyPairGateSpot> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestCurrencyPairGateSpot> =
+            parse_json_response("GateSpot live_instruments", response).await?;
 
         let data = res
             .into_vec()?

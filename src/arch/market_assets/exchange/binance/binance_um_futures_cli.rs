@@ -1,6 +1,5 @@
 use reqwest::Client;
 use serde_json::Value;
-use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
@@ -249,9 +248,9 @@ impl BinanceUmCli {
             url.push_str(&format!("&endTime={}", end));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<Vec<Value>> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<Vec<Value>> =
+            parse_json_response("BinanceUmFutures premium_index_klines", response).await?;
 
         let candles = res
             .into_vec()?
@@ -285,9 +284,9 @@ impl BinanceUmCli {
             url.push_str(&format!("?symbol={}", normalized));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestPremiumIndexBinanceUM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestPremiumIndexBinanceUM> =
+            parse_json_response("BinanceUmFutures premium_index", response).await?;
 
         res.into_vec()
     }
@@ -307,9 +306,9 @@ impl BinanceUmCli {
             url.push_str(&format!("?symbol={}", normalized));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestPremiumIndexBinanceUM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestPremiumIndexBinanceUM> =
+            parse_json_response("BinanceUmFutures funding_rate_live", response).await?;
 
         let data = res
             .into_vec()?
@@ -323,9 +322,9 @@ impl BinanceUmCli {
     pub async fn get_funding_info(&self) -> InfraResult<Vec<FundingRateInfo>> {
         let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_FUNDING_INFO].concat();
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestFundingInfoBinanceUM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestFundingInfoBinanceUM> =
+            parse_json_response("BinanceUmFutures funding_info", response).await?;
 
         let data = res
             .into_vec()?
@@ -358,9 +357,9 @@ impl BinanceUmCli {
             url.push_str(&format!("&endTime={}", e));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestFundingRateBinanceUM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestFundingRateBinanceUM> =
+            parse_json_response("BinanceUmFutures funding_rate_history", response).await?;
 
         let data = res
             .into_vec()?
@@ -396,9 +395,9 @@ impl BinanceUmCli {
             url.push_str(&format!("&endTime={}", e));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestOpenInterestBinanceUM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestOpenInterestBinanceUM> =
+            parse_json_response("BinanceUmFutures open_interest_hist", response).await?;
 
         let data = res
             .into_vec()?
@@ -416,9 +415,9 @@ impl BinanceUmCli {
     ) -> InfraResult<Vec<TickerData>> {
         let url = [BINANCE_UM_FUTURES_BASE_URL, BINANCE_UM_FUTURES_TICKERS].concat();
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestTickerBinanceUM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestTickerBinanceUM> =
+            parse_json_response("BinanceUmFutures tickers", response).await?;
 
         let data = res
             .into_vec()?
@@ -443,9 +442,9 @@ impl BinanceUmCli {
         ]
         .concat();
 
-        let responds = self.client.get(&url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestExchangeInfoBinanceUM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(&url).send().await?;
+        let res: RestResBinance<RestExchangeInfoBinanceUM> =
+            parse_json_response("BinanceUmFutures instrument_info", response).await?;
 
         let data = res
             .into_vec()?
@@ -470,9 +469,9 @@ impl BinanceUmCli {
         ]
         .concat();
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestExchangeInfoBinanceUM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestExchangeInfoBinanceUM> =
+            parse_json_response("BinanceUmFutures live_instruments", response).await?;
 
         let data: Vec<String> = res
             .into_vec()?

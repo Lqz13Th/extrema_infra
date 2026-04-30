@@ -1,5 +1,5 @@
 use hmac::Hmac;
-use serde::{Deserialize, Deserializer, Serialize, de};
+use serde::{Deserialize, Deserializer, Serialize, de, de::DeserializeOwned};
 use serde_json::Value;
 use sha2::{Sha256, Sha512};
 use std::{
@@ -10,6 +10,7 @@ use std::{
 use crate::arch::market_assets::base_data::{
     MarginMode, OrderSide, OrderType, PositionSide, TimeInForce,
 };
+use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature<T> {
@@ -20,6 +21,7 @@ pub struct Signature<T> {
 pub type HmacSha256 = Hmac<Sha256>;
 pub type HmacSha512 = Hmac<Sha512>;
 
+#[derive(Debug)]
 pub enum RequestMethod {
     Get,
     Put,
@@ -179,6 +181,25 @@ where
         Value::Null => Ok(0),
         other => Err(de::Error::custom(format!("invalid u64 type: {:?}", other))),
     }
+}
+
+pub async fn parse_json_response<T>(label: &str, response: reqwest::Response) -> InfraResult<T>
+where
+    T: DeserializeOwned,
+{
+    let status = response.status();
+    let mut bytes = response
+        .bytes()
+        .await
+        .map_err(|e| InfraError::Msg(format!("[{label}] body read failed: {e}")))?
+        .to_vec();
+
+    simd_json::from_slice::<T>(&mut bytes).map_err(|e| {
+        let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(500)]);
+        InfraError::Msg(format!(
+            "[{label}] JSON parse failed status={status} body={preview:?} err={e}"
+        ))
+    })
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

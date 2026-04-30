@@ -1,12 +1,11 @@
 use reqwest::Client;
-use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
 use crate::arch::{
     market_assets::{
         api_data::{account_data::*, utils_data::*},
-        api_general::RequestMethod,
+        api_general::{RequestMethod, parse_json_response},
         base_data::*,
         exchange::binance::binance_rest_msg::RestResBinance,
     },
@@ -193,9 +192,9 @@ impl BinanceCmCli {
             url.push_str(&format!("&endTime={}", e));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestOpenInterestBinanceCM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestOpenInterestBinanceCM> =
+            parse_json_response("BinanceCmFutures open_interest_hist", response).await?;
 
         let data = res
             .into_vec()?
@@ -216,9 +215,9 @@ impl BinanceCmCli {
         ]
         .concat();
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestExchangeInfoBinanceCM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestExchangeInfoBinanceCM> =
+            parse_json_response("BinanceCmFutures instrument_info", response).await?;
 
         let data = res
             .into_vec()?
@@ -243,9 +242,9 @@ impl BinanceCmCli {
         ]
         .concat();
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestExchangeInfoBinanceCM> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestExchangeInfoBinanceCM> =
+            parse_json_response("BinanceCmFutures live_instruments", response).await?;
 
         let data: Vec<String> = res
             .into_vec()?

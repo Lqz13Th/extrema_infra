@@ -2,10 +2,9 @@ use data_encoding::HEXLOWER;
 use hmac::{KeyInit, Mac};
 use sha2::{Digest, Sha512};
 
-use reqwest::Client;
+use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
-use simd_json::from_slice;
 
 use crate::arch::market_assets::api_general::*;
 use crate::errors::{InfraError, InfraResult};
@@ -95,7 +94,7 @@ impl GateKey {
         client: &Client,
         signature: &Signature<u64>,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let res = client
             .get(url)
             .header("KEY", &self.api_key)
@@ -104,7 +103,7 @@ impl GateKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn post_request(
@@ -113,7 +112,7 @@ impl GateKey {
         signature: &Signature<u64>,
         body: &str,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let res = client
             .post(url)
             .header("KEY", &self.api_key)
@@ -124,7 +123,7 @@ impl GateKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn put_request(
@@ -133,7 +132,7 @@ impl GateKey {
         signature: &Signature<u64>,
         body: &str,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let res = client
             .put(url)
             .header("KEY", &self.api_key)
@@ -144,7 +143,7 @@ impl GateKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn send_signed_request<T>(
@@ -170,7 +169,7 @@ impl GateKey {
         let signature = self.sign_now(method_str, endpoint, encoded_query.as_deref(), body)?;
         let url = gate_build_full_url(base_url, endpoint, encoded_query.as_deref());
 
-        let mut response = match method {
+        let response = match method {
             RequestMethod::Get => self.get_request(client, &signature, &url).await?,
             RequestMethod::Post => {
                 let body_str = body.unwrap_or("");
@@ -184,8 +183,8 @@ impl GateKey {
             RequestMethod::Delete => self.get_request(client, &signature, &url).await?,
         };
 
-        let result: T = from_slice(&mut response)?;
-        Ok(result)
+        let label = format!("Gate {:?} {}", method, endpoint);
+        parse_json_response(&label, response).await
     }
 }
 

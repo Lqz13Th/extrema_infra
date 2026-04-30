@@ -1,6 +1,5 @@
 use reqwest::Client;
 use serde_json::json;
-use simd_json::from_slice;
 use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 
@@ -318,9 +317,9 @@ impl OkxCli {
             url.push_str(&format!("&limit={}", limit));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestPubLeadTradersOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestPubLeadTradersOkx> =
+            parse_json_response("Okx public_lead_traders", response).await?;
 
         let data = res
             .into_vec()?
@@ -354,9 +353,9 @@ impl OkxCli {
             OKX_BASE_URL, OKX_CT_PUBLIC_LEADTRADER_STATS, unique_code, inst_type_str, last_days,
         );
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestPubLeadTraderStatsOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestPubLeadTraderStatsOkx> =
+            parse_json_response("Okx public_lead_trader_stats", response).await?;
 
         let data = res
             .into_vec()?
@@ -392,9 +391,9 @@ impl OkxCli {
             url.push_str(&format!("&limit={}", l));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestSubPositionOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestSubPositionOkx> =
+            parse_json_response("Okx lead_trader_subpositions", response).await?;
 
         let data = res
             .into_vec()?
@@ -438,9 +437,9 @@ impl OkxCli {
             url.push_str(&format!("&after={}", a));
         }
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestSubPositionHistoryOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestSubPositionHistoryOkx> =
+            parse_json_response("Okx lead_trader_subpositions_history", response).await?;
 
         let data: Vec<LeadtraderSubpositionHistory> = res
             .into_vec()?
@@ -464,9 +463,9 @@ impl OkxCli {
             OKX_BASE_URL, OKX_PUBLIC_FUNDING_RATE, inst_id
         );
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestFundingRateOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestFundingRateOkx> =
+            parse_json_response("Okx funding_rate_info", response).await?;
 
         let data = res
             .into_vec()?
@@ -490,9 +489,9 @@ impl OkxCli {
             OKX_BASE_URL, OKX_PUBLIC_FUNDING_RATE, inst_id
         );
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestFundingRateOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestFundingRateOkx> =
+            parse_json_response("Okx funding_rate_live", response).await?;
 
         let data = res
             .into_vec()?
@@ -528,9 +527,9 @@ impl OkxCli {
             params.join("&")
         );
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestFundingRateHistoryOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestFundingRateHistoryOkx> =
+            parse_json_response("Okx funding_rate_history", response).await?;
 
         let data = res
             .into_vec()?
@@ -549,9 +548,9 @@ impl OkxCli {
             cli_perp_to_okx_inst(inst)
         );
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestPriceLimitOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestPriceLimitOkx> =
+            parse_json_response("Okx price_limit", response).await?;
 
         res.into_vec()
     }
@@ -575,9 +574,9 @@ impl OkxCli {
             "{}{}?instType={}",
             OKX_BASE_URL, OKX_MARKET_TICKERS, inst_type_str
         );
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestMarketTickerOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestMarketTickerOkx> =
+            parse_json_response("Okx tickers", response).await?;
 
         let data = res
             .into_vec()?
@@ -611,9 +610,9 @@ impl OkxCli {
             OKX_BASE_URL, OKX_PUBLIC_INSTRUMENTS, inst_type_str,
         );
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResOkx<RestInstrumentsOkx> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestInstrumentsOkx> =
+            parse_json_response("Okx instrument_info", response).await?;
 
         let data: Vec<InstrumentInfo> = res
             .into_vec()?

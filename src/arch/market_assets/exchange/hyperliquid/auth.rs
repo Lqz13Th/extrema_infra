@@ -1,14 +1,13 @@
-use crate::arch::market_assets::api_general::get_mills_timestamp;
-use crate::errors::{InfraError, InfraResult};
 use data_encoding::HEXLOWER;
 use reqwest::Client;
 use rmp_serde::to_vec_named;
 use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha3::{Digest, Keccak256};
-use simd_json::from_slice;
 
 use super::config_assets::*;
+use crate::arch::market_assets::api_general::{get_mills_timestamp, parse_json_response};
+use crate::errors::{InfraError, InfraResult};
 
 pub fn read_hyperliquid_env_auth() -> InfraResult<HyperliquidAuth> {
     let _ = dotenvy::dotenv();
@@ -92,10 +91,7 @@ impl HyperliquidAuth {
             .send()
             .await?;
 
-        let mut response = response.bytes().await?.to_vec();
-        let result: T = from_slice(&mut response)?;
-
-        Ok(result)
+        parse_json_response("Hyperliquid POST exchange", response).await
     }
 
     pub fn sign_l1_action<A>(

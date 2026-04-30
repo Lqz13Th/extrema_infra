@@ -1,6 +1,5 @@
 use reqwest::Client;
 use serde_json::{Value, json};
-use simd_json::from_slice;
 use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 
@@ -11,7 +10,7 @@ use crate::arch::{
             price_data::TickerData,
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
-        api_general::{OrderParams, get_micros_timestamp},
+        api_general::{OrderParams, get_micros_timestamp, parse_json_response},
         base_data::{InstrumentType, MarginMode},
     },
     task_execution::task_ws::{TradesParam, WsChannel},
@@ -702,11 +701,10 @@ impl HyperliquidCli {
         T: serde::de::DeserializeOwned,
     {
         let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_INFO].concat();
-        let responds = self.client.post(url).json(body).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: T = from_slice(&mut res_bytes)?;
-
-        Ok(res)
+        let response = self.client.post(url).json(body).send().await?;
+        let info_type = body.get("type").and_then(|v| v.as_str()).unwrap_or("?");
+        let label = format!("Hyperliquid info {}", info_type);
+        parse_json_response(&label, response).await
     }
 
     async fn _get_meta_and_asset_ctxs(&self) -> InfraResult<RestMetaAndAssetCtxsHyperliquid> {

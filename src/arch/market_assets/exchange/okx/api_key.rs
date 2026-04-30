@@ -1,10 +1,9 @@
 use data_encoding::BASE64;
 use hmac::{KeyInit, Mac};
 
-use reqwest::Client;
+use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use simd_json::from_slice;
 
 use crate::arch::market_assets::api_general::*;
 use crate::errors::{InfraError, InfraResult};
@@ -72,7 +71,7 @@ impl OkxKey {
         client: &Client,
         signature: &Signature<String>,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let res = client
             .get(url)
             .header("OK-ACCESS-KEY", &self.api_key)
@@ -83,7 +82,7 @@ impl OkxKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn post_request(
@@ -92,7 +91,7 @@ impl OkxKey {
         signature: &Signature<String>,
         body: String,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let res = client
             .post(url)
             .header("OK-ACCESS-KEY", &self.api_key)
@@ -104,7 +103,7 @@ impl OkxKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn put_request(
@@ -113,7 +112,7 @@ impl OkxKey {
         signature: &Signature<String>,
         body: String,
         url: &str,
-    ) -> InfraResult<Vec<u8>> {
+    ) -> InfraResult<Response> {
         let res = client
             .put(url)
             .header("OK-ACCESS-KEY", &self.api_key)
@@ -125,7 +124,7 @@ impl OkxKey {
             .send()
             .await?;
 
-        Ok(res.bytes().await?.to_vec())
+        Ok(res)
     }
 
     pub(crate) async fn send_signed_request<T>(
@@ -139,7 +138,7 @@ impl OkxKey {
     where
         T: DeserializeOwned + Send,
     {
-        let mut response = match method {
+        let response = match method {
             RequestMethod::Get => {
                 let query = okx_normalize_get_query(&body)?;
                 let request_path = okx_request_path_with_query(endpoint, query.as_deref());
@@ -164,8 +163,8 @@ impl OkxKey {
             },
         };
 
-        let result: T = from_slice(&mut response)?;
-        Ok(result)
+        let label = format!("Okx {:?} {}", method, endpoint);
+        parse_json_response(&label, response).await
     }
 }
 

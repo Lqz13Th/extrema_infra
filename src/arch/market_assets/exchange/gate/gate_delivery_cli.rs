@@ -1,10 +1,10 @@
 use reqwest::Client;
-use simd_json::from_slice;
 use std::sync::Arc;
 
 use crate::arch::{
     market_assets::{
         api_data::utils_data::InstrumentInfo,
+        api_general::parse_json_response,
         base_data::{InstrumentType, TRADING_LOWER},
     },
     traits::{
@@ -96,9 +96,9 @@ impl GateDeliveryCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestContractGateDelivery> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestContractGateDelivery> =
+            parse_json_response("GateDelivery contracts", response).await?;
 
         res.into_vec()
     }

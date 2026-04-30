@@ -1,6 +1,5 @@
 use reqwest::Client;
 use serde_json::json;
-use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
@@ -11,7 +10,9 @@ use crate::arch::{
             price_data::TickerData,
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
-        api_general::{OrderParams, RequestMethod, get_seconds_timestamp, value_to_f64},
+        api_general::{
+            OrderParams, RequestMethod, get_seconds_timestamp, parse_json_response, value_to_f64,
+        },
         base_data::{
             InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER, TRADING_LOWER,
         },
@@ -183,9 +184,9 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestFundingRateGateFutures> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestFundingRateGateFutures> =
+            parse_json_response("GateFutures funding_rate_history", response).await?;
 
         let data = res
             .into_vec()?
@@ -270,9 +271,9 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestContractGateFutures> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestContractGateFutures> =
+            parse_json_response("GateFutures funding_rate_info", response).await?;
 
         let data = res
             .into_vec()?
@@ -305,9 +306,9 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestContractGateFutures> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestContractGateFutures> =
+            parse_json_response("GateFutures funding_rate_live_all", response).await?;
 
         let data = res
             .into_vec()?
@@ -328,9 +329,9 @@ impl GateFuturesCli {
             .replace("{contract}", &cli_perp_to_gate_inst(inst));
 
         let url = [GATE_BASE_URL, &endpoint].concat();
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestContractGateFutures> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestContractGateFutures> =
+            parse_json_response("GateFutures funding_rate_live", response).await?;
 
         let data = res
             .into_vec()?
@@ -363,9 +364,9 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResGate<RestContractGateFutures> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestContractGateFutures> =
+            parse_json_response("GateFutures futures_contracts", response).await?;
 
         res.into_vec()
     }
@@ -381,9 +382,9 @@ impl GateFuturesCli {
             let endpoint = GATE_FUTURES_TICKERS.replace("{settle}", settle);
             let url = [GATE_BASE_URL, &endpoint].concat();
 
-            let responds = self.client.get(url).send().await?;
-            let mut res_bytes = responds.bytes().await?.to_vec();
-            let res: RestResGate<RestTickerGateFutures> = from_slice(&mut res_bytes)?;
+            let response = self.client.get(url).send().await?;
+            let res: RestResGate<RestTickerGateFutures> =
+                parse_json_response("GateFutures tickers", response).await?;
 
             data.extend(
                 res.into_vec()?

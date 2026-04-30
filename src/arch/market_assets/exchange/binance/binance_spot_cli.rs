@@ -1,6 +1,5 @@
 use reqwest::Client;
 use serde_json::json;
-use simd_json::from_slice;
 use std::sync::Arc;
 use tracing::error;
 
@@ -331,9 +330,9 @@ impl BinanceSpotCli {
         _inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         let url = format!("{}{}", BINANCE_SPOT_BASE_URL, BINANCE_SPOT_TICKERS);
-        let responds = self.client.get(url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestTickerBinanceSpot> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestTickerBinanceSpot> =
+            parse_json_response("BinanceSpot tickers", response).await?;
 
         let data = res
             .into_vec()?
@@ -356,9 +355,9 @@ impl BinanceSpotCli {
     ) -> InfraResult<Vec<InstrumentInfo>> {
         let url = [BINANCE_SPOT_BASE_URL, BINANCE_SPOT_EXCHANGE_INFO].concat();
 
-        let responds = self.client.get(&url).send().await?;
-        let mut res_bytes = responds.bytes().await?.to_vec();
-        let res: RestResBinance<RestExchangeInfoBinanceSpot> = from_slice(&mut res_bytes)?;
+        let response = self.client.get(&url).send().await?;
+        let res: RestResBinance<RestExchangeInfoBinanceSpot> =
+            parse_json_response("BinanceSpot instrument_info", response).await?;
 
         let data = res
             .into_vec()?
