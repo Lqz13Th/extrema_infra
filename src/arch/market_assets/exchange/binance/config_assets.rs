@@ -16,7 +16,9 @@ pub const BINANCE_WITHDRAW_ADDRESS_LIST: &str = "/sapi/v1/capital/withdraw/addre
 pub const BINANCE_WITHDRAW_APPLY: &str = "/sapi/v1/capital/withdraw/apply";
 
 /// UmFutures API
-pub const BINANCE_UM_FUTURES_WS: &str = "wss://fstream.binance.com/ws";
+pub const BINANCE_UM_FUTURES_WS_PRI: &str = "wss://fstream.binance.com/private/ws";
+pub const BINANCE_UM_FUTURES_WS_PUB: &str = "wss://fstream.binance.com/public/ws";
+pub const BINANCE_UM_FUTURES_WS_MKT: &str = "wss://fstream.binance.com/market/ws";
 pub const BINANCE_UM_FUTURES_BASE_URL: &str = "https://fapi.binance.com";
 pub const BINANCE_UM_FUTURES_EXCHANGE_INFO: &str = "/fapi/v1/exchangeInfo";
 pub const BINANCE_UM_FUTURES_ACCOUNT_INFO: &str = "/fapi/v3/account";
