@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::arch::market_assets::{
     api_data::account_data::PositionData,
-    api_general::value_to_f64,
+    api_general::{get_micros_timestamp, value_to_f64},
     base_data::{InstrumentType, PositionSide},
     exchange::hyperliquid::api_utils::hyperliquid_perp_to_cli,
 };
@@ -64,7 +64,7 @@ impl RestAssetPositionHyperliquid {
         let size = value_to_f64(&self.position.szi);
 
         PositionData {
-            timestamp: 0,
+            timestamp: get_micros_timestamp(),
             inst: hyperliquid_perp_to_cli(&self.position.coin),
             inst_type: InstrumentType::Perpetual,
             position_side: if size > 0.0 {
