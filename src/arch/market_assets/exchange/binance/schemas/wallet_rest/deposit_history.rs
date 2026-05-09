@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::arch::market_assets::api_general::de_u64_from_string_or_number;
+use crate::arch::market_assets::api_general::de_micros_from_int;
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -23,9 +23,9 @@ pub struct RestDepositHistoryBinance {
     pub addressTag: String,
     #[serde(default)]
     pub txId: String,
-    #[serde(default, deserialize_with = "de_u64_from_string_or_number")]
+    #[serde(default, deserialize_with = "de_micros_from_int")]
     pub insertTime: u64,
-    #[serde(default, deserialize_with = "de_u64_from_string_or_number")]
+    #[serde(default, deserialize_with = "de_micros_from_int")]
     pub completeTime: u64,
     #[serde(default)]
     pub confirmTimes: String,

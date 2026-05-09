@@ -183,6 +183,13 @@ where
     }
 }
 
+pub fn de_micros_from_int<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(ts_to_micros(de_u64_from_string_or_number(deserializer)?))
+}
+
 pub async fn parse_json_response<T>(label: &str, response: reqwest::Response) -> InfraResult<T>
 where
     T: DeserializeOwned,
