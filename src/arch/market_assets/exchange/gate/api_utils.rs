@@ -76,6 +76,55 @@ pub fn normalize_gate_text(text: &str) -> String {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateWithdrawHistoryReq {
+    pub currency: Option<String>,
+    pub withdraw_id: Option<String>,
+    pub asset_class: Option<String>,
+    pub withdraw_order_id: Option<String>,
+    pub from: Option<u64>,
+    pub to: Option<u64>,
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+}
+
+impl GateWithdrawHistoryReq {
+    pub(crate) fn to_query_string(&self) -> Option<String> {
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(currency) = self.currency.as_deref() {
+            parts.push(format!("currency={}", currency.to_uppercase()));
+        }
+        if let Some(withdraw_id) = self.withdraw_id.as_deref() {
+            parts.push(format!("withdraw_id={withdraw_id}"));
+        }
+        if let Some(asset_class) = self.asset_class.as_deref() {
+            parts.push(format!("asset_class={asset_class}"));
+        }
+        if let Some(woid) = self.withdraw_order_id.as_deref() {
+            parts.push(format!("withdraw_order_id={woid}"));
+        }
+        if let Some(from) = self.from {
+            parts.push(format!("from={from}"));
+        }
+        if let Some(to) = self.to {
+            parts.push(format!("to={to}"));
+        }
+        if let Some(limit) = self.limit {
+            parts.push(format!("limit={limit}"));
+        }
+        if let Some(offset) = self.offset {
+            parts.push(format!("offset={offset}"));
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("&"))
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GateWithdrawReq {
     pub currency: String,
     pub address: String,
