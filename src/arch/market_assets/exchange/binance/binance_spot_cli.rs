@@ -32,8 +32,10 @@ use super::{
             all_coins_info::RestCapitalConfigCoinBinance,
             deposit_address::RestDepositAddressBinance,
             deposit_address_list::RestDepositAddressListBinance,
-            transfer::RestUserUniversalTransferBinance, withdraw::RestWithdrawBinance,
+            deposit_history::RestDepositHistoryBinance, transfer::RestUserUniversalTransferBinance,
+            transfer_history::RestTransferHistoryBinance, withdraw::RestWithdrawBinance,
             withdraw_address_list::RestWithdrawAddressBinance,
+            withdraw_history::RestWithdrawHistoryBinance,
         },
     },
 };
@@ -179,6 +181,61 @@ impl BinanceSpotCli {
         .await
     }
 
+    pub async fn get_withdraw_address_list(
+        &self,
+        coin: &str,
+        network: Option<&str>,
+    ) -> InfraResult<Vec<RestWithdrawAddressBinance>> {
+        let mut query_parts = vec![format!("coin={}", coin.to_uppercase())];
+        if let Some(network) = network {
+            query_parts.push(format!("network={network}"));
+        }
+
+        let query = query_parts.join("&");
+        let res: RestResBinance<RestWithdrawAddressBinance> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                BINANCE_SPOT_BASE_URL,
+                BINANCE_WITHDRAW_ADDRESS_LIST,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_universal_transfer_history(
+        &self,
+        req: BinanceUniversalTransferHistoryReq,
+    ) -> InfraResult<RestTransferHistoryBinance> {
+        let res: RestResBinance<RestTransferHistoryBinance> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&req.to_query_string()),
+                BINANCE_SPOT_BASE_URL,
+                BINANCE_USER_UNIVERSAL_TRANSFER,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No transfer history data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
     pub async fn withdraw(&self, req: BinanceWithdrawReq) -> InfraResult<RestWithdrawBinance> {
         let res: RestResBinance<RestWithdrawBinance> = self
             .api_key
@@ -202,6 +259,28 @@ impl BinanceSpotCli {
             ))?;
 
         Ok(data)
+    }
+
+    pub async fn get_withdraw_history(
+        &self,
+        req: BinanceWithdrawHistoryReq,
+    ) -> InfraResult<Vec<RestWithdrawHistoryBinance>> {
+        let query = req.to_query_string();
+
+        let res: RestResBinance<RestWithdrawHistoryBinance> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query.as_deref(),
+                BINANCE_SPOT_BASE_URL,
+                BINANCE_WITHDRAW_HISTORY,
+            )
+            .await?;
+
+        res.into_vec()
     }
 
     pub async fn get_all_coins_info(
@@ -297,27 +376,22 @@ impl BinanceSpotCli {
         res.into_vec()
     }
 
-    pub async fn get_withdraw_address_list(
+    pub async fn get_deposit_history(
         &self,
-        coin: &str,
-        network: Option<&str>,
-    ) -> InfraResult<Vec<RestWithdrawAddressBinance>> {
-        let mut query_parts = vec![format!("coin={}", coin.to_uppercase())];
-        if let Some(network) = network {
-            query_parts.push(format!("network={network}"));
-        }
+        req: BinanceDepositHistoryReq,
+    ) -> InfraResult<Vec<RestDepositHistoryBinance>> {
+        let query = req.to_query_string();
 
-        let query = query_parts.join("&");
-        let res: RestResBinance<RestWithdrawAddressBinance> = self
+        let res: RestResBinance<RestDepositHistoryBinance> = self
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
             .send_signed_request(
                 &self.client,
                 RequestMethod::Get,
-                Some(&query),
+                query.as_deref(),
                 BINANCE_SPOT_BASE_URL,
-                BINANCE_WITHDRAW_ADDRESS_LIST,
+                BINANCE_DEPOSIT_HISTORY,
             )
             .await?;
 

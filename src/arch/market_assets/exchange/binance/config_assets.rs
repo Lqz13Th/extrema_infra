@@ -12,8 +12,10 @@ pub const BINANCE_USER_UNIVERSAL_TRANSFER: &str = "/sapi/v1/asset/transfer";
 pub const BINANCE_CAPITAL_CONFIG_GETALL: &str = "/sapi/v1/capital/config/getall";
 pub const BINANCE_DEPOSIT_ADDRESS: &str = "/sapi/v1/capital/deposit/address";
 pub const BINANCE_DEPOSIT_ADDRESS_LIST: &str = "/sapi/v1/capital/deposit/address/list";
+pub const BINANCE_DEPOSIT_HISTORY: &str = "/sapi/v1/capital/deposit/hisrec";
 pub const BINANCE_WITHDRAW_ADDRESS_LIST: &str = "/sapi/v1/capital/withdraw/address/list";
 pub const BINANCE_WITHDRAW_APPLY: &str = "/sapi/v1/capital/withdraw/apply";
+pub const BINANCE_WITHDRAW_HISTORY: &str = "/sapi/v1/capital/withdraw/history";
 
 /// UmFutures API
 pub const BINANCE_UM_FUTURES_WS_PRI: &str = "wss://fstream.binance.com/private/ws";

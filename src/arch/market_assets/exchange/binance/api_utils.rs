@@ -85,6 +85,169 @@ impl BinanceUniversalTransferReq {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinanceUniversalTransferHistoryReq {
+    pub transfer_type: BinanceUniversalTransferType,
+    pub start_time: Option<u64>,
+    pub end_time: Option<u64>,
+    pub current: Option<u32>,
+    pub size: Option<u32>,
+    pub from_symbol: Option<String>,
+    pub to_symbol: Option<String>,
+    pub recv_window: Option<u64>,
+}
+
+impl BinanceUniversalTransferHistoryReq {
+    pub fn new(transfer_type: BinanceUniversalTransferType) -> Self {
+        Self {
+            transfer_type,
+            start_time: None,
+            end_time: None,
+            current: None,
+            size: None,
+            from_symbol: None,
+            to_symbol: None,
+            recv_window: None,
+        }
+    }
+
+    pub(crate) fn to_query_string(&self) -> String {
+        let mut parts = vec![format!("type={}", self.transfer_type.as_str())];
+
+        if let Some(start) = self.start_time {
+            parts.push(format!("startTime={start}"));
+        }
+        if let Some(end) = self.end_time {
+            parts.push(format!("endTime={end}"));
+        }
+        if let Some(current) = self.current {
+            parts.push(format!("current={current}"));
+        }
+        if let Some(size) = self.size {
+            parts.push(format!("size={size}"));
+        }
+        if let Some(from_symbol) = self.from_symbol.as_deref() {
+            parts.push(format!("fromSymbol={from_symbol}"));
+        }
+        if let Some(to_symbol) = self.to_symbol.as_deref() {
+            parts.push(format!("toSymbol={to_symbol}"));
+        }
+        if let Some(window) = self.recv_window {
+            parts.push(format!("recvWindow={window}"));
+        }
+
+        parts.join("&")
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinanceDepositHistoryReq {
+    pub coin: Option<String>,
+    pub status: Option<i32>,
+    pub start_time: Option<u64>,
+    pub end_time: Option<u64>,
+    pub offset: Option<u32>,
+    pub limit: Option<u32>,
+    pub include_source: Option<bool>,
+    pub tx_id: Option<String>,
+    pub recv_window: Option<u64>,
+}
+
+impl BinanceDepositHistoryReq {
+    pub(crate) fn to_query_string(&self) -> Option<String> {
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(coin) = self.coin.as_deref() {
+            parts.push(format!("coin={}", coin.to_uppercase()));
+        }
+        if let Some(status) = self.status {
+            parts.push(format!("status={status}"));
+        }
+        if let Some(start) = self.start_time {
+            parts.push(format!("startTime={start}"));
+        }
+        if let Some(end) = self.end_time {
+            parts.push(format!("endTime={end}"));
+        }
+        if let Some(offset) = self.offset {
+            parts.push(format!("offset={offset}"));
+        }
+        if let Some(limit) = self.limit {
+            parts.push(format!("limit={limit}"));
+        }
+        if let Some(include_source) = self.include_source {
+            parts.push(format!("includeSource={include_source}"));
+        }
+        if let Some(tx_id) = self.tx_id.as_deref() {
+            parts.push(format!("txId={tx_id}"));
+        }
+        if let Some(window) = self.recv_window {
+            parts.push(format!("recvWindow={window}"));
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("&"))
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinanceWithdrawHistoryReq {
+    pub coin: Option<String>,
+    pub withdraw_order_id: Option<String>,
+    pub status: Option<i32>,
+    pub offset: Option<u32>,
+    pub limit: Option<u32>,
+    pub id_list: Option<Vec<String>>,
+    pub start_time: Option<u64>,
+    pub end_time: Option<u64>,
+    pub recv_window: Option<u64>,
+}
+
+impl BinanceWithdrawHistoryReq {
+    pub(crate) fn to_query_string(&self) -> Option<String> {
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(coin) = self.coin.as_deref() {
+            parts.push(format!("coin={}", coin.to_uppercase()));
+        }
+        if let Some(woid) = self.withdraw_order_id.as_deref() {
+            parts.push(format!("withdrawOrderId={woid}"));
+        }
+        if let Some(status) = self.status {
+            parts.push(format!("status={status}"));
+        }
+        if let Some(offset) = self.offset {
+            parts.push(format!("offset={offset}"));
+        }
+        if let Some(limit) = self.limit {
+            parts.push(format!("limit={limit}"));
+        }
+        if let Some(ids) = self.id_list.as_deref()
+            && !ids.is_empty()
+        {
+            parts.push(format!("idList={}", ids.join(",")));
+        }
+        if let Some(start) = self.start_time {
+            parts.push(format!("startTime={start}"));
+        }
+        if let Some(end) = self.end_time {
+            parts.push(format!("endTime={end}"));
+        }
+        if let Some(window) = self.recv_window {
+            parts.push(format!("recvWindow={window}"));
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("&"))
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BinanceWithdrawReq {
     pub coin: String,
