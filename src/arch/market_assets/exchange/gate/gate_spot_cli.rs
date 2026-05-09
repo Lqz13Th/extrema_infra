@@ -20,7 +20,8 @@ use crate::arch::{
                 },
                 wallet_rest::{
                     currency_chains::RestCurrencyChainGate,
-                    deposit_address::RestDepositAddressGate, saved_address::RestSavedAddressGate,
+                    deposit_address::RestDepositAddressGate,
+                    deposit_history::RestDepositHistoryGate, saved_address::RestSavedAddressGate,
                     withdraw::RestWithdrawGate, withdraw_history::RestWithdrawHistoryGate,
                 },
             },
@@ -152,6 +153,29 @@ impl GateSpotCli {
                 None,
                 GATE_BASE_URL,
                 GATE_WALLET_WITHDRAWALS_LIST,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_deposit_history(
+        &self,
+        req: GateDepositHistoryReq,
+    ) -> InfraResult<Vec<RestDepositHistoryGate>> {
+        let query = req.to_query_string();
+
+        let res: RestResGate<RestDepositHistoryGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query.as_deref(),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_DEPOSITS_LIST,
             )
             .await?;
 
