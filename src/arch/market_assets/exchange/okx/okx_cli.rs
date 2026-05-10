@@ -24,7 +24,9 @@ use super::{
     okx_rest_msg::RestResOkx,
     schemas::rest::{
         account_balance::RestAccountBalOkx, account_positions::RestAccountPosOkx,
-        account_set_leverage::RestAccountSetLeverageOkx,
+        account_set_leverage::RestAccountSetLeverageOkx, asset_balances::RestAssetBalanceOkx,
+        asset_currencies::RestAssetCurrencyOkx, asset_deposit_address::RestAssetDepositAddressOkx,
+        asset_deposit_history::RestAssetDepositHistoryOkx,
         ct_current_lead_traders::RestLeadtraderOkx,
         ct_public_current_subpositions::RestSubPositionOkx,
         ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
@@ -224,6 +226,106 @@ impl OkxCli {
             ))?;
 
         Ok(data)
+    }
+
+    pub async fn get_asset_currencies(
+        &self,
+        ccys: Option<&[String]>,
+    ) -> InfraResult<Vec<RestAssetCurrencyOkx>> {
+        let body = match ccys {
+            Some(list) if !list.is_empty() => {
+                let upper: Vec<String> = list.iter().map(|s| s.to_ascii_uppercase()).collect();
+                json!({ "ccy": upper.join(",") }).to_string()
+            },
+            _ => "{}".into(),
+        };
+
+        let res: RestResOkx<RestAssetCurrencyOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_ASSET_CURRENCIES,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_asset_balances(
+        &self,
+        ccys: Option<&[String]>,
+    ) -> InfraResult<Vec<RestAssetBalanceOkx>> {
+        let body = match ccys {
+            Some(list) if !list.is_empty() => {
+                let upper: Vec<String> = list.iter().map(|s| s.to_ascii_uppercase()).collect();
+                json!({ "ccy": upper.join(",") }).to_string()
+            },
+            _ => "{}".into(),
+        };
+
+        let res: RestResOkx<RestAssetBalanceOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_ASSET_BALANCES,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_asset_deposit_address(
+        &self,
+        ccy: &str,
+    ) -> InfraResult<Vec<RestAssetDepositAddressOkx>> {
+        let body = json!({ "ccy": ccy.to_ascii_uppercase() }).to_string();
+
+        let res: RestResOkx<RestAssetDepositAddressOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_ASSET_DEPOSIT_ADDRESS,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_asset_deposit_history(
+        &self,
+        req: OkxAssetDepositHistoryReq,
+    ) -> InfraResult<Vec<RestAssetDepositHistoryOkx>> {
+        let body = req.to_query_body();
+
+        let res: RestResOkx<RestAssetDepositHistoryOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_ASSET_DEPOSIT_HISTORY,
+            )
+            .await?;
+
+        res.into_vec()
     }
 
     pub async fn get_current_lead_traders(

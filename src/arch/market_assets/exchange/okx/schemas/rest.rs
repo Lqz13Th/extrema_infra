@@ -1,6 +1,10 @@
 pub mod account_balance;
 pub mod account_positions;
 pub mod account_set_leverage;
+pub mod asset_balances;
+pub mod asset_currencies;
+pub mod asset_deposit_address;
+pub mod asset_deposit_history;
 pub mod ct_current_lead_traders;
 pub mod ct_public_current_subpositions;
 pub mod ct_public_lead_trader_stats;

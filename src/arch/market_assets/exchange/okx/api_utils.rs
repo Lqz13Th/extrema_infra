@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::error;
 
-use crate::arch::market_assets::base_data::{InstrumentType, SUBSCRIBE_LOWER};
-use crate::prelude::{MarginMode, PositionSide};
+use crate::arch::market_assets::base_data::{
+    InstrumentType, MarginMode, PositionSide, SUBSCRIBE_LOWER,
+};
 
 pub fn ws_subscribe_msg_okx(channel: &str, insts: Option<&[String]>) -> String {
     let args: Vec<_> = match insts {
@@ -168,4 +169,53 @@ pub struct PubLeadtraderStats {
     pub invest_amount: f64,
     pub avg_sub_pos_national: f64,
     pub current_copy_trader_pnl: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OkxAssetDepositHistoryReq {
+    pub ccy: Option<String>,
+    pub dep_id: Option<String>,
+    pub from_wd_id: Option<String>,
+    pub tx_id: Option<String>,
+    pub deposit_type: Option<String>,
+    pub state: Option<String>,
+    pub after: Option<u64>,
+    pub before: Option<u64>,
+    pub limit: Option<u32>,
+}
+
+impl OkxAssetDepositHistoryReq {
+    pub(crate) fn to_query_body(&self) -> String {
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(ccy) = self.ccy.as_deref() {
+            parts.push(format!("ccy={}", ccy.to_ascii_uppercase()));
+        }
+        if let Some(id) = self.dep_id.as_deref() {
+            parts.push(format!("depId={id}"));
+        }
+        if let Some(id) = self.from_wd_id.as_deref() {
+            parts.push(format!("fromWdId={id}"));
+        }
+        if let Some(tx) = self.tx_id.as_deref() {
+            parts.push(format!("txId={tx}"));
+        }
+        if let Some(t) = self.deposit_type.as_deref() {
+            parts.push(format!("type={t}"));
+        }
+        if let Some(s) = self.state.as_deref() {
+            parts.push(format!("state={s}"));
+        }
+        if let Some(after) = self.after {
+            parts.push(format!("after={after}"));
+        }
+        if let Some(before) = self.before {
+            parts.push(format!("before={before}"));
+        }
+        if let Some(limit) = self.limit {
+            parts.push(format!("limit={limit}"));
+        }
+
+        parts.join("&")
+    }
 }
