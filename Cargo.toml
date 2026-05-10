@@ -9,7 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 # Async runtime
-tokio = { version = "1.52.2", features = ["full"] }
+tokio = { version = "1.52.3", features = ["full"] }
 futures = "0.3.32"
 futures-util = "0.3.32"
 
@@ -32,7 +32,7 @@ secp256k1 = { version = "0.31.1", features = ["recovery"] }
 data-encoding = "2.11.0"
 
 # TLS
-rustls = { version = "0.23.36", features = ["aws-lc-rs"] }
+rustls = { version = "0.23.40", features = ["aws-lc-rs"] }
 
 # IPC / Model inference / Data processing
 zeromq = "0.6.0"
