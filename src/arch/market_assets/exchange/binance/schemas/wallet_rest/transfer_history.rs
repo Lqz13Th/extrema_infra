@@ -2,9 +2,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::arch::market_assets::api_general::{
-    de_micros_from_int, de_u64_from_string_or_number,
-};
+use crate::arch::market_assets::api_general::{de_micros_from_int, de_u64_from_string_or_number};
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Default, Deserialize)]
