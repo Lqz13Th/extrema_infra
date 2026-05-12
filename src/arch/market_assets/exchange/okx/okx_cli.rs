@@ -26,7 +26,9 @@ use super::{
         account_balance::RestAccountBalOkx, account_positions::RestAccountPosOkx,
         account_set_leverage::RestAccountSetLeverageOkx, asset_balances::RestAssetBalanceOkx,
         asset_currencies::RestAssetCurrencyOkx, asset_deposit_address::RestAssetDepositAddressOkx,
-        asset_deposit_history::RestAssetDepositHistoryOkx,
+        asset_deposit_history::RestAssetDepositHistoryOkx, asset_transfer::RestAssetTransferOkx,
+        asset_transfer_state::RestAssetTransferStateOkx, asset_withdrawal::RestAssetWithdrawalOkx,
+        asset_withdrawal_history::RestAssetWithdrawalHistoryOkx,
         ct_current_lead_traders::RestLeadtraderOkx,
         ct_public_current_subpositions::RestSubPositionOkx,
         ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
@@ -322,6 +324,127 @@ impl OkxCli {
                 body,
                 OKX_BASE_URL,
                 OKX_ASSET_DEPOSIT_HISTORY,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn asset_transfer(
+        &self,
+        req: OkxAssetTransferReq,
+    ) -> InfraResult<RestAssetTransferOkx> {
+        let body = req.to_json_body();
+
+        let res: RestResOkx<RestAssetTransferOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                body,
+                OKX_BASE_URL,
+                OKX_ASSET_TRANSFER,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No OKX asset transfer data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_asset_withdrawal_history(
+        &self,
+        req: OkxAssetWithdrawalHistoryReq,
+    ) -> InfraResult<Vec<RestAssetWithdrawalHistoryOkx>> {
+        let body = req.to_query_body();
+
+        let res: RestResOkx<RestAssetWithdrawalHistoryOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_ASSET_WITHDRAWAL_HISTORY,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn asset_withdrawal(
+        &self,
+        req: OkxAssetWithdrawalReq,
+    ) -> InfraResult<RestAssetWithdrawalOkx> {
+        let body = req.to_json_body();
+
+        let res: RestResOkx<RestAssetWithdrawalOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                body,
+                OKX_BASE_URL,
+                OKX_ASSET_WITHDRAWAL,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No OKX asset withdrawal data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_asset_transfer_state(
+        &self,
+        trans_id: Option<&str>,
+        client_id: Option<&str>,
+        transfer_type: Option<&str>,
+    ) -> InfraResult<Vec<RestAssetTransferStateOkx>> {
+        if trans_id.is_none() && client_id.is_none() {
+            return Err(InfraError::ApiCliError(
+                "OKX asset/transfer-state requires either transId or clientId".into(),
+            ));
+        }
+
+        let mut body = json!({});
+        if let Some(t) = trans_id {
+            body["transId"] = json!(t);
+        }
+        if let Some(c) = client_id {
+            body["clientId"] = json!(c);
+        }
+        if let Some(t) = transfer_type {
+            body["type"] = json!(t);
+        }
+
+        let res: RestResOkx<RestAssetTransferStateOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body.to_string(),
+                OKX_BASE_URL,
+                OKX_ASSET_TRANSFER_STATE,
             )
             .await?;
 

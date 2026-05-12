@@ -172,6 +172,145 @@ pub struct PubLeadtraderStats {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OkxAssetWithdrawalHistoryReq {
+    pub ccy: Option<String>,
+    pub wd_id: Option<String>,
+    pub client_id: Option<String>,
+    pub tx_id: Option<String>,
+    pub withdrawal_type: Option<String>,
+    pub state: Option<String>,
+    pub after: Option<u64>,
+    pub before: Option<u64>,
+    pub limit: Option<u32>,
+}
+
+impl OkxAssetWithdrawalHistoryReq {
+    pub(crate) fn to_query_body(&self) -> String {
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(c) = self.ccy.as_deref() {
+            parts.push(format!("ccy={}", c.to_ascii_uppercase()));
+        }
+        if let Some(id) = self.wd_id.as_deref() {
+            parts.push(format!("wdId={id}"));
+        }
+        if let Some(id) = self.client_id.as_deref() {
+            parts.push(format!("clientId={id}"));
+        }
+        if let Some(tx) = self.tx_id.as_deref() {
+            parts.push(format!("txId={tx}"));
+        }
+        if let Some(t) = self.withdrawal_type.as_deref() {
+            parts.push(format!("type={t}"));
+        }
+        if let Some(s) = self.state.as_deref() {
+            parts.push(format!("state={s}"));
+        }
+        if let Some(a) = self.after {
+            parts.push(format!("after={a}"));
+        }
+        if let Some(b) = self.before {
+            parts.push(format!("before={b}"));
+        }
+        if let Some(l) = self.limit {
+            parts.push(format!("limit={l}"));
+        }
+
+        parts.join("&")
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OkxAssetWithdrawalReq {
+    pub ccy: String,
+    pub amt: String,
+    pub dest: String,
+    pub to_addr: String,
+    pub fee: String,
+    pub chain: Option<String>,
+    pub area_code: Option<String>,
+    pub client_id: Option<String>,
+    pub fee_ccy: Option<String>,
+    pub addr_label: Option<String>,
+    pub ln_invoice: Option<String>,
+}
+
+impl OkxAssetWithdrawalReq {
+    pub(crate) fn to_json_body(&self) -> String {
+        let mut body = json!({
+            "ccy": self.ccy.to_ascii_uppercase(),
+            "amt": self.amt,
+            "dest": self.dest,
+            "toAddr": self.to_addr,
+            "fee": self.fee,
+        });
+
+        if let Some(c) = self.chain.as_deref() {
+            body["chain"] = json!(c);
+        }
+        if let Some(a) = self.area_code.as_deref() {
+            body["areaCode"] = json!(a);
+        }
+        if let Some(c) = self.client_id.as_deref() {
+            body["clientId"] = json!(c);
+        }
+        if let Some(c) = self.fee_ccy.as_deref() {
+            body["feeCcy"] = json!(c);
+        }
+        if let Some(l) = self.addr_label.as_deref() {
+            body["addrLabel"] = json!(l);
+        }
+        if let Some(l) = self.ln_invoice.as_deref() {
+            body["lnInvoice"] = json!(l);
+        }
+
+        body.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OkxAssetTransferReq {
+    pub ccy: String,
+    pub amt: String,
+    pub from: String,
+    pub to: String,
+    pub sub_acct: Option<String>,
+    pub transfer_type: Option<String>,
+    pub loan_trans: Option<bool>,
+    pub omit_pos_risk: Option<bool>,
+    pub client_id: Option<String>,
+}
+
+impl OkxAssetTransferReq {
+    pub(crate) fn to_json_body(&self) -> String {
+        let mut body = json!({
+            "ccy": self.ccy.to_ascii_uppercase(),
+            "amt": self.amt,
+            "from": self.from,
+            "to": self.to,
+        });
+
+        if let Some(s) = self.sub_acct.as_deref() {
+            body["subAcct"] = json!(s);
+        }
+        if let Some(t) = self.transfer_type.as_deref() {
+            body["type"] = json!(t);
+        }
+        if let Some(b) = self.loan_trans {
+            body["loanTrans"] = json!(b);
+        }
+        if let Some(b) = self.omit_pos_risk {
+            body["omitPosRisk"] = json!(b);
+        }
+        if let Some(c) = self.client_id.as_deref() {
+            body["clientId"] = json!(c);
+        }
+
+        body.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OkxAssetDepositHistoryReq {
     pub ccy: Option<String>,
     pub dep_id: Option<String>,
