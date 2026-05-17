@@ -20,6 +20,7 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 ---
 
 ## Key Features
+
 - **Machine Learning Integration Across Languages**
   - Features can be sent via ZeroMQ to Python ML models (Torch, GBM, Transformer, etc.).
   - ONNX models can also run directly inside `extrema_infra` without an external Python service.
@@ -45,7 +46,7 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 
 ---
 
-# Extrema Infra Architecture
+## Extrema Infra Architecture
 
 ![Extrema Infra Architecture](./arch.png)
 
@@ -54,11 +55,13 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 ## Why HList?
 
 Traditional frameworks force strategies into **homogeneous containers** (e.g., `Vec<Box<dyn Strategy>>`), which means:
+
 - Runtime overhead due to dynamic dispatch (`vtable` lookups).  
 - Possible type erasure issues.  
 - Harder to leverage compile-time optimizations.
 
 With **HList**:
+
 - **Heterogeneous strategies** (different struct types) can be stored in one container.  
 - **Compile-time guarantees**: only strategies implementing the `Strategy` trait can be registered.  
 - **Zero-cost abstraction**: static dispatch, no `Box`, no dynamic allocation.  
@@ -68,7 +71,7 @@ With **HList**:
 
 ## Traditional vs HList Approach
 
-| Aspect                    | Traditional Vec<Box<dyn Trait>> | HList-based Extrema Infra     |
+| Aspect                    | Traditional `Vec<Box<dyn Trait>>` | HList-based Extrema Infra     |
 |---------------------------|---------------------------------|-------------------------------|
 | **Dispatch**              | Dynamic (runtime `vtable`)      | Static (compile-time inlined) |
 | **Type Safety**           | Runtime only                    | Compile-time enforced         |
@@ -78,6 +81,7 @@ With **HList**:
 ---
 
 ## Strategy Execution Model
+
 - Trait-driven: `on_trade`, `on_candle`, `on_lob`.
 - HList ensures safe registration of multiple strategy types.
 - All infra timestamps are unified to microseconds (µs).
@@ -98,9 +102,9 @@ The extrema_infra crate provides the core traits to implement trading strategies
   Entry point of your strategy. Defines how it executes and spawns tasks.
 
 - **EventHandler**
-  -  handle timer or alternative task events.
-  -  handle Limit Order Book (LOB) events like trades, orderbook, candles, account orders.
-  -  handle asynchronous model prediction events.
+  - handle timer or alternative task events.
+  - handle Limit Order Book (LOB) events like trades, orderbook, candles, account orders.
+  - handle asynchronous model prediction events.
 
 - **CommandEmitter**  
   Used to initialize and register command handles for communication with tasks.
@@ -291,7 +295,9 @@ async fn main() {
 ---
 
 ## Latency-sensitive ML strategy
+
 For a practical implementation, see the [complex strategy example](examples/complex_strategy_example.rs).
+
 - **Latency-sensitive task**  
   - Handles order placement, cancel/replace, LOB reaction, etc.
   - Minimal logic, no blocking, no heavy computation.
@@ -303,13 +309,15 @@ For a practical implementation, see the [complex strategy example](examples/comp
   - Using **AltTask** for feature extraction, sending data to Torch prediction via command handle, then generating signals to execute orders.
 
 Latency-sensitive logic can be decomposed into multiple tasks.
-where each task handles only a subset of instruments for maximum efficiency. 
+where each task handles only a subset of instruments for maximum efficiency.
 
-Meanwhile, support logic can also be split into dedicated tasks, 
+Meanwhile, support logic can also be split into dedicated tasks,
 with each task focusing on a single role to maintain clarity and modularity.
 
 ![Extrema Infra Architecture](complex_example.png)
 
 ---
+
 ## License
+
 This project is licensed under the [Apache 2.0 license](LICENSE).
