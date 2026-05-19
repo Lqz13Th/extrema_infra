@@ -35,14 +35,7 @@ impl From<RestAccountPosOkx> for PositionData {
             position_side: match d.posSide.to_uppercase().as_str() {
                 "LONG" => PositionSide::Long,
                 "SHORT" => PositionSide::Short,
-                "NET" => {
-                    let size = d.pos.parse().unwrap_or(0.0);
-                    if size >= 0.0 {
-                        PositionSide::Long
-                    } else {
-                        PositionSide::Short
-                    }
-                },
+                "NET" => PositionSide::Both,
                 _ => PositionSide::Unknown,
             },
             size: d.pos.parse().unwrap_or_default(),
