@@ -1,26 +1,48 @@
 use crate::arch::market_assets::market_core::Market;
 
+/// Descriptor for a websocket relay task.
+///
+/// The relay owns websocket IO for a market/channel pair and publishes
+/// normalized events into matching broadcast channels. Strategies usually react
+/// to the initial `on_ws_event` event by sending connect/login/subscribe
+/// commands through the task handle.
 #[derive(Clone, Debug)]
 pub struct WsTaskInfo {
+    /// Exchange or venue for this websocket task.
     pub market: Market,
+    /// Stream category handled by this task.
     pub ws_channel: WsChannel,
+    /// Whether the relay should filter raw exchange messages by channel before
+    /// publishing them.
     pub filter_channels: bool,
+    /// Number of task instances to spawn.
     pub chunk: u64,
+    /// Optional first task id for generated task instances.
     pub task_base_id: Option<u64>,
 }
 
+/// Websocket channel categories understood by the runtime.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum WsChannel {
+    /// Private account order updates.
     AccountOrders,
+    /// Private balance and position updates.
     AccountBalAndPos,
+    /// Private position-only updates.
     AccountPositions,
+    /// Public candles, optionally parameterized by interval.
     Candles(Option<CandleParam>),
+    /// Public trades, optionally parameterized by trade stream type.
     Trades(Option<TradesParam>),
+    /// Public ticker stream.
     Tick,
+    /// Public order book stream.
     Lob,
+    /// Exchange-specific or custom stream.
     Other(String),
 }
 
+/// Candle interval used by candle websocket and REST APIs.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CandleParam {
     OneSecond,
@@ -34,6 +56,7 @@ pub enum CandleParam {
     Custom(String),
 }
 
+/// Trade stream variant for exchanges that expose several trade feeds.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TradesParam {
     AggTrades,
@@ -41,6 +64,7 @@ pub enum TradesParam {
 }
 
 impl CandleParam {
+    /// Parses a standard candle interval such as `"1m"` or `"1h"`.
     pub fn from_candle_str(s: &str) -> Option<Self> {
         match s {
             "1s" => Some(CandleParam::OneSecond),
@@ -55,6 +79,7 @@ impl CandleParam {
         }
     }
 
+    /// Returns the exchange-style interval string.
     pub fn as_str(&self) -> &str {
         match self {
             CandleParam::OneSecond => "1s",

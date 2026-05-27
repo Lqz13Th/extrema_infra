@@ -11,6 +11,43 @@ use crate::arch::{
     traits::strategy::Strategy,
 };
 
+/// Builder for an `extrema_infra` runtime.
+///
+/// Use this builder in the final binary to declare broadcast channels, runtime
+/// tasks, and strategy modules. `with_strategy_module` keeps each strategy as
+/// its concrete type by accumulating modules in a heterogeneous list, so a
+/// process can compose different modules without boxing them behind a trait
+/// object.
+///
+/// ```rust,no_run
+/// use std::{sync::Arc, time::Duration};
+///
+/// use extrema_infra::prelude::*;
+///
+/// let task = AltTaskInfo {
+///     alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
+///     chunk: 1,
+///     task_base_id: Some(1),
+/// };
+///
+/// # #[derive(Clone)]
+/// # struct MyStrategy;
+/// # impl Strategy for MyStrategy { async fn initialize(&mut self) {} }
+/// # impl CommandEmitter for MyStrategy {
+/// #     fn command_init(&mut self, _: Arc<CommandRegistry>) {}
+/// #     fn command_registry(&self) -> Arc<CommandRegistry> {
+/// #         Arc::new(CommandRegistry::default())
+/// #     }
+/// # }
+/// # impl EventHandler for MyStrategy {}
+/// # let my_strategy = MyStrategy;
+/// let env = EnvBuilder::new()
+///     .with_board_cast_channel(BoardCastChannel::default_alt_event())
+///     .with_board_cast_channel(BoardCastChannel::default_scheduler())
+///     .with_task(TaskInfo::AltTask(Arc::new(task)))
+///     .with_strategy_module(my_strategy)
+///     .build();
+/// ```
 pub struct EnvBuilder<Strategies = HNil> {
     board_cast_channels: Vec<BoardCastChannel>,
     tasks: Vec<TaskInfo>,
@@ -18,6 +55,7 @@ pub struct EnvBuilder<Strategies = HNil> {
 }
 
 impl EnvBuilder<HNil> {
+    /// Creates an empty runtime builder.
     pub fn new() -> Self {
         Self {
             board_cast_channels: Vec::new(),
@@ -34,6 +72,11 @@ impl Default for EnvBuilder<HNil> {
 }
 
 impl<HeadList> EnvBuilder<HeadList> {
+    /// Adds a broadcast channel if a channel of the same variant is not already
+    /// present.
+    ///
+    /// Duplicate variants are skipped. For example, adding two trade channels
+    /// still leaves one `Trade` broadcast channel in the runtime.
     pub fn with_board_cast_channel(mut self, channel: BoardCastChannel) -> Self {
         let channel_type_exists = self
             .board_cast_channels
@@ -50,12 +93,14 @@ impl<HeadList> EnvBuilder<HeadList> {
         self
     }
 
+    /// Adds one runtime task.
     pub fn with_task(mut self, task: TaskInfo) -> Self {
         info!("Adding task: {:?}", task);
         self.tasks.push(task);
         self
     }
 
+    /// Adds several runtime tasks in order.
     pub fn with_tasks(mut self, tasks: Vec<TaskInfo>) -> Self {
         for task in tasks {
             info!("Adding task: {:?}", task);
@@ -64,6 +109,11 @@ impl<HeadList> EnvBuilder<HeadList> {
         self
     }
 
+    /// Registers one strategy module.
+    ///
+    /// Calling this method repeatedly creates a static module chain. All modules
+    /// receive the same broadcast events and may independently send commands to
+    /// the tasks they care about.
     pub fn with_strategy_module<S>(self, strategy: S) -> EnvBuilder<HCons<S, HeadList>>
     where
         S: Strategy + Clone,
@@ -84,6 +134,7 @@ impl<Strategies> EnvBuilder<Strategies>
 where
     Strategies: Strategy,
 {
+    /// Finalizes the builder into an executable environment.
     pub fn build(self) -> EnvMediator<Strategies> {
         EnvMediator {
             core: EnvCore {
