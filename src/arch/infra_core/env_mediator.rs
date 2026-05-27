@@ -12,8 +12,16 @@ use crate::arch::{
     traits::strategy::Strategy,
 };
 
+/// Executable runtime produced by [`EnvBuilder`].
+///
+/// The mediator initializes strategies, registers tasks, provides the command
+/// registry to strategies, asks strategies to spawn any extra background work,
+/// and then keeps the runtime alive.
+///
+/// [`EnvBuilder`]: crate::arch::infra_core::env_builder::EnvBuilder
 pub struct EnvMediator<S> {
     pub(crate) core: EnvCore<S>,
+    /// Runtime task declarations owned by this environment.
     pub tasks: Vec<TaskInfo>,
 }
 
@@ -21,6 +29,9 @@ impl<S> EnvMediator<S>
 where
     S: Strategy,
 {
+    /// Starts the environment and waits forever.
+    ///
+    /// This method is intended to be the last awaited call in a strategy binary.
     pub async fn execute(mut self) {
         self.core.strategy.initialize().await;
 

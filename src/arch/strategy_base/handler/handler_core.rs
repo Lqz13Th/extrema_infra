@@ -9,73 +9,112 @@ use crate::arch::{
     traits::strategy::Strategy,
 };
 
+/// Message envelope published through runtime broadcast channels.
+///
+/// `task_id` identifies the task instance that produced the event. `data` is
+/// reference-counted so every subscribed strategy module can receive the same
+/// payload without copying the full event body.
 #[derive(Clone, Debug)]
 pub struct InfraMsg<T> {
+    /// Runtime task id that emitted this message.
     pub task_id: u64,
+    /// Shared event payload.
     pub data: Arc<T>,
 }
 
+/// Broadcast event streams available inside an environment.
+///
+/// Add the variants a process needs with
+/// [`EnvBuilder::with_board_cast_channel`]. Each variant maps to one callback
+/// on [`EventHandler`].
+///
+/// [`EnvBuilder::with_board_cast_channel`]: crate::arch::infra_core::env_builder::EnvBuilder::with_board_cast_channel
+/// [`EventHandler`]: crate::arch::traits::strategy::EventHandler
 #[derive(Clone, Debug)]
 pub enum BoardCastChannel {
+    /// Generic alt-task lifecycle/control events.
     Alt(broadcast::Sender<InfraMsg<AltTaskInfo>>),
+    /// Generic websocket-task lifecycle/control events.
     Ws(broadcast::Sender<InfraMsg<WsTaskInfo>>),
+    /// Order execution batches.
     OrderExecute(broadcast::Sender<InfraMsg<Vec<AltOrder>>>),
+    /// Instrument or portfolio target intents.
     InstIntent(broadcast::Sender<InfraMsg<AltIntent>>),
+    /// Model prediction tensors.
     ModelPreds(broadcast::Sender<InfraMsg<AltTensor>>),
+    /// Periodic scheduler ticks.
     Schedule(broadcast::Sender<InfraMsg<AltScheduleEvent>>),
+    /// Public trade batches.
     Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
+    /// Public order book updates.
     Lob(broadcast::Sender<InfraMsg<Vec<WsLob>>>),
+    /// Public candle batches.
     Candle(broadcast::Sender<InfraMsg<Vec<WsCandle>>>),
+    /// Private account order updates.
     AccOrder(broadcast::Sender<InfraMsg<Vec<WsAccOrder>>>),
+    /// Private account balance and position updates.
     AccBalPos(broadcast::Sender<InfraMsg<Vec<WsAccBalPos>>>),
+    /// Private account position-only updates.
     AccPos(broadcast::Sender<InfraMsg<Vec<WsAccPosition>>>),
 }
 
 impl BoardCastChannel {
+    /// Creates the default generic alt-task event channel.
     pub fn default_alt_event() -> Self {
         BoardCastChannel::Alt(broadcast::channel(2048).0)
     }
 
+    /// Creates the default generic websocket-task event channel.
     pub fn default_ws_event() -> Self {
         BoardCastChannel::Ws(broadcast::channel(2048).0)
     }
 
+    /// Creates the default order execution channel.
     pub fn default_order_execution() -> Self {
         BoardCastChannel::OrderExecute(broadcast::channel(2048).0)
     }
 
+    /// Creates the default instrument intent channel.
     pub fn default_inst_intent() -> Self {
         BoardCastChannel::InstIntent(broadcast::channel(2048).0)
     }
 
+    /// Creates the default model prediction channel.
     pub fn default_model_preds() -> Self {
         BoardCastChannel::ModelPreds(broadcast::channel(2048).0)
     }
 
+    /// Creates the default scheduler channel.
     pub fn default_scheduler() -> Self {
         BoardCastChannel::Schedule(broadcast::channel(2048).0)
     }
 
+    /// Creates the default public trade channel.
     pub fn default_trade() -> Self {
         BoardCastChannel::Trade(broadcast::channel(2048).0)
     }
 
+    /// Creates the default public order book channel.
     pub fn default_lob() -> Self {
         BoardCastChannel::Lob(broadcast::channel(2048).0)
     }
 
+    /// Creates the default public candle channel.
     pub fn default_candle() -> Self {
         BoardCastChannel::Candle(broadcast::channel(2048).0)
     }
 
+    /// Creates the default private account order channel.
     pub fn default_account_order() -> Self {
         BoardCastChannel::AccOrder(broadcast::channel(2048).0)
     }
 
+    /// Creates the default private balance/position channel.
     pub fn default_account_bal_pos() -> Self {
         BoardCastChannel::AccBalPos(broadcast::channel(2048).0)
     }
 
+    /// Creates the default private account position channel.
     pub fn default_account_pos() -> Self {
         BoardCastChannel::AccPos(broadcast::channel(2048).0)
     }

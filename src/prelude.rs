@@ -1,3 +1,16 @@
+//! Common imports for strategy binaries.
+//!
+//! Most applications can start with:
+//!
+//! ```rust
+//! use extrema_infra::prelude::*;
+//! ```
+//!
+//! The prelude contains the runtime builder, strategy traits, task descriptors,
+//! broadcast channel types, command handles, normalized market data structures,
+//! and shared error/result aliases. Exchange-specific client structs remain
+//! available under `arch::market_assets::exchange::prelude` when the matching
+//! feature is enabled.
 pub use crate::errors::{InfraError, InfraResult};
 
 pub use crate::arch::{

@@ -1,3 +1,11 @@
+//! Error and result types used across the crate.
+//!
+//! Public APIs return [`InfraResult<T>`], which is a crate-local alias around
+//! [`Result`] with [`InfraError`]. The error enum keeps exchange, parsing,
+//! environment-variable, and unimplemented-endpoint failures in one type so
+//! strategy code can propagate errors without depending on exchange-specific
+//! error enums.
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]

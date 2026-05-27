@@ -3,6 +3,21 @@ name = "extrema_infra"
 version = "0.1.0"
 edition = "2024"
 
+readme = "README.md"
+license = "Apache-2.0"
+
+keywords = ["trading", "crypto", "websocket", "quant", "finance"]
+categories = [
+    "api-bindings",
+    "asynchronous",
+    "finance",
+    "network-programming",
+    "web-programming::websocket",
+]
+
+description = "Event-driven trading infrastructure"
+repository = "https://github.com/Lqz13Th/extrema_infra"
+
 [lib]
 name = "extrema_infra"
 path = "src/lib.rs"

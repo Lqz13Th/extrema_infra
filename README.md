@@ -28,20 +28,20 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
   - Predictions return asynchronously to Rust for signal generation and order execution.
 
 - **Unified Exchange Abstraction**
-  - All exchanges (Hyperliquid, Binance, etc.) normalized into unified `Market` enum + structs.
-  - Strategies write once, run anywhere.
+  - Supported exchange clients normalize common fields into the shared `Market` enum and data structs.
+  - Strategies can consume unified types while still handling exchange-specific capabilities where needed.
 
 - **Broadcast-based Data Distribution**
   - Subscribe once, broadcast to many.
   - Multiple strategies consume the same feed without extra I/O.
 
 - **Static Efficiency**
-  - No dynamic boxing, no runtime dispatch.
+  - Strategy registration avoids `Box<dyn Strategy>` and dynamic dispatch at the strategy-list boundary.
   - Unified REST & WS interfaces with pre-converted data.
 
-- **Lock-Free Concurrency**
-  - Message passing via channels and broadcast without mutex locks.
-  - Eliminates contention, ensuring **low-latency, high-throughput** event delivery.
+- **Channel-based Concurrency**
+  - Message passing via Tokio channels and broadcast streams keeps data flow explicit.
+  - Reduces shared-state contention for real-time trading workloads.
   - Perfect for real-time trading workloads.
 
 ---
@@ -64,7 +64,7 @@ With **HList**:
 
 - **Heterogeneous strategies** (different struct types) can be stored in one container.  
 - **Compile-time guarantees**: only strategies implementing the `Strategy` trait can be registered.  
-- **Zero-cost abstraction**: static dispatch, no `Box`, no dynamic allocation.  
+- **Static strategy registration**: no `Box<dyn Strategy>` at the module-list boundary.
 - **Maximum flexibility**: easily mix and match different strategy types while keeping everything static.
 
 ---
@@ -86,6 +86,9 @@ With **HList**:
 - HList ensures safe registration of multiple strategy types.
 - All infra timestamps are unified to microseconds (µs).
 - All instrument names returned by the internal API are automatically normalized.
+
+For a generic end-to-end wiring guide with scheduler, websocket, account-stream,
+and multi-module examples, see [docs/usage.md](docs/usage.md).
 
 Instrument naming conventions:
 
@@ -220,8 +223,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# Local development
+# Local development for core-only scheduler/model examples.
 extrema_infra = { path = "../extrema_infra" }
+
+# Enable exchange clients explicitly when needed.
+# extrema_infra = { path = "../extrema_infra", features = ["binance", "okx"] }
+# extrema_infra = { path = "../extrema_infra", features = ["lob_clients"] }
 
 # Or remote
 # extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["all"] }
@@ -239,14 +246,24 @@ tracing-subscriber = "0.3"
 
 Then, on your main.rs:
 
-```rust
+```rust,no_run
 use std::{sync::Arc, time::Duration};
 use tracing::info;
 
 use extrema_infra::prelude::*;
 
 #[derive(Clone)]
-struct EmptyStrategy;
+struct EmptyStrategy {
+  registry: Arc<CommandRegistry>,
+}
+
+impl EmptyStrategy {
+  fn new() -> Self {
+    Self {
+      registry: Arc::new(CommandRegistry::default()),
+    }
+  }
+}
 
 impl Strategy for EmptyStrategy {
   async fn initialize(&mut self) {
@@ -255,12 +272,13 @@ impl Strategy for EmptyStrategy {
 }
 
 impl CommandEmitter for EmptyStrategy {
-  fn command_init(&mut self, _registry: Arc<CommandRegistry>) {
+  fn command_init(&mut self, registry: Arc<CommandRegistry>) {
+    self.registry = registry;
     info!("[EmptyStrategy] Command channel initialized");
   }
 
   fn command_registry(&self) -> Arc<CommandRegistry> {
-    Arc::new(CommandRegistry::default())
+    self.registry.clone()
   }
 }
 
@@ -285,7 +303,7 @@ async fn main() {
           .with_board_cast_channel(BoardCastChannel::default_alt_event())
           .with_board_cast_channel(BoardCastChannel::default_scheduler())
           .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
-          .with_strategy_module(EmptyStrategy)
+          .with_strategy_module(EmptyStrategy::new())
           .build();
 
   env.execute().await;
