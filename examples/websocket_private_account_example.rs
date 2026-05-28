@@ -1,3 +1,18 @@
+//! Private account websocket example.
+//!
+//! This example shows how a strategy module connects private account websocket
+//! relays for Binance UM futures and OKX, sends connect/login/subscribe
+//! commands, and receives account balance/position updates through callbacks.
+//!
+//! Run it with:
+//!
+//! ```text
+//! cargo run --example websocket_private_account_example --features binance,okx
+//! ```
+//!
+//! Private streams require the corresponding exchange API-key environment
+//! variables documented in the usage guide.
+
 use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};

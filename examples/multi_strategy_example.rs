@@ -1,3 +1,16 @@
+//! Multiple strategy modules in one runtime.
+//!
+//! This example wires an empty scheduler-driven strategy together with a Binance
+//! public websocket strategy. It demonstrates how multiple modules share one
+//! `EnvBuilder`, receive independent callbacks, and send websocket commands
+//! through task handles.
+//!
+//! Run it with:
+//!
+//! ```text
+//! cargo run --example multi_strategy_example --features binance
+//! ```
+
 use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};
