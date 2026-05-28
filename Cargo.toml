@@ -1,6 +1,6 @@
 [package]
 name = "extrema_infra"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 readme = "README.md"
@@ -11,12 +11,12 @@ categories = [
     "api-bindings",
     "asynchronous",
     "finance",
-    "network-programming",
-    "web-programming::websocket",
 ]
 
-description = "Event-driven trading infrastructure"
+description = "A quantitative trading environment built in Rust."
 repository = "https://github.com/Lqz13Th/extrema_infra"
+homepage = "https://github.com/Lqz13Th/extrema_infra"
+documentation = "https://docs.rs/extrema_infra"
 
 [lib]
 name = "extrema_infra"
@@ -53,7 +53,6 @@ rustls = { version = "0.23.40", features = ["aws-lc-rs"] }
 zeromq = "0.6.0"
 tract-onnx = "0.22.1"
 polars = { version = "0.53.0", default-features = false }
-
 
 # Logging & Tracing
 tracing = "0.1.44"
