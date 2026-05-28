@@ -1,4 +1,4 @@
-﻿# Extrema Infra
+# Extrema Infra
 
 A quantitative trading environment built in Rust.
 
@@ -173,7 +173,7 @@ shape = list(tensor.shape)
 
 ## LOB Exchange API Traits
 
-These traits apply only to LOB-based exchanges (Binance, OKX, dYdX, Hyperliquid, etc.)
+These traits apply only to LOB-based exchanges (Binance, OKX, Hyperliquid, etc.)
 
 For connecting to exchanges, you need to implement these traits for each exchange client:
 
