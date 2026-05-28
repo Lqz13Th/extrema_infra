@@ -1,3 +1,15 @@
+//! Minimal scheduler strategy example.
+//!
+//! This example shows the smallest useful `EnvBuilder` setup: one strategy
+//! module, one time scheduler task, and the broadcast channels required for
+//! scheduler events.
+//!
+//! Run it with:
+//!
+//! ```text
+//! cargo run --example empty_strategy_example
+//! ```
+
 use std::{sync::Arc, time::Duration};
 use tracing::info;
 

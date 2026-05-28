@@ -1,3 +1,16 @@
+//! Larger runtime wiring example.
+//!
+//! This example combines public websocket data, model prediction tasks, order
+//! execution relays, and an account module. It is intended to show how the
+//! runtime pieces fit together rather than provide a production trading
+//! strategy.
+//!
+//! Run it with:
+//!
+//! ```text
+//! cargo run --example complex_strategy_example --features okx
+//! ```
+
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::oneshot;
 use tracing::{error, info, warn};

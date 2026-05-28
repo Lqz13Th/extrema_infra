@@ -446,3 +446,6 @@ Downstream repositories currently exercise these patterns:
   runtime.
 - `examples/websocket_private_account_example.rs`: private account websocket
   setup.
+- `examples/hyperliquid_api_usage_example.rs`: read-only Hyperliquid REST API
+  usage, including public market data and optional account balance/position
+  reads by owner address.
