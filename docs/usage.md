@@ -9,8 +9,8 @@ orchestrators, exchange websocket checkers, and account/order utilities.
 An application usually has four layers:
 
 1. **Strategy modules** implement business logic.
-2. **Tasks** own long-running work such as timers, model workers, order
-   execution, and websocket relays.
+2. **Tasks** own long-running work such as timers, model workers,
+   order-execution relays, and websocket relays.
 3. **Broadcast channels** publish task output to all registered strategy
    modules.
 4. **Command handles** let strategies send commands back to tasks after the
@@ -81,11 +81,16 @@ async fn main() {
 
 Strategy binaries should declare their direct runtime dependencies. Do not rely
 on transitive dependencies from `extrema_infra` when using `tokio`, `rustls`, or
-logging crates in your own code.
+logging crates in your own code. Binaries that use REST or websocket clients
+must also install the `rustls` AWS-LC provider before constructing those
+clients.
 
 ```toml
 [dependencies]
+# Local workspace development:
 extrema_infra = { path = "../extrema_infra" }
+# Published crate usage:
+# extrema_infra = "0.1.0"
 tokio = { version = "1.52.3", features = ["full"] }
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
 tracing = "0.1"
@@ -99,8 +104,9 @@ markets used by the binary:
 extrema_infra = { path = "../extrema_infra", features = ["binance", "okx"] }
 ```
 
-Use `features = ["lob_clients"]` or `features = ["all"]` when a process needs
-all built-in LOB exchange clients.
+Use `features = ["lob_clients"]` when a process needs the `LobClients`
+aggregate helper. Use `features = ["all"]` when it only needs all individual
+exchange modules.
 
 ## Strategy Module Checklist
 
@@ -175,14 +181,18 @@ Common `AltTaskType` values:
 - `ModelPreds(ModelRunner::Zmq(..))`: external model process integration.
 - `ModelPreds(ModelRunner::Onnx(..))`: in-process ONNX inference.
 
-Model prediction tasks also require
-`BoardCastChannel::default_model_preds()` and an `on_preds` handler.
+Each alt task needs its matching channel and callback: scheduler tasks use
+`BoardCastChannel::default_scheduler()` and `on_schedule`, intent tasks use
+`default_inst_intent()` and `on_inst_intent`, order-execution relay tasks use
+`default_order_execution()` and `on_order_execution`, and model prediction tasks
+use `default_model_preds()` and `on_preds`.
 
 ## Public Websocket Task
 
 A public market-data strategy typically receives a `WsTaskInfo` startup event,
 uses the command handle to connect and subscribe, then consumes normalized
-events such as trades, candles, or LOB updates.
+events such as trades or candles. LOB updates are available only for exchange
+relays that implement `WsChannel::Lob` routing.
 
 ```rust,ignore
 use std::sync::Arc;
@@ -309,14 +319,15 @@ let env = EnvBuilder::new()
 Useful callbacks:
 
 - `on_acc_order`: private order updates.
-- `on_acc_bal_pos`: balance and position snapshots.
+- `on_acc_bal_pos`: balance and position updates.
 - `on_acc_pos`: position-only updates.
 
 Exchange clients normally need API-key initialization in `Strategy::initialize`
 before private websocket login messages are built. Credentials and login flows
 are exchange-specific; for example, OKX uses a concrete login-message helper,
-while Binance private streams require listen-key management and periodic
-renewal.
+Binance UM/CM futures private streams require listen-key management and
+periodic renewal, and Binance Spot private streams use the WS API signed
+subscription helper.
 
 Built-in private clients read credentials from the process environment or a
 `.env` file:
@@ -428,7 +439,7 @@ Downstream repositories currently exercise these patterns:
 - `portfolio_orchestrator`: several strategy modules in one runtime, including
   signal allocation, portfolio mediation, order execution, transfer ticks,
   account websocket streams, and evaluation tasks.
-- `api_checkers`: small exchange-focused binaries that demonstrate REST calls,
+- `api_checkers`: small exchange-focused subcommands that demonstrate REST calls,
   public websocket streams, and private account websocket streams.
 - `examples/empty_strategy_example.rs`: the smallest scheduler example.
 - `examples/multi_strategy_example.rs`: multiple strategy modules in one

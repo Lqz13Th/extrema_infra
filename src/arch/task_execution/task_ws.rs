@@ -12,8 +12,8 @@ pub struct WsTaskInfo {
     pub market: Market,
     /// Stream category handled by this task.
     pub ws_channel: WsChannel,
-    /// Whether the relay should filter raw exchange messages by channel before
-    /// publishing them.
+    /// Whether parse failures from expected non-target websocket payloads should
+    /// be ignored quietly instead of logged as parse errors.
     pub filter_channels: bool,
     /// Number of task instances to spawn.
     pub chunk: u64,
@@ -21,7 +21,10 @@ pub struct WsTaskInfo {
     pub task_base_id: Option<u64>,
 }
 
-/// Websocket channel categories understood by the runtime.
+/// Websocket channel categories used by websocket task declarations.
+///
+/// A variant is usable only when the selected exchange client and relay routing
+/// implement that market/channel combination.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum WsChannel {
     /// Private account order updates.

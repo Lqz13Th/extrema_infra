@@ -136,8 +136,11 @@ impl CommandHandle {
     /// Use `expected_ack = None` for fire-and-forget commands, such as many
     /// websocket subscription messages or task-local intent/order/model
     /// commands. Use `Some((AckStatus::..., rx))` when the strategy needs to
-    /// confirm that a websocket connect/login/subscribe/shutdown step was
-    /// accepted before sending the next message.
+    /// wait until the relay has processed a command-specific acknowledgement
+    /// before sending the next message. For websocket text messages and
+    /// shutdown requests, the ack means the relay consumed and attempted the
+    /// command; exchange-level acceptance should still be inferred from the
+    /// venue's follow-up messages.
     ///
     /// Examples of common command flows:
     ///
@@ -191,7 +194,8 @@ impl CommandHandle {
 /// Websocket commands carry exchange-specific strings that are built by the
 /// concrete exchange client. For example, OKX private streams usually need a
 /// `WsConnect`, then a login `WsMessage`, then a subscribe `WsMessage`.
-/// Binance private streams often use listen-key URLs/messages, while public
+/// Binance UM/CM futures private streams use listen-key URLs/messages, Binance
+/// Spot private streams use signed WS API subscription helpers, and public
 /// trade/candle streams usually only need connect and subscribe.
 ///
 /// Alt-task commands carry normalized infra data:
@@ -265,10 +269,11 @@ pub enum TaskCommand {
 }
 
 impl TaskCommand {
-    /// Extracts an acknowledgement handle from commands that carry one.
+    /// Extracts an acknowledgement handle for the generic unexpected-command path.
     ///
-    /// This is used internally when a task receives an unexpected command and
-    /// still wants to unblock a caller waiting on an ack.
+    /// This is used internally when a task receives an unexpected `WsMessage` or
+    /// `WsShutdown` command and still wants to unblock a caller waiting on an
+    /// ack. `WsConnect` is acknowledged by the websocket relay's connect path.
     pub fn get_ack(self) -> Option<AckHandle> {
         match self {
             TaskCommand::WsMessage { ack, .. } | TaskCommand::WsShutdown { ack, .. } => Some(ack),

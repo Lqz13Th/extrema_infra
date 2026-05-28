@@ -104,8 +104,8 @@ impl HFTStrategy {
         Ok(())
     }
 
-    async fn connect_trade_channel(&self, channel: &WsChannel) -> InfraResult<()> {
-        if let Some(handle) = self.find_ws_handle(channel, 1) {
+    async fn connect_trade_channel(&self, channel: &WsChannel, task_id: u64) -> InfraResult<()> {
+        if let Some(handle) = self.find_ws_handle(channel, task_id) {
             info!("Sending connect to {:?}", handle);
 
             // Step 1: Request connection URL
@@ -130,7 +130,10 @@ impl HFTStrategy {
             };
             handle.send_command(cmd, None).await?;
         } else {
-            warn!("No handle found for channel {:?}", channel);
+            warn!(
+                "No handle found for channel {:?}, task_id={}",
+                channel, task_id
+            );
         }
 
         Ok(())
@@ -182,7 +185,9 @@ impl EventHandler for HFTStrategy {
 
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         if msg.data.ws_channel == WsChannel::Trades(Some(TradesParam::AggTrades))
-            && let Err(e) = self.connect_trade_channel(&msg.data.ws_channel).await
+            && let Err(e) = self
+                .connect_trade_channel(&msg.data.ws_channel, msg.task_id)
+                .await
         {
             error!("connect ws public trade channel failed: {:?}", e);
         }
