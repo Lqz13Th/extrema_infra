@@ -51,7 +51,7 @@ impl RestMetaAndAssetCtxsHyperliquid {
             .collect())
     }
 
-    pub fn into_funding_rate_data(self) -> InfraResult<Vec<FundingRateData>> {
+    pub fn into_funding_rate_data(self, quote: &str) -> InfraResult<Vec<FundingRateData>> {
         let now_ms = get_mills_timestamp();
         let timestamp = ts_to_micros(now_ms);
         let funding_time = ts_to_micros(hyperliquid_next_funding_time_ms(now_ms));
@@ -63,14 +63,14 @@ impl RestMetaAndAssetCtxsHyperliquid {
             .zip(asset_ctxs)
             .map(|(meta, ctx)| FundingRateData {
                 timestamp,
-                inst: hyperliquid_perp_to_cli(&meta.name),
+                inst: hyperliquid_perp_to_cli(&meta.name, quote),
                 funding_rate: value_to_f64(&ctx.funding),
                 funding_time,
             })
             .collect())
     }
 
-    pub fn into_funding_rate_info(self) -> InfraResult<Vec<FundingRateInfo>> {
+    pub fn into_funding_rate_info(self, quote: &str) -> InfraResult<Vec<FundingRateInfo>> {
         let timestamp = ts_to_micros(get_mills_timestamp());
         let funding_interval_sec = hyperliquid_funding_interval_sec();
         let (meta, asset_ctxs) = self.split()?;
@@ -81,7 +81,7 @@ impl RestMetaAndAssetCtxsHyperliquid {
             .zip(asset_ctxs)
             .map(|(meta, _)| FundingRateInfo {
                 timestamp,
-                inst: hyperliquid_perp_to_cli(&meta.name),
+                inst: hyperliquid_perp_to_cli(&meta.name, quote),
                 funding_interval_sec,
             })
             .collect())

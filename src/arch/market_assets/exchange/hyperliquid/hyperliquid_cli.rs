@@ -40,9 +40,7 @@ use super::{
 pub struct HyperliquidCli {
     pub client: Arc<Client>,
     pub auth: Option<HyperliquidAuth>,
-    pub inst_index_map: HashMap<String, u32>,
-    pub default_perp_dex: Option<String>,
-    pub default_perp_dex_index: Option<u32>,
+    pub market_cache: HyperliquidMarketCache,
 }
 
 impl Default for HyperliquidCli {
@@ -134,9 +132,7 @@ impl HyperliquidCli {
         Self {
             client: shared_client,
             auth: None,
-            inst_index_map: HashMap::new(),
-            default_perp_dex: None,
-            default_perp_dex_index: None,
+            market_cache: HyperliquidMarketCache::default(),
         }
     }
 
@@ -146,22 +142,20 @@ impl HyperliquidCli {
             (!dex.is_empty()).then_some(dex)
         });
 
-        if self.default_perp_dex != normalized_dex {
-            self.inst_index_map.clear();
-            self.default_perp_dex_index = None;
-        }
-
-        self.default_perp_dex = normalized_dex;
+        self.market_cache.set_perp_dex(normalized_dex);
     }
 
     pub async fn init_inst_index_map(&mut self) -> InfraResult<()> {
-        if self.default_perp_dex.is_some() && self.default_perp_dex_index.is_none() {
+        if self.market_cache.perp_dex.is_some() && self.market_cache.perp_dex_index.is_none() {
             self.init_perp_dex_index().await?;
         }
 
         let mut inst_index_map = HashMap::new();
 
-        for inst_info in self._get_instrument_info(InstrumentType::Perpetual).await? {
+        let (perp_infos, perp_quote) = self._get_perp_instrument_info_with_quote().await?;
+        self.market_cache.perp_quote = Some(perp_quote);
+
+        for inst_info in perp_infos {
             let inst = inst_info.inst;
             let index = hyperliquid_asset_id_to_index(
                 InstrumentType::Perpetual,
@@ -201,13 +195,13 @@ impl HyperliquidCli {
             }
         }
 
-        self.inst_index_map = inst_index_map;
+        self.market_cache.inst_index_map = inst_index_map;
 
         Ok(())
     }
 
     pub async fn init_perp_dex_index(&mut self) -> InfraResult<()> {
-        self.default_perp_dex_index = self._resolve_perp_dex_index().await?;
+        self.market_cache.perp_dex_index = self._resolve_perp_dex_index().await?;
         Ok(())
     }
 
@@ -217,10 +211,10 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<FundingRateData>> {
         let target_inst = normalize_funding_inst_filter(inst)?;
 
-        let data = self
-            ._get_meta_and_asset_ctxs()
-            .await?
-            .into_funding_rate_data()?
+        let ctxs = self._get_meta_and_asset_ctxs().await?;
+        let quote = self._perp_quote_from_meta(&ctxs.0).await?;
+        let data = ctxs
+            .into_funding_rate_data(&quote)?
             .into_iter()
             .filter(|entry| match &target_inst {
                 Some(inst) => entry.inst == *inst,
@@ -237,10 +231,10 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<FundingRateInfo>> {
         let target_inst = normalize_funding_inst_filter(inst)?;
 
-        let data = self
-            ._get_meta_and_asset_ctxs()
-            .await?
-            .into_funding_rate_info()?
+        let ctxs = self._get_meta_and_asset_ctxs().await?;
+        let quote = self._perp_quote_from_meta(&ctxs.0).await?;
+        let data = ctxs
+            .into_funding_rate_info(&quote)?
             .into_iter()
             .filter(|entry| match &target_inst {
                 Some(inst) => entry.inst == *inst,
@@ -266,7 +260,10 @@ impl HyperliquidCli {
             )));
         }
 
-        let coin = hyperliquid_cli_inst_to_raw_perp_coin(inst)?;
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        self._ensure_perp_quote_matches(&normalized_inst)?;
+        let quote = hyperliquid_cli_perp_quote(&normalized_inst)?;
+        let coin = self._inst_to_raw_perp_coin(&normalized_inst)?;
         let mut body = json!({
             "type": "fundingHistory",
             "coin": coin,
@@ -283,7 +280,7 @@ impl HyperliquidCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .map(FundingRateData::from)
+            .map(|entry| entry.into_funding_rate_data(&quote))
             .collect();
 
         Ok(data)
@@ -310,15 +307,17 @@ impl HyperliquidCli {
             ));
         }
 
-        if !inst.ends_with(HYPERLIQUID_PERP_SUFFIX) {
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        if !is_hyperliquid_cli_perp_inst(&normalized_inst) {
             return Err(InfraError::ApiCliError(
                 "Hyperliquid set_leverage supports perpetual instruments only".into(),
             ));
         }
+        self._ensure_perp_quote_matches(&normalized_inst)?;
 
         let action = HyperliquidUpdateLeverageAction {
             kind: "updateLeverage",
-            asset: self._inst_to_asset_id(inst)?,
+            asset: self._inst_to_asset_id(&normalized_inst)?,
             is_cross: match margin_mode {
                 MarginMode::Cross => true,
                 MarginMode::Isolated => false,
@@ -346,39 +345,63 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<InstrumentInfo>> {
         match inst_type {
             InstrumentType::Perpetual => {
-                let body = json!({ "type": "meta", "dex": self._perp_dex() });
-                let res: RestResHyperliquid<RestMetaHyperliquid> =
-                    self._post_info_raw(&body).await?;
-
-                let data = res
-                    .into_vec()?
-                    .into_iter()
-                    .next()
-                    .ok_or(InfraError::ApiCliError(
-                        "No Hyperliquid perpetual instrument info returned".into(),
-                    ))?;
-
-                Ok(data.into_instrument_info())
+                let (data, _) = self._get_perp_instrument_info_with_quote().await?;
+                Ok(data)
             },
-            InstrumentType::Spot => {
-                let body = json!({ "type": "spotMeta" });
-                let res: RestResHyperliquid<RestSpotMetaHyperliquid> =
-                    self._post_info_raw(&body).await?;
-
-                let data = res
-                    .into_vec()?
-                    .into_iter()
-                    .next()
-                    .ok_or(InfraError::ApiCliError(
-                        "No Hyperliquid spot instrument info returned".into(),
-                    ))?;
-
-                Ok(data.into_instrument_info())
-            },
+            InstrumentType::Spot => Ok(self._get_spot_meta().await?.into_instrument_info()),
             _ => Err(InfraError::ApiCliError(
                 "Hyperliquid get_instrument_info currently supports Spot and Perpetual only".into(),
             )),
         }
+    }
+
+    async fn _get_perp_instrument_info_with_quote(
+        &self,
+    ) -> InfraResult<(Vec<InstrumentInfo>, String)> {
+        let meta = self._get_perp_meta().await?;
+        let quote = self._perp_quote_from_meta(&meta).await?;
+        Ok((meta.into_instrument_info(&quote), quote))
+    }
+
+    async fn _get_perp_meta(&self) -> InfraResult<RestMetaHyperliquid> {
+        let body = json!({ "type": "meta", "dex": self._perp_dex() });
+        let res: RestResHyperliquid<RestMetaHyperliquid> = self._post_info_raw(&body).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid perpetual instrument info returned".into(),
+            ))
+    }
+
+    async fn _get_spot_meta(&self) -> InfraResult<RestSpotMetaHyperliquid> {
+        let body = json!({ "type": "spotMeta" });
+        let res: RestResHyperliquid<RestSpotMetaHyperliquid> = self._post_info_raw(&body).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid spot instrument info returned".into(),
+            ))
+    }
+
+    async fn _perp_quote_from_meta(&self, meta: &RestMetaHyperliquid) -> InfraResult<String> {
+        let Some(collateral_token) = meta.collateral_token else {
+            return Ok(HYPERLIQUID_QUOTE.to_string());
+        };
+
+        let spot_meta = self._get_spot_meta().await?;
+        spot_meta
+            .token_name(collateral_token)
+            .map(hyperliquid_symbol_to_cli_symbol)
+            .ok_or_else(|| {
+                InfraError::ApiCliError(format!(
+                    "Hyperliquid collateral token not found in spotMeta: {}",
+                    collateral_token
+                ))
+            })
     }
 
     async fn _get_tickers(
@@ -388,6 +411,7 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<TickerData>> {
         match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Perpetual => {
+                let quote = self._perp_quote_for_conversion()?;
                 let body = json!({ "type": "allMids", "dex": self._perp_dex() });
                 let res: RestResHyperliquid<RestAllMidsHyperliquid> =
                     self._post_info_raw(&body).await?;
@@ -399,7 +423,7 @@ impl HyperliquidCli {
                     .ok_or(InfraError::ApiCliError(
                         "No Hyperliquid allMids data returned".into(),
                     ))?
-                    .into_perp_ticker_data(get_micros_timestamp())
+                    .into_perp_ticker_data(get_micros_timestamp(), quote)
                     .into_iter()
                     .filter(|ticker| match insts {
                         Some(list) => list.contains(&ticker.inst),
@@ -422,19 +446,7 @@ impl HyperliquidCli {
                             "No Hyperliquid allMids data returned".into(),
                         ))?;
 
-                let meta_body = json!({ "type": "spotMeta" });
-                let meta_res: RestResHyperliquid<RestSpotMetaHyperliquid> =
-                    self._post_info_raw(&meta_body).await?;
-                let meta =
-                    meta_res
-                        .into_vec()?
-                        .into_iter()
-                        .next()
-                        .ok_or(InfraError::ApiCliError(
-                            "No Hyperliquid spot instrument info returned".into(),
-                        ))?;
-
-                let spot_inst_by_coin = meta.into_spot_inst_by_coin();
+                let spot_inst_by_coin = self._get_spot_meta().await?.into_spot_inst_by_coin();
                 let data = mids
                     .into_spot_ticker_data(get_micros_timestamp(), &spot_inst_by_coin)
                     .into_iter()
@@ -532,13 +544,12 @@ impl HyperliquidCli {
             ))?;
 
         let normalized_insts = normalize_inst_filters(insts);
-        let mark_px_by_coin = self
-            ._get_meta_and_asset_ctxs()
-            .await?
-            .into_perp_mark_px_by_coin()?;
+        let ctxs = self._get_meta_and_asset_ctxs().await?;
+        let quote = self._perp_quote_from_meta(&ctxs.0).await?;
+        let mark_px_by_coin = ctxs.into_perp_mark_px_by_coin()?;
 
         let positions = data
-            .into_position_data(&mark_px_by_coin)
+            .into_position_data(&mark_px_by_coin, &quote)
             .into_iter()
             .filter(|position| match &normalized_insts {
                 Some(insts) => insts.contains(&position.inst),
@@ -576,6 +587,11 @@ impl HyperliquidCli {
         };
 
         let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        let perp_quote = if is_hyperliquid_cli_perp_inst(&normalized_inst) {
+            Some(hyperliquid_cli_perp_quote(&normalized_inst)?)
+        } else {
+            None
+        };
 
         let res: RestResHyperliquid<RestOrderStatusHyperliquid> =
             self._post_info_raw(&body).await?;
@@ -583,7 +599,7 @@ impl HyperliquidCli {
         let mut data: Vec<HistoOrderData> = res
             .into_vec()?
             .into_iter()
-            .map(HistoOrderData::from)
+            .map(|order| order.into_histo_order_data(perp_quote.as_deref()))
             .filter(|order| order.inst == normalized_inst)
             .collect();
 
@@ -679,17 +695,23 @@ impl HyperliquidCli {
     }
 
     fn _inst_to_trade_coin(&self, inst: &str) -> InfraResult<String> {
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        if is_hyperliquid_cli_perp_inst(&normalized_inst) {
+            self._ensure_perp_quote_matches(&normalized_inst)?;
+            return self._inst_to_raw_perp_coin(&normalized_inst);
+        }
+
         if let Some(coin) = hyperliquid_cli_inst_to_raw_trade_coin(inst) {
             return Ok(coin);
         }
 
-        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
         let index = self
+            .market_cache
             .inst_index_map
             .get(&normalized_inst)
             .copied()
             .ok_or_else(|| {
-                if self.inst_index_map.is_empty() {
+                if self.market_cache.inst_index_map.is_empty() {
                     InfraError::ApiCliError(
                         "Hyperliquid inst_index_map is empty, call init_inst_index_map() first"
                             .into(),
@@ -705,6 +727,14 @@ impl HyperliquidCli {
         Ok(format!("@{}", index))
     }
 
+    fn _inst_to_raw_perp_coin(&self, inst: &str) -> InfraResult<String> {
+        let base = hyperliquid_cli_inst_to_raw_perp_coin(inst)?;
+        match self.market_cache.perp_dex.as_deref() {
+            Some(dex) => Ok(format!("{dex}:{base}")),
+            None => Ok(base),
+        }
+    }
+
     fn _owner_address(&self) -> InfraResult<&str> {
         self.auth
             .as_ref()
@@ -713,11 +743,42 @@ impl HyperliquidCli {
     }
 
     fn _perp_dex(&self) -> &str {
-        self.default_perp_dex.as_deref().unwrap_or("")
+        self.market_cache.perp_dex()
+    }
+
+    fn _perp_quote_for_conversion(&self) -> InfraResult<&str> {
+        match (
+            self.market_cache.perp_dex.as_deref(),
+            self.market_cache.perp_quote.as_deref(),
+        ) {
+            (Some(_), Some(quote)) => Ok(quote),
+            (Some(dex), None) => Err(InfraError::ApiCliError(format!(
+                "Hyperliquid perp quote is not initialized for dex {}, call init_inst_index_map() first",
+                dex
+            ))),
+            (None, Some(quote)) => Ok(quote),
+            (None, None) => Ok(HYPERLIQUID_QUOTE),
+        }
+    }
+
+    fn _ensure_perp_quote_matches(&self, inst: &str) -> InfraResult<()> {
+        let inst_quote = hyperliquid_cli_perp_quote(inst)?;
+        let expected_quote = self._perp_quote_for_conversion()?;
+        if inst_quote != expected_quote {
+            return Err(InfraError::ApiCliError(format!(
+                "Hyperliquid perp quote mismatch for {}: expected {} for dex {}, got {}",
+                inst,
+                expected_quote,
+                self._perp_dex(),
+                inst_quote
+            )));
+        }
+
+        Ok(())
     }
 
     async fn _resolve_perp_dex_index(&self) -> InfraResult<Option<u32>> {
-        let Some(dex) = self.default_perp_dex.as_deref() else {
+        let Some(dex) = self.market_cache.perp_dex.as_deref() else {
             return Ok(None);
         };
 
@@ -773,11 +834,12 @@ impl HyperliquidCli {
     fn _inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
         let normalized_inst = normalize_hyperliquid_cli_inst(inst);
         let index = self
+            .market_cache
             .inst_index_map
             .get(&normalized_inst)
             .copied()
             .ok_or_else(|| {
-                if self.inst_index_map.is_empty() {
+                if self.market_cache.inst_index_map.is_empty() {
                     InfraError::ApiCliError(
                         "Hyperliquid inst_index_map is empty, call init_inst_index_map() first"
                             .into(),
@@ -790,9 +852,10 @@ impl HyperliquidCli {
                 }
             })?;
 
-        if normalized_inst.ends_with(HYPERLIQUID_PERP_SUFFIX) {
-            let perp_dex_index = match self.default_perp_dex.as_deref() {
-                Some(dex) => Some(self.default_perp_dex_index.ok_or_else(|| {
+        if is_hyperliquid_cli_perp_inst(&normalized_inst) {
+            self._ensure_perp_quote_matches(&normalized_inst)?;
+            let perp_dex_index = match self.market_cache.perp_dex.as_deref() {
+                Some(dex) => Some(self.market_cache.perp_dex_index.ok_or_else(|| {
                     InfraError::ApiCliError(format!(
                         "Hyperliquid perp dex index is not initialized for dex {}, call init_inst_index_map() first",
                         dex

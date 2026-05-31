@@ -12,13 +12,13 @@ use crate::arch::market_assets::{
 pub struct RestAllMidsHyperliquid(pub HashMap<String, String>);
 
 impl RestAllMidsHyperliquid {
-    pub fn into_perp_ticker_data(self, timestamp: u64) -> Vec<TickerData> {
+    pub fn into_perp_ticker_data(self, timestamp: u64, quote: &str) -> Vec<TickerData> {
         self.0
             .into_iter()
             .filter(|(coin, _)| !coin.starts_with('@') && !coin.contains('/'))
             .map(|(coin, price)| TickerData {
                 timestamp,
-                inst: hyperliquid_perp_to_cli(&coin),
+                inst: hyperliquid_perp_to_cli(&coin, quote),
                 inst_type: InstrumentType::Perpetual,
                 price: price.parse().unwrap_or_default(),
             })

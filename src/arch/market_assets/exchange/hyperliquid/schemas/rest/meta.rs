@@ -9,6 +9,8 @@ use crate::arch::market_assets::{
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestMetaHyperliquid {
     pub universe: Vec<RestMetaUniverseHyperliquid>,
+    #[serde(default, rename = "collateralToken")]
+    pub collateral_token: Option<u32>,
 }
 
 #[allow(non_snake_case)]
@@ -23,17 +25,17 @@ pub struct RestMetaUniverseHyperliquid {
 }
 
 impl RestMetaHyperliquid {
-    pub fn into_instrument_info(self) -> Vec<InstrumentInfo> {
+    pub fn into_instrument_info(self, quote: &str) -> Vec<InstrumentInfo> {
         self.universe
             .into_iter()
             .enumerate()
-            .map(|(index, inst)| inst.into_instrument_info(index))
+            .map(|(index, inst)| inst.into_instrument_info(index, quote))
             .collect()
     }
 }
 
 impl RestMetaUniverseHyperliquid {
-    fn into_instrument_info(self, index: usize) -> InstrumentInfo {
+    fn into_instrument_info(self, index: usize, quote: &str) -> InstrumentInfo {
         let lot_size = if self.szDecimals == 0 {
             1.0
         } else {
@@ -41,7 +43,7 @@ impl RestMetaUniverseHyperliquid {
         };
 
         InstrumentInfo {
-            inst: hyperliquid_perp_to_cli(&self.name),
+            inst: hyperliquid_perp_to_cli(&self.name, quote),
             inst_code: Some(hyperliquid_perp_asset_id(index)),
             inst_type: InstrumentType::Perpetual,
             lot_size,
