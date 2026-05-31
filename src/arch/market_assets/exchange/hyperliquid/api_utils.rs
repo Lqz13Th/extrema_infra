@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::arch::market_assets::{
     api_general::OrderParams,
@@ -11,6 +11,8 @@ pub const HYPERLIQUID_QUOTE: &str = "USDC";
 pub const HYPERLIQUID_PERP_SUFFIX: &str = "_USDC_PERP";
 pub const HYPERLIQUID_SPOT_ASSET_OFFSET: u32 = 10_000;
 pub const HYPERLIQUID_FUNDING_INTERVAL_HOURS: u64 = 1;
+pub const HYPERLIQUID_BUILDER_ADDRESS_EXTRA_KEY: &str = "builder_b";
+pub const HYPERLIQUID_BUILDER_FEE_EXTRA_KEY: &str = "builder_f";
 const HYPERLIQUID_FUNDING_INTERVAL_MS: u64 = HYPERLIQUID_FUNDING_INTERVAL_HOURS * 60 * 60 * 1000;
 const HYPERLIQUID_KILO_PREFIX: &str = "k";
 const CLI_KILO_PREFIX: &str = "1000";
@@ -220,6 +222,14 @@ pub struct HyperliquidOrderAction {
     pub kind: &'static str,
     pub orders: Vec<HyperliquidOrderRequest>,
     pub grouping: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub builder: Option<HyperliquidBuilderFee>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct HyperliquidBuilderFee {
+    pub b: String,
+    pub f: u32,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -257,6 +267,31 @@ enum HyperliquidOrderTypeRequest {
 #[derive(Clone, Debug, Serialize)]
 struct HyperliquidLimitOrderRequest {
     tif: &'static str,
+}
+
+pub fn hyperliquid_builder_fee_from_extra(
+    extra: &HashMap<String, String>,
+) -> InfraResult<Option<HyperliquidBuilderFee>> {
+    let builder = extra.get(HYPERLIQUID_BUILDER_ADDRESS_EXTRA_KEY);
+    let fee = extra.get(HYPERLIQUID_BUILDER_FEE_EXTRA_KEY);
+
+    match (builder, fee) {
+        (None, None) => Ok(None),
+        (Some(builder), Some(fee)) => {
+            let builder = normalize_hyperliquid_builder_address(builder)?;
+            let f = fee.parse::<u32>().map_err(|_| {
+                InfraError::ApiCliError(format!(
+                    "Invalid Hyperliquid builder fee in OrderParams.extra[{}]: {}",
+                    HYPERLIQUID_BUILDER_FEE_EXTRA_KEY, fee
+                ))
+            })?;
+            Ok(Some(HyperliquidBuilderFee { b: builder, f }))
+        },
+        _ => Err(InfraError::ApiCliError(format!(
+            "Hyperliquid builder fee requires both OrderParams.extra[{}] and OrderParams.extra[{}]",
+            HYPERLIQUID_BUILDER_ADDRESS_EXTRA_KEY, HYPERLIQUID_BUILDER_FEE_EXTRA_KEY
+        ))),
+    }
 }
 
 pub fn hyperliquid_order_from_params(
@@ -317,6 +352,28 @@ pub fn hyperliquid_order_from_params(
             limit: HyperliquidLimitOrderRequest { tif },
         },
     })
+}
+
+fn normalize_hyperliquid_builder_address(address: &str) -> InfraResult<String> {
+    let address = address.trim();
+    let Some(hex) = address
+        .strip_prefix("0x")
+        .or_else(|| address.strip_prefix("0X"))
+    else {
+        return Err(InfraError::ApiCliError(format!(
+            "Invalid Hyperliquid builder address, expected 0x-prefixed address: {}",
+            address
+        )));
+    };
+
+    if hex.len() != 40 || !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return Err(InfraError::ApiCliError(format!(
+            "Invalid Hyperliquid builder address: {}",
+            address
+        )));
+    }
+
+    Ok(format!("0x{}", hex.to_ascii_lowercase()))
 }
 
 pub fn normalize_hyperliquid_num_str(input: &str) -> String {
