@@ -15,6 +15,7 @@ pub const HYPERLIQUID_BUILDER_PERP_DEX_STRIDE: u32 = 10_000;
 pub const HYPERLIQUID_FUNDING_INTERVAL_HOURS: u64 = 1;
 pub const HYPERLIQUID_BUILDER_ADDRESS_EXTRA_KEY: &str = "builder_b";
 pub const HYPERLIQUID_BUILDER_FEE_EXTRA_KEY: &str = "builder_f";
+pub const HYPERLIQUID_PERP_DEX_SCOPE_PREFIX: &str = "hl_dex:";
 const HYPERLIQUID_FUNDING_INTERVAL_MS: u64 = HYPERLIQUID_FUNDING_INTERVAL_HOURS * 60 * 60 * 1000;
 const HYPERLIQUID_KILO_PREFIX: &str = "k";
 const CLI_KILO_PREFIX: &str = "1000";
@@ -45,6 +46,23 @@ impl HyperliquidMarketCache {
 
 pub fn hyperliquid_perp_asset_id(index: usize) -> String {
     index.to_string()
+}
+
+pub fn hyperliquid_scope_extra_from_dex(dex: &str) -> Option<String> {
+    let dex = dex.trim();
+    if dex.is_empty() {
+        None
+    } else {
+        Some(format!("{HYPERLIQUID_PERP_DEX_SCOPE_PREFIX}{dex}"))
+    }
+}
+
+pub fn hyperliquid_dex_from_scope_extra(extra: Option<&str>) -> Option<String> {
+    extra?
+        .strip_prefix(HYPERLIQUID_PERP_DEX_SCOPE_PREFIX)
+        .map(str::trim)
+        .filter(|dex| !dex.is_empty())
+        .map(ToString::to_string)
 }
 
 pub fn hyperliquid_spot_asset_id(index: u32) -> String {

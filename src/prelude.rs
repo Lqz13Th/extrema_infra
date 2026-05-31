@@ -15,7 +15,10 @@ pub use crate::errors::{InfraError, InfraResult};
 
 pub use crate::arch::{
     infra_core::{env_builder::EnvBuilder, env_mediator::EnvMediator},
-    market_assets::{base_data::*, market_core::Market},
+    market_assets::{
+        base_data::*,
+        market_core::{Market, MarketScope},
+    },
     strategy_base::{
         command::{
             ack_handle::{AckHandle, AckStatus},

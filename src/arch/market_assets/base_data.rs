@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::market_core::Market;
+use super::market_core::{Market, MarketScope};
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct InstrumentKey {
@@ -8,6 +8,14 @@ pub struct InstrumentKey {
     pub inst_type: InstrumentType,
     pub inst: String,
     pub extra: Option<String>,
+}
+
+impl InstrumentKey {
+    pub fn market_scope(&self) -> Option<MarketScope> {
+        self.market
+            .clone()
+            .map(|market| MarketScope::new(market, self.extra.clone()))
+    }
 }
 
 #[derive(Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
