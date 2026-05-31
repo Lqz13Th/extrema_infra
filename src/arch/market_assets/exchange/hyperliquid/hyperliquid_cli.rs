@@ -30,7 +30,7 @@ use super::{
         all_mids::RestAllMidsHyperliquid, asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
         clearinghouse_state::RestClearinghouseStateHyperliquid,
         funding_history::RestFundingHistoryHyperliquid, meta::RestMetaHyperliquid,
-        order_status::RestOrderStatusHyperliquid,
+        order_status::RestOrderStatusHyperliquid, perp_dexs::RestPerpDexHyperliquid,
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
         spot_meta::RestSpotMetaHyperliquid, trade_order::RestOrderAckHyperliquid,
     },
@@ -42,6 +42,7 @@ pub struct HyperliquidCli {
     pub auth: Option<HyperliquidAuth>,
     pub inst_index_map: HashMap<String, u32>,
     pub default_perp_dex: Option<String>,
+    pub default_perp_dex_index: Option<u32>,
 }
 
 impl Default for HyperliquidCli {
@@ -135,17 +136,29 @@ impl HyperliquidCli {
             auth: None,
             inst_index_map: HashMap::new(),
             default_perp_dex: None,
+            default_perp_dex_index: None,
         }
     }
 
     pub fn set_perp_dex(&mut self, dex: Option<String>) {
-        self.default_perp_dex = dex.and_then(|dex| {
+        let normalized_dex = dex.and_then(|dex| {
             let dex = dex.trim().to_string();
             (!dex.is_empty()).then_some(dex)
         });
+
+        if self.default_perp_dex != normalized_dex {
+            self.inst_index_map.clear();
+            self.default_perp_dex_index = None;
+        }
+
+        self.default_perp_dex = normalized_dex;
     }
 
     pub async fn init_inst_index_map(&mut self) -> InfraResult<()> {
+        if self.default_perp_dex.is_some() && self.default_perp_dex_index.is_none() {
+            self.init_perp_dex_index().await?;
+        }
+
         let mut inst_index_map = HashMap::new();
 
         for inst_info in self._get_instrument_info(InstrumentType::Perpetual).await? {
@@ -190,6 +203,11 @@ impl HyperliquidCli {
 
         self.inst_index_map = inst_index_map;
 
+        Ok(())
+    }
+
+    pub async fn init_perp_dex_index(&mut self) -> InfraResult<()> {
+        self.default_perp_dex_index = self._resolve_perp_dex_index().await?;
         Ok(())
     }
 
@@ -698,6 +716,35 @@ impl HyperliquidCli {
         self.default_perp_dex.as_deref().unwrap_or("")
     }
 
+    async fn _resolve_perp_dex_index(&self) -> InfraResult<Option<u32>> {
+        let Some(dex) = self.default_perp_dex.as_deref() else {
+            return Ok(None);
+        };
+
+        let res: RestResHyperliquid<Option<RestPerpDexHyperliquid>> =
+            self._post_info_raw(&json!({ "type": "perpDexs" })).await?;
+
+        for (index, perp_dex) in res.into_vec()?.into_iter().enumerate() {
+            let Some(perp_dex) = perp_dex else {
+                continue;
+            };
+
+            if perp_dex.name == dex {
+                return u32::try_from(index).map(Some).map_err(|_| {
+                    InfraError::ApiCliError(format!(
+                        "Hyperliquid perp dex index overflow for dex {}: {}",
+                        dex, index
+                    ))
+                });
+            }
+        }
+
+        Err(InfraError::ApiCliError(format!(
+            "Hyperliquid perp dex not found in perpDexs: {}",
+            dex
+        )))
+    }
+
     async fn _post_info_raw<T>(&self, body: &Value) -> InfraResult<T>
     where
         T: serde::de::DeserializeOwned,
@@ -743,12 +790,20 @@ impl HyperliquidCli {
                 }
             })?;
 
-        let inst_type = if normalized_inst.ends_with(HYPERLIQUID_PERP_SUFFIX) {
-            InstrumentType::Perpetual
-        } else {
-            InstrumentType::Spot
-        };
+        if normalized_inst.ends_with(HYPERLIQUID_PERP_SUFFIX) {
+            let perp_dex_index = match self.default_perp_dex.as_deref() {
+                Some(dex) => Some(self.default_perp_dex_index.ok_or_else(|| {
+                    InfraError::ApiCliError(format!(
+                        "Hyperliquid perp dex index is not initialized for dex {}, call init_inst_index_map() first",
+                        dex
+                    ))
+                })?),
+                None => None,
+            };
 
-        hyperliquid_index_to_asset_id(inst_type, index)
+            hyperliquid_perp_asset_id_for_dex(index, perp_dex_index)
+        } else {
+            hyperliquid_index_to_asset_id(InstrumentType::Spot, index)
+        }
     }
 }
