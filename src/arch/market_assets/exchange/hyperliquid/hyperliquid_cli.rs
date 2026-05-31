@@ -438,11 +438,13 @@ impl HyperliquidCli {
         let mut order_params = order_params;
         let asset_id = self._inst_to_asset_id(&order_params.inst)?;
         order_params.inst = asset_id.to_string();
+        let builder = hyperliquid_builder_fee_from_extra(&order_params.extra)?;
 
         let action = HyperliquidOrderAction {
             kind: "order",
             orders: vec![hyperliquid_order_from_params(order_params)?],
             grouping: HYPERLIQUID_GROUPING_NA,
+            builder,
         };
 
         let res: RestResHyperliquid<RestOrderAckHyperliquid> = self
