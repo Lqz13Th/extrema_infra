@@ -42,7 +42,10 @@ jobs:
         with:
           components: clippy
 
-      - name: Run clippy
+      - name: Run clippy (default features)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run clippy (all features)
         run: cargo clippy --all-targets --all-features -- -D warnings
 
   test:
@@ -54,7 +57,10 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Run tests
+      - name: Run tests (default features)
+        run: cargo test
+
+      - name: Run tests (all features)
         run: cargo test --all-features
 
   docs:
