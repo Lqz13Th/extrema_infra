@@ -7,6 +7,7 @@ pub struct InstrumentKey {
     pub market: Option<Market>,
     pub inst_type: InstrumentType,
     pub inst: String,
+    pub extra: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Hash, Eq, PartialEq, Serialize, Deserialize)]
