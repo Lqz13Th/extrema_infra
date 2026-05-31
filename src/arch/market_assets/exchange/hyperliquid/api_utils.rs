@@ -8,7 +8,7 @@ use crate::arch::market_assets::{
 use crate::errors::{InfraError, InfraResult};
 
 pub const HYPERLIQUID_QUOTE: &str = "USDC";
-pub const HYPERLIQUID_PERP_SUFFIX: &str = "_USDC_PERP";
+pub const HYPERLIQUID_PERP_TYPE_SUFFIX: &str = "_PERP";
 pub const HYPERLIQUID_SPOT_ASSET_OFFSET: u32 = 10_000;
 pub const HYPERLIQUID_BUILDER_PERP_ASSET_OFFSET: u32 = 100_000;
 pub const HYPERLIQUID_BUILDER_PERP_DEX_STRIDE: u32 = 10_000;
@@ -18,6 +18,30 @@ pub const HYPERLIQUID_BUILDER_FEE_EXTRA_KEY: &str = "builder_f";
 const HYPERLIQUID_FUNDING_INTERVAL_MS: u64 = HYPERLIQUID_FUNDING_INTERVAL_HOURS * 60 * 60 * 1000;
 const HYPERLIQUID_KILO_PREFIX: &str = "k";
 const CLI_KILO_PREFIX: &str = "1000";
+
+#[derive(Clone, Debug, Default)]
+pub struct HyperliquidMarketCache {
+    pub inst_index_map: HashMap<String, u32>,
+    pub perp_dex: Option<String>,
+    pub perp_dex_index: Option<u32>,
+    pub perp_quote: Option<String>,
+}
+
+impl HyperliquidMarketCache {
+    pub fn set_perp_dex(&mut self, dex: Option<String>) {
+        if self.perp_dex != dex {
+            self.inst_index_map.clear();
+            self.perp_dex_index = None;
+            self.perp_quote = None;
+        }
+
+        self.perp_dex = dex;
+    }
+
+    pub fn perp_dex(&self) -> &str {
+        self.perp_dex.as_deref().unwrap_or("")
+    }
+}
 
 pub fn hyperliquid_perp_asset_id(index: usize) -> String {
     index.to_string()
@@ -116,12 +140,8 @@ fn hyperliquid_cli_symbol_to_raw_symbol(symbol: &str) -> String {
 }
 
 pub(crate) fn normalize_hyperliquid_cli_inst(inst: &str) -> String {
-    if let Some(base) = inst.strip_suffix(HYPERLIQUID_PERP_SUFFIX) {
-        return format!(
-            "{}{}",
-            hyperliquid_symbol_to_cli_symbol(base),
-            HYPERLIQUID_PERP_SUFFIX
-        );
+    if let Some((base, quote)) = split_hyperliquid_cli_perp_inst(inst) {
+        return hyperliquid_perp_parts_to_cli(base, quote);
     }
 
     if let Some((base, quote)) = inst.split_once('_') {
@@ -138,15 +158,14 @@ pub(crate) fn normalize_hyperliquid_cli_inst(inst: &str) -> String {
 pub fn hyperliquid_cli_inst_to_raw_perp_coin(inst: &str) -> InfraResult<String> {
     let normalized_inst = normalize_hyperliquid_cli_inst(inst);
 
-    normalized_inst
-        .strip_suffix(HYPERLIQUID_PERP_SUFFIX)
-        .map(hyperliquid_cli_symbol_to_raw_symbol)
-        .ok_or_else(|| {
-            InfraError::ApiCliError(format!(
-                "Hyperliquid funding supports perpetual instruments only: {}",
-                inst
-            ))
-        })
+    let (base, _) = split_hyperliquid_cli_perp_inst(&normalized_inst).ok_or_else(|| {
+        InfraError::ApiCliError(format!(
+            "Hyperliquid funding supports perpetual instruments only: {}",
+            inst
+        ))
+    })?;
+
+    Ok(hyperliquid_cli_symbol_to_raw_symbol(base))
 }
 
 pub(crate) fn hyperliquid_cli_inst_to_raw_trade_coin(inst: &str) -> Option<String> {
@@ -161,12 +180,8 @@ pub(crate) fn hyperliquid_cli_inst_to_raw_trade_coin(inst: &str) -> Option<Strin
     None
 }
 
-pub fn hyperliquid_perp_to_cli(symbol: &str) -> String {
-    format!(
-        "{}{}",
-        hyperliquid_symbol_to_cli_symbol(symbol),
-        HYPERLIQUID_PERP_SUFFIX
-    )
+pub fn hyperliquid_perp_to_cli(symbol: &str, quote: &str) -> String {
+    hyperliquid_perp_parts_to_cli(hyperliquid_raw_perp_base(symbol), quote)
 }
 
 pub fn hyperliquid_spot_to_cli(symbol: &str, base: &str, quote: &str) -> String {
@@ -198,7 +213,7 @@ pub fn hyperliquid_inst_to_cli(coin: &str) -> String {
         );
     }
 
-    hyperliquid_perp_to_cli(coin)
+    hyperliquid_perp_to_cli(coin, HYPERLIQUID_QUOTE)
 }
 
 pub fn hyperliquid_funding_interval_hours() -> u64 {
@@ -228,7 +243,7 @@ pub fn normalize_funding_inst_filter(inst: Option<&str>) -> InfraResult<Option<S
     match inst {
         Some(inst) => {
             let normalized = normalize_hyperliquid_cli_inst(inst);
-            if !normalized.ends_with(HYPERLIQUID_PERP_SUFFIX) {
+            if !is_hyperliquid_cli_perp_inst(&normalized) {
                 return Err(InfraError::ApiCliError(format!(
                     "Hyperliquid funding supports perpetual instruments only: {}",
                     inst
@@ -248,6 +263,43 @@ pub fn normalize_asset_filters(assets: Option<&[String]>) -> Option<HashSet<Stri
             .map(|asset| hyperliquid_symbol_to_cli_symbol(asset))
             .collect()
     })
+}
+
+pub fn hyperliquid_cli_perp_quote(inst: &str) -> InfraResult<String> {
+    let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+    let (_, quote) = split_hyperliquid_cli_perp_inst(&normalized_inst).ok_or_else(|| {
+        InfraError::ApiCliError(format!(
+            "Hyperliquid perpetual instrument must be BASE_QUOTE_PERP: {}",
+            inst
+        ))
+    })?;
+
+    Ok(hyperliquid_symbol_to_cli_symbol(quote))
+}
+
+pub fn is_hyperliquid_cli_perp_inst(inst: &str) -> bool {
+    split_hyperliquid_cli_perp_inst(inst).is_some()
+}
+
+fn split_hyperliquid_cli_perp_inst(inst: &str) -> Option<(&str, &str)> {
+    let base_quote = inst.strip_suffix(HYPERLIQUID_PERP_TYPE_SUFFIX)?;
+    base_quote.rsplit_once('_')
+}
+
+fn hyperliquid_raw_perp_base(symbol: &str) -> &str {
+    symbol
+        .split_once(':')
+        .map(|(_, base)| base)
+        .unwrap_or(symbol)
+}
+
+fn hyperliquid_perp_parts_to_cli(base: &str, quote: &str) -> String {
+    format!(
+        "{}_{}{}",
+        hyperliquid_symbol_to_cli_symbol(base),
+        hyperliquid_symbol_to_cli_symbol(quote),
+        HYPERLIQUID_PERP_TYPE_SUFFIX
+    )
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -435,4 +487,39 @@ fn is_hyperliquid_kilo_symbol(symbol: &str) -> bool {
         && symbol
             .bytes()
             .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_perp_names_with_explicit_quote() {
+        let cases = [
+            ("BTC", "USDC", "BTC_USDC_PERP"),
+            ("flx:OIL", "USDH", "OIL_USDH_PERP"),
+            ("cash:WTI", "USDT0", "WTI_USDT0_PERP"),
+        ];
+
+        for (raw, quote, expected) in cases {
+            assert_eq!(
+                hyperliquid_perp_to_cli(raw, quote),
+                expected,
+                "raw={raw}, quote={quote}"
+            );
+        }
+    }
+
+    #[test]
+    fn parses_quote_from_base_quote_perp() {
+        assert_eq!(hyperliquid_cli_perp_quote("OIL_USDH_PERP").unwrap(), "USDH");
+    }
+
+    #[test]
+    fn computes_builder_dex_asset_id() {
+        assert_eq!(
+            hyperliquid_perp_asset_id_for_dex(7, Some(2)).unwrap(),
+            120007
+        );
+    }
 }

@@ -21,13 +21,13 @@ pub struct RestFundingHistoryHyperliquid {
     pub time: u64,
 }
 
-impl From<RestFundingHistoryHyperliquid> for FundingRateData {
-    fn from(d: RestFundingHistoryHyperliquid) -> Self {
+impl RestFundingHistoryHyperliquid {
+    pub fn into_funding_rate_data(self, quote: &str) -> FundingRateData {
         FundingRateData {
             timestamp: get_micros_timestamp(),
-            inst: hyperliquid_perp_to_cli(&d.coin),
-            funding_rate: d.fundingRate.parse().unwrap_or_default(),
-            funding_time: ts_to_micros(d.time),
+            inst: hyperliquid_perp_to_cli(&self.coin, quote),
+            funding_rate: self.fundingRate.parse().unwrap_or_default(),
+            funding_time: ts_to_micros(self.time),
         }
     }
 }

@@ -17,7 +17,11 @@ pub struct RestClearinghouseStateHyperliquid {
 }
 
 impl RestClearinghouseStateHyperliquid {
-    pub fn into_position_data(self, mark_px_by_coin: &HashMap<String, f64>) -> Vec<PositionData> {
+    pub fn into_position_data(
+        self,
+        mark_px_by_coin: &HashMap<String, f64>,
+        quote: &str,
+    ) -> Vec<PositionData> {
         self.assetPositions
             .into_iter()
             .map(|position| {
@@ -25,7 +29,7 @@ impl RestClearinghouseStateHyperliquid {
                     .get(&position.position.coin)
                     .copied()
                     .unwrap_or_default();
-                position.into_position_data(mark_price)
+                position.into_position_data(mark_price, quote)
             })
             .collect()
     }
@@ -60,12 +64,12 @@ pub struct RestLeverageHyperliquid {
 }
 
 impl RestAssetPositionHyperliquid {
-    pub fn into_position_data(self, mark_price: f64) -> PositionData {
+    pub fn into_position_data(self, mark_price: f64, quote: &str) -> PositionData {
         let size = value_to_f64(&self.position.szi);
 
         PositionData {
             timestamp: get_micros_timestamp(),
-            inst: hyperliquid_perp_to_cli(&self.position.coin),
+            inst: hyperliquid_perp_to_cli(&self.position.coin, quote),
             inst_type: InstrumentType::Perpetual,
             position_side: if size > 0.0 {
                 PositionSide::Long

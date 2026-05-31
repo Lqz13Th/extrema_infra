@@ -5,7 +5,7 @@ use crate::arch::market_assets::{
     api_data::account_data::HistoOrderData,
     api_general::{ts_to_micros, value_to_f64},
     base_data::{OrderSide, OrderStatus, OrderType},
-    exchange::hyperliquid::api_utils::hyperliquid_inst_to_cli,
+    exchange::hyperliquid::api_utils::{hyperliquid_inst_to_cli, hyperliquid_perp_to_cli},
 };
 
 #[allow(non_snake_case)]
@@ -32,13 +32,26 @@ pub struct RestBasicOrderHyperliquid {
 
 impl From<RestOrderStatusHyperliquid> for HistoOrderData {
     fn from(d: RestOrderStatusHyperliquid) -> Self {
+        d.into_histo_order_data(None)
+    }
+}
+
+impl RestOrderStatusHyperliquid {
+    pub fn into_histo_order_data(self, perp_quote: Option<&str>) -> HistoOrderData {
+        let d = self;
         let remaining_size = value_to_f64(&d.order.sz).abs();
         let orig_size = value_to_f64(&d.order.origSz).abs();
         let filled_size = (orig_size - remaining_size).max(0.0);
+        let inst = match perp_quote {
+            Some(quote) if !d.order.coin.contains('/') && !d.order.coin.starts_with('@') => {
+                hyperliquid_perp_to_cli(&d.order.coin, quote)
+            },
+            _ => hyperliquid_inst_to_cli(&d.order.coin),
+        };
 
         HistoOrderData {
             timestamp: ts_to_micros(d.order.timestamp),
-            inst: hyperliquid_inst_to_cli(&d.order.coin),
+            inst,
             order_id: d.order.oid.to_string(),
             cli_order_id: d.order.cloid.filter(|id| !id.is_empty()),
             side: match d.order.side.as_str() {

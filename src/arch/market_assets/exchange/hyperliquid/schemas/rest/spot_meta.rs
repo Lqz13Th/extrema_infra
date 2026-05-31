@@ -44,6 +44,13 @@ pub struct RestSpotTokenHyperliquid {
 }
 
 impl RestSpotMetaHyperliquid {
+    pub fn token_name(&self, token_index: u32) -> Option<&str> {
+        self.tokens
+            .iter()
+            .find(|token| token.index == token_index)
+            .map(|token| token.name.as_str())
+    }
+
     pub fn into_instrument_info(self) -> Vec<InstrumentInfo> {
         let token_map: HashMap<u32, RestSpotTokenHyperliquid> = self
             .tokens
