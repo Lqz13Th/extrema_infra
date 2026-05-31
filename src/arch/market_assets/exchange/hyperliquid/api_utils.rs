@@ -10,6 +10,8 @@ use crate::errors::{InfraError, InfraResult};
 pub const HYPERLIQUID_QUOTE: &str = "USDC";
 pub const HYPERLIQUID_PERP_SUFFIX: &str = "_USDC_PERP";
 pub const HYPERLIQUID_SPOT_ASSET_OFFSET: u32 = 10_000;
+pub const HYPERLIQUID_BUILDER_PERP_ASSET_OFFSET: u32 = 100_000;
+pub const HYPERLIQUID_BUILDER_PERP_DEX_STRIDE: u32 = 10_000;
 pub const HYPERLIQUID_FUNDING_INTERVAL_HOURS: u64 = 1;
 pub const HYPERLIQUID_BUILDER_ADDRESS_EXTRA_KEY: &str = "builder_b";
 pub const HYPERLIQUID_BUILDER_FEE_EXTRA_KEY: &str = "builder_f";
@@ -23,6 +25,38 @@ pub fn hyperliquid_perp_asset_id(index: usize) -> String {
 
 pub fn hyperliquid_spot_asset_id(index: u32) -> String {
     (HYPERLIQUID_SPOT_ASSET_OFFSET + index).to_string()
+}
+
+pub fn hyperliquid_perp_asset_id_for_dex(
+    index_in_meta: u32,
+    perp_dex_index: Option<u32>,
+) -> InfraResult<u32> {
+    let Some(perp_dex_index) = perp_dex_index else {
+        return Ok(index_in_meta);
+    };
+
+    if perp_dex_index == 0 {
+        return Ok(index_in_meta);
+    }
+
+    let dex_offset = perp_dex_index
+        .checked_mul(HYPERLIQUID_BUILDER_PERP_DEX_STRIDE)
+        .ok_or_else(|| {
+            InfraError::ApiCliError(format!(
+                "Hyperliquid builder perp dex index overflow: {}",
+                perp_dex_index
+            ))
+        })?;
+
+    HYPERLIQUID_BUILDER_PERP_ASSET_OFFSET
+        .checked_add(dex_offset)
+        .and_then(|base| base.checked_add(index_in_meta))
+        .ok_or_else(|| {
+            InfraError::ApiCliError(format!(
+                "Hyperliquid builder perp asset id overflow: dex_index={}, index_in_meta={}",
+                perp_dex_index, index_in_meta
+            ))
+        })
 }
 
 pub fn hyperliquid_index_to_asset_id(inst_type: InstrumentType, index: u32) -> InfraResult<u32> {

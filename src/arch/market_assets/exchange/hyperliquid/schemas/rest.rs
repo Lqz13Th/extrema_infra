@@ -4,6 +4,7 @@ pub mod clearinghouse_state;
 pub mod funding_history;
 pub mod meta;
 pub mod order_status;
+pub mod perp_dexs;
 pub mod spot_clearinghouse_state;
 pub mod spot_meta;
 pub mod trade_order;
