@@ -88,6 +88,10 @@ okx = []
 name = "empty_strategy_example"
 
 [[example]]
+name = "hyperliquid_api_usage_example"
+required-features = ["hyperliquid"]
+
+[[example]]
 name = "complex_strategy_example"
 required-features = ["okx"]
 
