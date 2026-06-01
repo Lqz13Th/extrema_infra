@@ -34,6 +34,10 @@ pub fn gate_fut_inst_to_cli(symbol: &str) -> String {
 }
 
 pub fn cli_perp_to_gate_inst(symbol: &str) -> String {
+    if let Some((pair, expiry)) = symbol.rsplit_once("_FUT_") {
+        return format!("{}_{}", pair, expiry).to_uppercase();
+    }
+
     let cleaned = symbol
         .strip_suffix("_PERP")
         .or_else(|| symbol.strip_suffix("_FUTURE"))
@@ -64,7 +68,10 @@ pub fn infer_settle_from_inst(inst: &str) -> String {
     let gate_inst = cli_perp_to_gate_inst(inst);
     let parts: Vec<&str> = gate_inst.split('_').collect();
     let quote = parts.get(1).copied().unwrap_or("USDT");
-    quote.to_lowercase()
+    match quote {
+        "USD" => "btc".to_string(),
+        _ => quote.to_lowercase(),
+    }
 }
 
 pub fn normalize_gate_text(text: &str) -> String {
@@ -190,5 +197,31 @@ impl GateWithdrawReq {
         }
 
         body.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_gate_futures_between_cli_and_native_symbol() {
+        assert_eq!(gate_fut_inst_to_cli("BTC_USD"), "BTC_USD_PERP");
+        assert_eq!(cli_perp_to_gate_inst("BTC_USD_PERP"), "BTC_USD");
+        assert_eq!(
+            gate_fut_inst_to_cli("BTC_USD_20241227"),
+            "BTC_USD_FUT_20241227"
+        );
+        assert_eq!(
+            cli_perp_to_gate_inst("BTC_USD_FUT_20241227"),
+            "BTC_USD_20241227"
+        );
+    }
+
+    #[test]
+    fn infers_gate_settle_for_linear_and_inverse_contracts() {
+        assert_eq!(infer_settle_from_inst("ZRX_USDT_PERP"), "usdt");
+        assert_eq!(infer_settle_from_inst("BTC_USD_PERP"), "btc");
+        assert_eq!(infer_settle_from_inst("BTC_USD_FUT_20241227"), "btc");
     }
 }
