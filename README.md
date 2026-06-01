@@ -71,12 +71,12 @@ With **HList**:
 
 ## Traditional vs HList Approach
 
-| Aspect                    | Traditional `Vec<Box<dyn Trait>>` | HList-based Extrema Infra     |
-|---------------------------|---------------------------------|-------------------------------|
-| **Dispatch**              | Dynamic (runtime `vtable`)      | Static (compile-time inlined) |
-| **Type Safety**           | Runtime only                    | Compile-time enforced         |
-| **Performance**           | Extra indirection, heap alloc   | Zero overhead, no heap alloc  |
-| **Compile-time Checking** | Limited                         | Full (trait bounds enforced)  |
+| Aspect | Traditional `Vec<Box<dyn Trait>>` | HList-based Extrema Infra |
+| --- | --- | --- |
+| **Dispatch** | Dynamic (runtime `vtable`) | Static (compile-time inlined) |
+| **Type Safety** | Runtime only | Compile-time enforced |
+| **Performance** | Extra indirection, heap alloc | Zero overhead, no heap alloc |
+| **Compile-time Checking** | Limited | Full (trait bounds enforced) |
 
 ---
 
@@ -229,14 +229,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# Added by: cargo add extrema_infra --features all
+extrema_infra = { version = "0.1", features = ["all"] }
 
-# Local development for core-only scheduler/model examples.
-# extrema_infra = { path = "../extrema_infra" }
+# Enable exchange clients explicitly when needed.
+# extrema_infra = { version = "0.1", features = ["binance", "okx"] }
+# extrema_infra = { version = "0.1", features = ["lob_clients"] }
 
-# Enable exchange clients explicitly when needed during local development.
-# extrema_infra = { path = "../extrema_infra", features = ["binance", "okx"] }
-# extrema_infra = { path = "../extrema_infra", features = ["lob_clients"] }
+# For local development.
+# extrema_infra = { path = "../extrema_infra", features = ["all"] }
 
 # Or use the latest main branch directly.
 # extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["all"] }
