@@ -80,6 +80,30 @@ jobs:
       - name: Run doctests
         run: cargo test --doc --all-features
 
+  dependency-checks:
+    name: Dependency checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate lockfile
+        run: cargo generate-lockfile
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Run cargo audit
+        run: cargo audit
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Run cargo deny
+        run: cargo deny check
+
   package:
     name: Package dry-run
     runs-on: ubuntu-latest
