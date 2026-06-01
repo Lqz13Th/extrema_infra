@@ -23,9 +23,11 @@ use super::{
     config_assets::*,
     okx_rest_msg::RestResOkx,
     schemas::rest::{
-        account_balance::RestAccountBalOkx, account_positions::RestAccountPosOkx,
-        account_set_leverage::RestAccountSetLeverageOkx, asset_balances::RestAssetBalanceOkx,
-        asset_currencies::RestAssetCurrencyOkx, asset_deposit_address::RestAssetDepositAddressOkx,
+        account_balance::RestAccountBalOkx, account_config::RestAccountConfigOkx,
+        account_positions::RestAccountPosOkx, account_set_leverage::RestAccountSetLeverageOkx,
+        account_set_position_mode::RestAccountSetPositionModeOkx,
+        asset_balances::RestAssetBalanceOkx, asset_currencies::RestAssetCurrencyOkx,
+        asset_deposit_address::RestAssetDepositAddressOkx,
         asset_deposit_history::RestAssetDepositHistoryOkx, asset_transfer::RestAssetTransferOkx,
         asset_transfer_state::RestAssetTransferStateOkx, asset_withdrawal::RestAssetWithdrawalOkx,
         asset_withdrawal_history::RestAssetWithdrawalHistoryOkx,
@@ -175,6 +177,58 @@ impl OkxCli {
         });
 
         Ok(msg.to_string())
+    }
+
+    pub async fn get_account_config(&self) -> InfraResult<Vec<RestAccountConfigOkx>> {
+        let res: RestResOkx<RestAccountConfigOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                "{}".into(),
+                OKX_BASE_URL,
+                OKX_ACCOUNT_CONFIG,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn set_position_mode(
+        &self,
+        hedge_mode: bool,
+    ) -> InfraResult<RestAccountSetPositionModeOkx> {
+        let pos_mode = if hedge_mode {
+            "long_short_mode"
+        } else {
+            "net_mode"
+        };
+        let body = json!({ "posMode": pos_mode }).to_string();
+
+        let res: RestResOkx<RestAccountSetPositionModeOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                body,
+                OKX_BASE_URL,
+                OKX_ACCOUNT_SET_POSITION_MODE,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No OKX position mode data returned".into(),
+            ))?;
+
+        Ok(data)
     }
 
     pub async fn set_leverage(
