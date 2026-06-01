@@ -1,6 +1,6 @@
 [package]
 name = "extrema_infra"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2024"
 
 readme = "README.md"
@@ -29,20 +29,20 @@ futures = "0.3.32"
 futures-util = "0.3.32"
 
 # HTTP / WebSocket
-reqwest = { version = "0.13.3", features = ["json", "gzip"] }
+reqwest = { version = "0.13.4", features = ["json", "gzip"] }
 tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-webpki-roots"] }
 tungstenite = "0.29.0"
 
 # Serialization / JSON / Binary encoding
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 simd-json = "0.17.0"
 rmp-serde = "1.3.1"
 
 # Cryptography / Signing / Encoding
 hmac = "0.13.0"
 sha2 = "0.11.0"
-sha3 = "0.11.0"
+sha3 = "0.12.0"
 secp256k1 = { version = "0.31.1", features = ["recovery"] }
 data-encoding = "2.11.0"
 
