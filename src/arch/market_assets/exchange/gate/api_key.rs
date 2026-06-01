@@ -9,6 +9,8 @@ use serde_json::{Value, json};
 use crate::arch::market_assets::api_general::*;
 use crate::errors::{InfraError, InfraResult};
 
+use super::api_utils::GATE_CHANNEL_ID_HEADER;
+
 #[allow(dead_code)]
 pub fn read_gate_env_key() -> InfraResult<GateKey> {
     let _ = dotenvy::dotenv();
@@ -113,15 +115,30 @@ impl GateKey {
         body: &str,
         url: &str,
     ) -> InfraResult<Response> {
-        let res = client
+        self.post_request_with_channel_id(client, signature, body, url, None)
+            .await
+    }
+
+    pub(crate) async fn post_request_with_channel_id(
+        &self,
+        client: &Client,
+        signature: &Signature<u64>,
+        body: &str,
+        url: &str,
+        channel_id: Option<&str>,
+    ) -> InfraResult<Response> {
+        let mut request = client
             .post(url)
             .header("KEY", &self.api_key)
             .header("SIGN", &signature.signature)
             .header("Timestamp", signature.timestamp.to_string())
-            .header("Content-Type", "application/json")
-            .body(body.to_string())
-            .send()
-            .await?;
+            .header("Content-Type", "application/json");
+
+        if let Some(channel_id) = channel_id {
+            request = request.header(GATE_CHANNEL_ID_HEADER, channel_id);
+        }
+
+        let res = request.body(body.to_string()).send().await?;
 
         Ok(res)
     }
@@ -184,6 +201,31 @@ impl GateKey {
         };
 
         let label = format!("Gate {:?} {}", method, endpoint);
+        parse_json_response(&label, response).await
+    }
+
+    pub(crate) async fn send_signed_post_request_with_channel_id<T>(
+        &self,
+        client: &Client,
+        query_string: Option<&str>,
+        body: Option<&str>,
+        base_url: &str,
+        endpoint: &str,
+        channel_id: Option<&str>,
+    ) -> InfraResult<T>
+    where
+        T: DeserializeOwned + Send,
+    {
+        let encoded_query = encode_query_string(query_string);
+        let body_str = body.unwrap_or("");
+        let signature =
+            self.sign_now("POST", endpoint, encoded_query.as_deref(), Some(body_str))?;
+        let url = gate_build_full_url(base_url, endpoint, encoded_query.as_deref());
+        let response = self
+            .post_request_with_channel_id(client, &signature, body_str, &url, channel_id)
+            .await?;
+
+        let label = format!("Gate Post {}", endpoint);
         parse_json_response(&label, response).await
     }
 }
