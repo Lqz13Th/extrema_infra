@@ -6,7 +6,10 @@ use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
-use crate::arch::market_assets::api_general::*;
+use crate::arch::market_assets::{
+    api_general::*,
+    exchange::secret::{redact_identifier, redact_secret},
+};
 use crate::errors::{InfraError, InfraResult};
 
 use super::api_utils::GATE_CHANNEL_ID_HEADER;
@@ -25,11 +28,21 @@ pub fn read_gate_env_key() -> InfraResult<GateKey> {
     Ok(GateKey::new(&api_key, &secret_key, &user_id))
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct GateKey {
     pub api_key: String,
     pub secret_key: String,
     pub user_id: String,
+}
+
+impl std::fmt::Debug for GateKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GateKey")
+            .field("api_key", &redact_identifier(&self.api_key))
+            .field("secret_key", &redact_secret())
+            .field("user_id", &redact_identifier(&self.user_id))
+            .finish()
+    }
 }
 
 impl GateKey {
@@ -163,6 +176,26 @@ impl GateKey {
         Ok(res)
     }
 
+    pub(crate) async fn delete_request(
+        &self,
+        client: &Client,
+        signature: &Signature<u64>,
+        body: &str,
+        url: &str,
+    ) -> InfraResult<Response> {
+        let res = client
+            .delete(url)
+            .header("KEY", &self.api_key)
+            .header("SIGN", &signature.signature)
+            .header("Timestamp", signature.timestamp.to_string())
+            .header("Content-Type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await?;
+
+        Ok(res)
+    }
+
     pub(crate) async fn send_signed_request<T>(
         &self,
         client: &Client,
@@ -197,7 +230,11 @@ impl GateKey {
                 let body_str = body.unwrap_or("");
                 self.put_request(client, &signature, body_str, &url).await?
             },
-            RequestMethod::Delete => self.get_request(client, &signature, &url).await?,
+            RequestMethod::Delete => {
+                let body_str = body.unwrap_or("");
+                self.delete_request(client, &signature, body_str, &url)
+                    .await?
+            },
         };
 
         let label = format!("Gate {:?} {}", method, endpoint);
@@ -240,5 +277,26 @@ fn gate_build_full_url(base_url: &str, endpoint: &str, query_string: Option<&str
     match query_string {
         Some(query) if !query.is_empty() => format!("{}{}?{}", base_url, endpoint, query),
         _ => [base_url, endpoint].concat(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_gate_key_secrets() {
+        let key = GateKey::new(
+            "gate_api_key_1234567890",
+            "gate_secret_key_1234567890",
+            "52955084",
+        );
+        let debug = format!("{:?}", key);
+
+        assert!(debug.contains("gate_a...7890"));
+        assert!(!debug.contains("gate_api_key_1234567890"));
+        assert!(!debug.contains("gate_secret_key_1234567890"));
+        assert!(!debug.contains("52955084"));
+        assert!(debug.contains("[REDACTED]"));
     }
 }

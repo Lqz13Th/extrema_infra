@@ -5,7 +5,10 @@ use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
-use crate::arch::market_assets::api_general::*;
+use crate::arch::market_assets::{
+    api_general::*,
+    exchange::secret::{redact_identifier, redact_secret},
+};
 use crate::errors::{InfraError, InfraResult};
 
 use super::api_utils::get_okx_timestamp;
@@ -23,11 +26,21 @@ pub fn read_okx_env_key() -> InfraResult<OkxKey> {
     Ok(OkxKey::new(&api_key, &secret_key, &passphrase))
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OkxKey {
     pub api_key: String,
     pub secret_key: String,
     pub passphrase: String,
+}
+
+impl std::fmt::Debug for OkxKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OkxKey")
+            .field("api_key", &redact_identifier(&self.api_key))
+            .field("secret_key", &redact_secret())
+            .field("passphrase", &redact_secret())
+            .finish()
+    }
 }
 
 impl OkxKey {
@@ -127,6 +140,27 @@ impl OkxKey {
         Ok(res)
     }
 
+    pub(crate) async fn delete_request(
+        &self,
+        client: &Client,
+        signature: &Signature<String>,
+        body: String,
+        url: &str,
+    ) -> InfraResult<Response> {
+        let res = client
+            .delete(url)
+            .header("OK-ACCESS-KEY", &self.api_key)
+            .header("OK-ACCESS-SIGN", &signature.signature)
+            .header("OK-ACCESS-TIMESTAMP", &signature.timestamp)
+            .header("OK-ACCESS-PASSPHRASE", &self.passphrase)
+            .header("Content-Type", "application/json")
+            .body(body)
+            .send()
+            .await?;
+
+        Ok(res)
+    }
+
     pub(crate) async fn send_signed_request<T>(
         &self,
         client: &Client,
@@ -159,7 +193,7 @@ impl OkxKey {
             RequestMethod::Delete => {
                 let url = [base_url, endpoint].concat();
                 let signature = self.sign_now("DELETE", endpoint, Some(&body))?;
-                self.get_request(client, &signature, &url).await?
+                self.delete_request(client, &signature, body, &url).await?
             },
         };
 
@@ -211,4 +245,25 @@ fn okx_normalize_get_query(body: &str) -> InfraResult<Option<String>> {
     }
 
     Ok(Some(trimmed.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_okx_key_secrets() {
+        let key = OkxKey::new(
+            "okx_api_key_1234567890",
+            "okx_secret_key_1234567890",
+            "passphrase123",
+        );
+        let debug = format!("{:?}", key);
+
+        assert!(debug.contains("okx_ap...7890"));
+        assert!(!debug.contains("okx_api_key_1234567890"));
+        assert!(!debug.contains("okx_secret_key_1234567890"));
+        assert!(!debug.contains("passphrase123"));
+        assert!(debug.contains("[REDACTED]"));
+    }
 }
