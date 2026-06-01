@@ -432,6 +432,7 @@ impl GateFuturesCli {
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         let mut extra = order_params.extra;
+        let gate_channel_id = take_gate_channel_id(&mut extra)?;
         let settle = extra
             .remove("settle")
             .unwrap_or_else(|| infer_settle_from_inst(&order_params.inst));
@@ -488,13 +489,13 @@ impl GateFuturesCli {
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_request(
+            .send_signed_post_request_with_channel_id(
                 &self.client,
-                RequestMethod::Post,
                 None,
                 Some(&body.to_string()),
                 GATE_BASE_URL,
                 &endpoint,
+                gate_channel_id.as_deref(),
             )
             .await?;
 

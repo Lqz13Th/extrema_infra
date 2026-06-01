@@ -1,9 +1,14 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::error;
 
 use crate::arch::market_assets::{api_general::get_seconds_timestamp, base_data::SUBSCRIBE_LOWER};
 use crate::errors::{InfraError, InfraResult};
+
+pub const GATE_CHANNEL_ID_EXTRA_KEY: &str = "gate_channel_id";
+pub const GATE_CHANNEL_ID_HEADER: &str = "X-Gate-Channel-Id";
 
 pub fn ws_subscribe_msg_gate_futures(channel: &str, payload: Vec<String>) -> String {
     let msg = json!({
@@ -80,6 +85,30 @@ pub fn normalize_gate_text(text: &str) -> String {
     } else {
         format!("t-{}", text)
     }
+}
+
+pub fn take_gate_channel_id(extra: &mut HashMap<String, String>) -> InfraResult<Option<String>> {
+    let Some(channel_id) = extra.remove(GATE_CHANNEL_ID_EXTRA_KEY) else {
+        return Ok(None);
+    };
+
+    validate_gate_channel_id(&channel_id)?;
+    Ok(Some(channel_id))
+}
+
+fn validate_gate_channel_id(channel_id: &str) -> InfraResult<()> {
+    if channel_id.is_empty()
+        || channel_id.len() >= 20
+        || !channel_id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+    {
+        return Err(InfraError::ApiCliError(format!(
+            "Invalid Gate broker channel id: {channel_id}; expected <20 lowercase letters/digits"
+        )));
+    }
+
+    Ok(())
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -223,5 +252,34 @@ mod tests {
         assert_eq!(infer_settle_from_inst("ZRX_USDT_PERP"), "usdt");
         assert_eq!(infer_settle_from_inst("BTC_USD_PERP"), "btc");
         assert_eq!(infer_settle_from_inst("BTC_USD_FUT_20241227"), "btc");
+    }
+
+    #[test]
+    fn takes_and_validates_gate_channel_id() {
+        let mut extra = HashMap::from([
+            (
+                GATE_CHANNEL_ID_EXTRA_KEY.to_string(),
+                "broker123".to_string(),
+            ),
+            ("account".to_string(), "spot".to_string()),
+        ]);
+
+        assert_eq!(
+            take_gate_channel_id(&mut extra).unwrap(),
+            Some("broker123".to_string())
+        );
+        assert!(!extra.contains_key(GATE_CHANNEL_ID_EXTRA_KEY));
+        assert_eq!(extra.get("account").map(String::as_str), Some("spot"));
+    }
+
+    #[test]
+    fn rejects_invalid_gate_channel_id() {
+        for channel_id in ["", "Broker123", "broker_123", "abcdefghijklmnopqrst"] {
+            let mut extra = HashMap::from([(
+                GATE_CHANNEL_ID_EXTRA_KEY.to_string(),
+                channel_id.to_string(),
+            )]);
+            assert!(take_gate_channel_id(&mut extra).is_err());
+        }
     }
 }

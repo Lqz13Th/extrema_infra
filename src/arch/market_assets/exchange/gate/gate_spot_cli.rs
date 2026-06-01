@@ -371,6 +371,7 @@ impl GateSpotCli {
         }
 
         let mut extra = order_params.extra;
+        let gate_channel_id = take_gate_channel_id(&mut extra)?;
         if let Some(account) = extra.remove("account") {
             body["account"] = json!(account);
         } else {
@@ -416,13 +417,13 @@ impl GateSpotCli {
             .api_key
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_request(
+            .send_signed_post_request_with_channel_id(
                 &self.client,
-                RequestMethod::Post,
                 None,
                 Some(&body.to_string()),
                 GATE_BASE_URL,
                 GATE_SPOT_ORDERS,
+                gate_channel_id.as_deref(),
             )
             .await?;
 
