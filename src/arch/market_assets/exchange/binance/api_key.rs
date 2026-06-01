@@ -4,7 +4,10 @@ use hmac::{KeyInit, Mac};
 use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::arch::market_assets::api_general::*;
+use crate::arch::market_assets::{
+    api_general::*,
+    exchange::secret::{redact_identifier, redact_secret},
+};
 use crate::errors::{InfraError, InfraResult};
 
 #[allow(dead_code)]
@@ -19,10 +22,19 @@ pub fn read_binance_env_key() -> InfraResult<BinanceKey> {
     Ok(BinanceKey::new(&api_key, &secret_key))
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BinanceKey {
     pub api_key: String,
     pub secret_key: String,
+}
+
+impl std::fmt::Debug for BinanceKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BinanceKey")
+            .field("api_key", &redact_identifier(&self.api_key))
+            .field("secret_key", &redact_secret())
+            .finish()
+    }
 }
 
 impl BinanceKey {
@@ -188,5 +200,24 @@ fn binance_build_full_url(
             "{}?{}timestamp={}&signature={}",
             url, "", signature.timestamp, signature.signature
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_binance_key_secrets() {
+        let key = BinanceKey::new(
+            "binance_api_key_1234567890",
+            "binance_secret_key_1234567890",
+        );
+        let debug = format!("{:?}", key);
+
+        assert!(debug.contains("binanc...7890"));
+        assert!(!debug.contains("binance_api_key_1234567890"));
+        assert!(!debug.contains("binance_secret_key_1234567890"));
+        assert!(debug.contains("[REDACTED]"));
     }
 }

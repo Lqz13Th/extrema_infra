@@ -214,6 +214,12 @@ async fn main() {
 
 ## Example: Spawn example strategy
 
+Install the latest published crate:
+
+```bash
+cargo add extrema_infra --features all
+```
+
 On your strategy Cargo.toml:
 
 ```toml
@@ -223,14 +229,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# Local development for core-only scheduler/model examples.
-extrema_infra = { path = "../extrema_infra" }
+# Added by: cargo add extrema_infra --features all
 
-# Enable exchange clients explicitly when needed.
+# Local development for core-only scheduler/model examples.
+# extrema_infra = { path = "../extrema_infra" }
+
+# Enable exchange clients explicitly when needed during local development.
 # extrema_infra = { path = "../extrema_infra", features = ["binance", "okx"] }
 # extrema_infra = { path = "../extrema_infra", features = ["lob_clients"] }
 
-# Or remote
+# Or use the latest main branch directly.
 # extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["all"] }
 
 # Tokio async runtime

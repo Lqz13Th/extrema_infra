@@ -5,9 +5,13 @@ use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha3::{Digest, Keccak256};
 
-use super::config_assets::*;
-use crate::arch::market_assets::api_general::{get_mills_timestamp, parse_json_response};
+use crate::arch::market_assets::{
+    api_general::{get_mills_timestamp, parse_json_response},
+    exchange::secret::{redact_identifier, redact_secret},
+};
 use crate::errors::{InfraError, InfraResult};
+
+use super::config_assets::*;
 
 pub fn read_hyperliquid_env_auth() -> InfraResult<HyperliquidAuth> {
     let _ = dotenvy::dotenv();
@@ -28,11 +32,24 @@ pub fn read_hyperliquid_env_auth() -> InfraResult<HyperliquidAuth> {
     })
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct HyperliquidAuth {
     pub owner_address: String,
     pub agent_private_key: String,
     pub vault_address: Option<String>,
+}
+
+impl std::fmt::Debug for HyperliquidAuth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HyperliquidAuth")
+            .field("owner_address", &redact_identifier(&self.owner_address))
+            .field("agent_private_key", &redact_secret())
+            .field(
+                "vault_address",
+                &self.vault_address.as_deref().map(redact_identifier),
+            )
+            .finish()
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -270,4 +287,32 @@ fn address_to_word(address: [u8; 20]) -> [u8; 32] {
     let mut out = [0u8; 32];
     out[12..].copy_from_slice(&address);
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_hyperliquid_auth_secrets() {
+        let auth = HyperliquidAuth {
+            owner_address: "0x1234567890abcdef1234567890abcdef12345678".to_string(),
+            agent_private_key:
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                    .to_string(),
+            vault_address: Some("0xfedcba0987654321fedcba0987654321fedcba09".to_string()),
+        };
+        let debug = format!("{:?}", auth);
+
+        assert!(debug.contains("0x1234...5678"));
+        assert!(debug.contains("0xfedc...ba09"));
+        assert!(!debug.contains("0x1234567890abcdef1234567890abcdef12345678"));
+        assert!(
+            !debug.contains(
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+            )
+        );
+        assert!(!debug.contains("0xfedcba0987654321fedcba0987654321fedcba09"));
+        assert!(debug.contains("[REDACTED]"));
+    }
 }
