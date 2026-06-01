@@ -177,7 +177,7 @@ impl BinanceCmCli {
         let mut url = format!(
             "{}/futures/data/openInterestHist?pair={}&contractType={}&period={}",
             BINANCE_CM_FUTURES_BASE_URL,
-            cli_perp_to_binance_cm(inst),
+            cli_perp_to_binance_cm_pair(inst),
             contract_type_str,
             period,
         );

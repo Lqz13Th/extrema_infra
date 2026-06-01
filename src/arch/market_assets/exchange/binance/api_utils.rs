@@ -401,13 +401,64 @@ fn cli_um_to_binance_symbol(symbol: &str) -> String {
 }
 
 pub fn cli_perp_to_binance_cm(symbol: &str) -> String {
-    symbol
-        .strip_suffix("_PERP")
-        .unwrap_or(symbol)
-        .replace("_USDT", "USD")
-        .to_string()
+    let upper = symbol.to_uppercase();
+    if let Some(pair) = upper.strip_suffix("_PERP") {
+        return format!("{}_PERP", normalize_binance_cm_pair(pair));
+    }
+
+    if let Some((pair, expiry)) = upper.rsplit_once("_FUT_") {
+        return format!("{}_{}", normalize_binance_cm_pair(pair), expiry);
+    }
+
+    normalize_binance_cm_pair(&upper)
+}
+
+pub fn cli_perp_to_binance_cm_pair(symbol: &str) -> String {
+    let upper = symbol.to_uppercase();
+    if let Some(pair) = upper.strip_suffix("_PERP") {
+        return normalize_binance_cm_pair(pair);
+    }
+
+    if let Some((pair, _)) = upper.rsplit_once("_FUT_") {
+        return normalize_binance_cm_pair(pair);
+    }
+
+    normalize_binance_cm_pair(&upper)
+}
+
+fn normalize_binance_cm_pair(pair: &str) -> String {
+    if let Some(base) = pair.strip_suffix("_USDT") {
+        format!("{}USD", base.replace('_', ""))
+    } else if let Some(base) = pair.strip_suffix("USDT") {
+        format!("{base}USD")
+    } else {
+        pair.replace('_', "")
+    }
 }
 
 pub fn cli_spot_to_binance_spot(inst: &str) -> String {
     inst.replace('_', "").to_uppercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_binance_cm_between_cli_and_native_symbol() {
+        assert_eq!(binance_fut_inst_to_cli("BTCUSD_PERP"), "BTC_USD_PERP");
+        assert_eq!(cli_perp_to_binance_cm("BTC_USD_PERP"), "BTCUSD_PERP");
+        assert_eq!(cli_perp_to_binance_cm("BTC_USDT_PERP"), "BTCUSD_PERP");
+        assert_eq!(
+            cli_perp_to_binance_cm("BTC_USD_FUT_240329"),
+            "BTCUSD_240329"
+        );
+    }
+
+    #[test]
+    fn converts_binance_cm_cli_to_pair_for_pair_endpoints() {
+        assert_eq!(cli_perp_to_binance_cm_pair("BTC_USD_PERP"), "BTCUSD");
+        assert_eq!(cli_perp_to_binance_cm_pair("BTC_USDT_PERP"), "BTCUSD");
+        assert_eq!(cli_perp_to_binance_cm_pair("BTC_USD_FUT_240329"), "BTCUSD");
+    }
 }
