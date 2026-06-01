@@ -40,11 +40,16 @@ pub fn get_okx_timestamp() -> String {
 }
 
 pub fn cli_perp_to_okx_inst(symbol: &str) -> String {
-    let mut inst = symbol.replace('_', "-");
-    if inst.ends_with("-PERP") {
-        inst = inst.trim_end_matches("-PERP").to_string() + "-SWAP";
+    let upper = symbol.to_uppercase();
+    if let Some((pair, expiry)) = upper.rsplit_once("_FUT_") {
+        return format!("{}-{}", pair.replace('_', "-"), expiry);
     }
-    inst
+
+    if let Some(pair) = upper.strip_suffix("_PERP") {
+        return format!("{}-SWAP", pair.replace('_', "-"));
+    }
+
+    upper.replace('_', "-")
 }
 
 pub fn okx_inst_to_cli(symbol: &str) -> String {
@@ -356,5 +361,18 @@ impl OkxAssetDepositHistoryReq {
         }
 
         parts.join("&")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_okx_instruments_between_cli_and_native_symbol() {
+        assert_eq!(okx_inst_to_cli("BTC-USDT-SWAP"), "BTC_USDT_PERP");
+        assert_eq!(cli_perp_to_okx_inst("BTC_USDT_PERP"), "BTC-USDT-SWAP");
+        assert_eq!(okx_inst_to_cli("BTC-USD-240329"), "BTC_USD_FUT_240329");
+        assert_eq!(cli_perp_to_okx_inst("BTC_USD_FUT_240329"), "BTC-USD-240329");
     }
 }
