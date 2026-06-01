@@ -54,12 +54,12 @@ where
                     .and_then(Value::as_i64)
                     .zip(value.get("msg").and_then(Value::as_str));
 
-                if let Some((code, _)) = code_msg {
-                    if code != 200 {
-                        return serde_json::from_value(value)
-                            .map(Self::CodeMsg)
-                            .map_err(D::Error::custom);
-                    }
+                if let Some((code, _)) = code_msg
+                    && code != 200
+                {
+                    return serde_json::from_value(value)
+                        .map(Self::CodeMsg)
+                        .map_err(D::Error::custom);
                 }
 
                 serde_json::from_value(value)
