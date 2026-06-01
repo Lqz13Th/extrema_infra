@@ -1,4 +1,5 @@
 pub mod account_balance;
+pub mod account_config;
 pub mod account_position_risk;
 pub mod exchange_info;
 pub mod funding_rate;
@@ -6,6 +7,8 @@ pub mod funding_rate_info;
 pub mod leverage;
 pub mod open_interest_statistics;
 pub mod order_history;
+pub mod position_mode;
 pub mod premium_index;
+pub mod symbol_config;
 pub mod ticker;
 pub mod trade_order;

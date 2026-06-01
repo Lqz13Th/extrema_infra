@@ -24,12 +24,19 @@ use super::{
     config_assets::*,
     schemas::um_futures_rest::{
         account_balance::RestAccountBalBinanceUM,
+        account_config::RestAccountConfigBinanceUM,
         account_position_risk::RestAccountPosRiskBinanceUM,
-        exchange_info::RestExchangeInfoBinanceUM, funding_rate::RestFundingRateBinanceUM,
-        funding_rate_info::RestFundingInfoBinanceUM, leverage::RestLeverageBinanceUM,
+        exchange_info::RestExchangeInfoBinanceUM,
+        funding_rate::RestFundingRateBinanceUM,
+        funding_rate_info::RestFundingInfoBinanceUM,
+        leverage::RestLeverageBinanceUM,
         open_interest_statistics::RestOpenInterestBinanceUM,
-        order_history::RestOrderHistoryBinanceUM, premium_index::RestPremiumIndexBinanceUM,
-        ticker::RestTickerBinanceUM, trade_order::RestOrderAckBinanceUM,
+        order_history::RestOrderHistoryBinanceUM,
+        position_mode::{RestPositionModeBinanceUM, RestPositionModeChangeBinanceUM},
+        premium_index::RestPremiumIndexBinanceUM,
+        symbol_config::RestSymbolConfigBinanceUM,
+        ticker::RestTickerBinanceUM,
+        trade_order::RestOrderAckBinanceUM,
     },
 };
 
@@ -220,6 +227,108 @@ impl BinanceUmCli {
             .ok_or(InfraError::ApiCliError("No leverage data returned".into()))?;
 
         Ok(data)
+    }
+
+    pub async fn get_position_mode(&self) -> InfraResult<RestPositionModeBinanceUM> {
+        let res: RestResBinance<RestPositionModeBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_POSITION_MODE,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No UM position mode data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn set_position_mode(
+        &self,
+        hedge_mode: bool,
+    ) -> InfraResult<RestPositionModeChangeBinanceUM> {
+        let query_string = format!("dualSidePosition={}", hedge_mode);
+
+        let res: RestResBinance<RestPositionModeChangeBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_POSITION_MODE,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No UM position mode change data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_account_config(&self) -> InfraResult<RestAccountConfigBinanceUM> {
+        let res: RestResBinance<RestAccountConfigBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_ACCOUNT_CONFIG,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No UM account config data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_symbol_config(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<RestSymbolConfigBinanceUM>> {
+        let query_string = inst.map(|s| format!("symbol={}", cli_perp_to_pure_uppercase(s)));
+
+        let res: RestResBinance<RestSymbolConfigBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query_string.as_deref(),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_SYMBOL_CONFIG,
+            )
+            .await?;
+
+        res.into_vec()
     }
 
     pub async fn get_premium_index_klines(
