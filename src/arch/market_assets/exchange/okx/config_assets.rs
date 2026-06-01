@@ -6,8 +6,10 @@ pub const OKX_BASE_URL: &str = "https://www.okx.com";
 
 /// REST endpoints
 pub const OKX_ACCOUNT_BALANCE: &str = "/api/v5/account/balance";
+pub const OKX_ACCOUNT_CONFIG: &str = "/api/v5/account/config";
 pub const OKX_ACCOUNT_POSITIONS: &str = "/api/v5/account/positions";
 pub const OKX_ACCOUNT_SET_LEVERAGE: &str = "/api/v5/account/set-leverage";
+pub const OKX_ACCOUNT_SET_POSITION_MODE: &str = "/api/v5/account/set-position-mode";
 pub const OKX_ASSET_CURRENCIES: &str = "/api/v5/asset/currencies";
 pub const OKX_ASSET_BALANCES: &str = "/api/v5/asset/balances";
 pub const OKX_ASSET_DEPOSIT_ADDRESS: &str = "/api/v5/asset/deposit-address";

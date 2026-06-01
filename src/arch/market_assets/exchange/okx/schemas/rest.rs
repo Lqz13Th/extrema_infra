@@ -1,6 +1,8 @@
 pub mod account_balance;
+pub mod account_config;
 pub mod account_positions;
 pub mod account_set_leverage;
+pub mod account_set_position_mode;
 pub mod asset_balances;
 pub mod asset_currencies;
 pub mod asset_deposit_address;
