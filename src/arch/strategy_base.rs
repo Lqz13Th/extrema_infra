@@ -12,3 +12,5 @@
 pub mod command;
 pub mod handler;
 pub mod hlist_core;
+pub mod strategy_group;
+pub mod strategy_module;

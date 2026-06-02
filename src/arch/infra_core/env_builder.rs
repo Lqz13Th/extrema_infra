@@ -6,6 +6,8 @@ use crate::arch::{
     strategy_base::{
         handler::handler_core::BoardCastChannel,
         hlist_core::{HCons, HNil},
+        strategy_group::InnerStrategyGroup,
+        strategy_module::InnerStrategyModule,
     },
     task_execution::task_general::TaskInfo,
     traits::strategy::Strategy,
@@ -111,24 +113,59 @@ impl<HeadList> EnvBuilder<HeadList> {
 
     /// Registers one strategy module.
     ///
+    /// Use this for a single business module. For multiple same-type modules,
+    /// use [`EnvBuilder::with_strategy_modules`] so every child gets its own
+    /// independent handler loop.
+    ///
     /// Calling this method repeatedly creates a static module chain. By default,
     /// modules subscribe to every registered broadcast event for backwards
     /// compatibility. Modules that override `EventHandler::event_mask` subscribe
     /// only to their selected event streams. All modules may independently send
     /// commands to the tasks they care about.
-    pub fn with_strategy_module<S>(self, strategy: S) -> EnvBuilder<HCons<S, HeadList>>
+    pub fn with_strategy_module<S>(
+        self,
+        strategy: S,
+    ) -> EnvBuilder<HCons<InnerStrategyModule<S>, HeadList>>
     where
         S: Strategy + Clone,
     {
         info!("Adding strategy: {}", strategy.strategy_name());
+        self.with_strategy_node(InnerStrategyModule::new(strategy))
+    }
+
+    fn with_strategy_node<N>(self, node: N) -> EnvBuilder<HCons<N, HeadList>>
+    where
+        N: Strategy + Clone,
+    {
         EnvBuilder {
             strategies: HCons {
-                head: strategy,
+                head: node,
                 tail: self.strategies,
             },
             board_cast_channels: self.board_cast_channels,
             tasks: self.tasks,
         }
+    }
+
+    /// Registers many same-type strategy modules.
+    ///
+    /// The runtime stores the modules in one static HList node, then spawns one
+    /// independent event loop per module. This is useful for account-scoped
+    /// modules such as per-account order executors.
+    ///
+    /// This is the public constructor path for strategy groups; the runtime
+    /// wrapper itself is intentionally not part of the prelude.
+    pub fn with_strategy_modules<S, I>(
+        self,
+        strategies: I,
+    ) -> EnvBuilder<HCons<InnerStrategyGroup<S>, HeadList>>
+    where
+        S: Strategy + Clone,
+        I: IntoIterator<Item = S>,
+    {
+        let group = InnerStrategyGroup::new(strategies);
+        info!("Adding strategy group with {} module(s)", group.len());
+        self.with_strategy_node(group)
     }
 }
 

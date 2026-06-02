@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use tracing::info;
 
 use crate::arch::{
     strategy_base::{
@@ -15,6 +14,8 @@ pub struct HNil;
 
 impl Strategy for HNil {
     async fn initialize(&mut self) {}
+
+    async fn _spawn_strategy_tasks(&self, _channels: &Arc<Vec<BoardCastChannel>>) {}
 }
 impl CommandEmitter for HNil {
     fn command_init(&mut self, _command_handle: Arc<CommandRegistry>) {}
@@ -43,14 +44,7 @@ where
 
     async fn _spawn_strategy_tasks(&self, channels: &Arc<Vec<BoardCastChannel>>) {
         let HCons { head, tail } = self;
-        let ch = channels.clone();
-        let h = head.clone();
-
-        tokio::spawn(async move {
-            info!("Spawned strategy task for {}", h.strategy_name());
-            strategy_handler_loop(h, &ch).await;
-        });
-
+        head._spawn_strategy_tasks(channels).await;
         tail._spawn_strategy_tasks(channels).await;
     }
 }
@@ -144,5 +138,58 @@ where
         let fut_head = self.head.on_acc_pos(msg.clone());
         let fut_tail = self.tail.on_acc_pos(msg);
         tokio::join!(fut_head, fut_tail);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    use super::*;
+
+    #[derive(Clone)]
+    struct ProbeStrategy {
+        spawn_count: Arc<AtomicUsize>,
+    }
+
+    impl Strategy for ProbeStrategy {
+        async fn initialize(&mut self) {}
+
+        async fn _spawn_strategy_tasks(&self, _channels: &Arc<Vec<BoardCastChannel>>) {
+            self.spawn_count.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    impl CommandEmitter for ProbeStrategy {
+        fn command_init(&mut self, _command_handle: Arc<CommandRegistry>) {}
+
+        fn command_registry(&self) -> Arc<CommandRegistry> {
+            Arc::new(CommandRegistry::default())
+        }
+    }
+
+    impl EventHandler for ProbeStrategy {}
+
+    #[tokio::test]
+    async fn hlist_delegates_spawn_once_per_head() {
+        let spawn_count = Arc::new(AtomicUsize::new(0));
+        let strategies = HCons {
+            head: ProbeStrategy {
+                spawn_count: spawn_count.clone(),
+            },
+            tail: HCons {
+                head: ProbeStrategy {
+                    spawn_count: spawn_count.clone(),
+                },
+                tail: HNil,
+            },
+        };
+
+        strategies._spawn_strategy_tasks(&Arc::new(vec![])).await;
+
+        assert_eq!(spawn_count.load(Ordering::SeqCst), 2);
     }
 }
