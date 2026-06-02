@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::mpsc,
+    sync::{Arc, mpsc},
     time::Duration,
 };
 use tokio::{
@@ -11,7 +11,7 @@ use tokio::{
     time::timeout,
 };
 use tract_onnx::prelude::{
-    Framework, InferenceModelExt, IntoTensor, TValue, TypedModel, TypedRunnableModel,
+    Framework, InferenceModelExt, IntoRunnable, IntoTensor, TValue, TypedRunnableModel,
     tract_ndarray::{ArrayD, IxDyn},
     tvec,
 };
@@ -75,7 +75,7 @@ impl OnnxRunnerConfig {
 #[derive(Debug)]
 struct OnnxModelRunner {
     config: OnnxRunnerConfig,
-    model: TypedRunnableModel<TypedModel>,
+    model: Arc<TypedRunnableModel>,
 }
 
 impl OnnxModelRunner {
@@ -189,7 +189,8 @@ fn select_default_output_index(outputs: &[TValue]) -> Option<usize> {
     outputs
         .iter()
         .position(|output| {
-            output.to_array_view::<f32>().is_ok() || output.to_array_view::<f64>().is_ok()
+            output.to_plain_array_view::<f32>().is_ok()
+                || output.to_plain_array_view::<f64>().is_ok()
         })
         .or_else(|| {
             outputs
@@ -199,73 +200,73 @@ fn select_default_output_index(outputs: &[TValue]) -> Option<usize> {
 }
 
 fn decode_output_to_f32(output: &TValue) -> InfraResult<(Vec<f32>, Vec<usize>, &'static str)> {
-    if let Ok(view) = output.to_array_view::<f32>() {
+    if let Ok(view) = output.to_plain_array_view::<f32>() {
         return Ok((view.iter().copied().collect(), view.shape().to_vec(), "f32"));
     }
-    if let Ok(view) = output.to_array_view::<f64>() {
+    if let Ok(view) = output.to_plain_array_view::<f64>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "f64",
         ));
     }
-    if let Ok(view) = output.to_array_view::<i64>() {
+    if let Ok(view) = output.to_plain_array_view::<i64>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "i64",
         ));
     }
-    if let Ok(view) = output.to_array_view::<i32>() {
+    if let Ok(view) = output.to_plain_array_view::<i32>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "i32",
         ));
     }
-    if let Ok(view) = output.to_array_view::<i16>() {
+    if let Ok(view) = output.to_plain_array_view::<i16>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "i16",
         ));
     }
-    if let Ok(view) = output.to_array_view::<i8>() {
+    if let Ok(view) = output.to_plain_array_view::<i8>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "i8",
         ));
     }
-    if let Ok(view) = output.to_array_view::<u64>() {
+    if let Ok(view) = output.to_plain_array_view::<u64>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "u64",
         ));
     }
-    if let Ok(view) = output.to_array_view::<u32>() {
+    if let Ok(view) = output.to_plain_array_view::<u32>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "u32",
         ));
     }
-    if let Ok(view) = output.to_array_view::<u16>() {
+    if let Ok(view) = output.to_plain_array_view::<u16>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "u16",
         ));
     }
-    if let Ok(view) = output.to_array_view::<u8>() {
+    if let Ok(view) = output.to_plain_array_view::<u8>() {
         return Ok((
             view.iter().map(|&value| value as f32).collect(),
             view.shape().to_vec(),
             "u8",
         ));
     }
-    if let Ok(view) = output.to_array_view::<bool>() {
+    if let Ok(view) = output.to_plain_array_view::<bool>() {
         return Ok((
             view.iter()
                 .map(|&value| if value { 1.0 } else { 0.0 })

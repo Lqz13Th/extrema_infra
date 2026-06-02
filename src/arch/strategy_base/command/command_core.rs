@@ -16,8 +16,8 @@ use crate::errors::{InfraError, InfraResult};
 /// commands are routed by `(WsChannel, task_id)`. The market is part of the
 /// task descriptor, but it is not part of the command key, so task ids must be
 /// unique when several tasks share the same task type or websocket channel.
-/// For `AltTaskType::ModelPreds`, the `ModelRunner` value is also part of the
-/// key.
+/// When a model-runner feature is enabled, `AltTaskType::ModelPreds` includes
+/// its `ModelRunner` backend value in the key.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CommandKey {
     /// Command key for a non-websocket task.
@@ -266,8 +266,8 @@ pub enum TaskCommand {
     /// Sends model features to a prediction task.
     ///
     /// The receiving model task runs inference through the configured backend
-    /// (`ModelRunner::Zmq` or `ModelRunner::Onnx`) and later emits predictions
-    /// through `EventHandler::on_preds`.
+    /// and later emits predictions through `EventHandler::on_preds`. Model
+    /// runner variants are available through their matching crate features.
     FeatInput(AltTensor),
 }
 
