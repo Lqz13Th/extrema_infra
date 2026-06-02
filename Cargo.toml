@@ -1,6 +1,6 @@
 [package]
 name = "extrema_infra"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 
 readme = "README.md"
