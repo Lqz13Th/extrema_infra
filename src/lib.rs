@@ -25,29 +25,19 @@
 //!   strategies. Add only the channels your process needs to consume or publish.
 //! - [`prelude`] re-exports the common types used by strategy binaries.
 //!
-//! # Why Events Drive Strategies
+//! # Event Model
 //!
-//! Trading systems are naturally event-driven. Market data arrives whenever an
-//! exchange pushes a websocket frame. Private account streams update after
-//! fills, cancellations, balance changes, and position changes. Timers trigger
-//! periodic tasks such as refresh, rebalancing, risk checks, model inference, or
-//! state snapshots. These inputs do not share one clean loop cadence, and they
-//! should not force every strategy module to poll every data source.
+//! Runtime tasks own IO, timers, model workers, and order relays. They publish
+//! normalized `InfraMsg<T>` values into typed broadcast channels.
 //!
-//! `extrema_infra` separates those responsibilities:
+//! Strategy modules use [`EventMask`] to subscribe to the streams they consume,
+//! handle those streams through async callbacks, and send `TaskCommand` values
+//! back through command handles when they need active work such as websocket
+//! connect/subscribe or order execution.
 //!
-//! - Runtime tasks own IO, timers, model workers, and order relays.
-//! - Tasks publish normalized messages into typed broadcast channels.
-//! - Strategy modules use [`EventMask`] to subscribe to the streams they care
-//!   about and implement the matching event callbacks.
-//! - Strategy modules send commands back to tasks through command handles when
-//!   they need active work such as websocket connect/subscribe or order
-//!   execution.
-//!
-//! That shape keeps strategy logic reactive and local: a portfolio module can
-//! handle account-position events, an allocator can handle target-weight
-//! intents, an execution module can handle order batches, and all of them can
-//! live in the same runtime without owning duplicate websocket or timer loops.
+//! Market data, account updates, timers, model outputs, and order relays can
+//! run on independent cadences without forcing one polling loop or one module
+//! to own duplicate IO.
 //!
 //! # Core Trait Responsibilities
 //!

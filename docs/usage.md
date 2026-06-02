@@ -1,8 +1,7 @@
 # Extrema Infra Usage Guide
 
-This guide describes the generic shape of an `extrema_infra` application. It is
-based on the real downstream patterns used by signal services, portfolio
-orchestrators, exchange websocket checkers, and account/order utilities.
+This guide covers common runtime wiring for strategy modules, tasks, broadcast
+channels, and command handles.
 
 ## Runtime Model
 
@@ -105,9 +104,8 @@ markets used by the binary:
 extrema_infra = { path = "../extrema_infra", features = ["binance", "okx"] }
 ```
 
-Use `features = ["lob_clients"]` when a process needs the `LobClients`
-aggregate helper. Use `features = ["all"]` when it only needs all individual
-exchange modules.
+Use `features = ["lob_clients"]` for the `LobClients` aggregate helper.
+Use `features = ["all"]` for every exchange module and `LobClients`.
 
 ## Strategy Module Checklist
 

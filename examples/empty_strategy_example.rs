@@ -30,6 +30,7 @@ impl CommandEmitter for EmptyStrategy {
     }
 
     fn command_registry(&self) -> Arc<CommandRegistry> {
+        // Safe here because this example never sends commands.
         Arc::new(CommandRegistry::default())
     }
 }

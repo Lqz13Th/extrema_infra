@@ -24,14 +24,7 @@ use extrema_infra::{
     prelude::*,
 };
 
-/// -------------------------------------
-/// High Frequency Trading (HFT) Strategy
-/// -------------------------------------
-/// Responsibilities:
-/// 1. Receive market data events (e.g., trades)
-/// 2. Generate trading signals & features
-/// 3. Receive predictions from model (message from python)
-/// 4. Send order execution commands to AccountModule
+/// Signal module for public trades and model predictions.
 #[derive(Clone)]
 struct HFTStrategy {
     command_registry: Arc<CommandRegistry>,
@@ -46,14 +39,12 @@ impl HFTStrategy {
         }
     }
 
-    /// Generate a signal from market trades.
-    /// In this example, it creates a simple AltMatrix.
+    /// Build an `AltTensor` feature batch from market trades.
     async fn generate_signal(&mut self, msg: InfraMsg<Vec<WsTrade>>) -> InfraResult<()> {
         if msg.data.is_empty() {
             return Err(InfraError::Msg("empty infra data".to_string()));
         }
 
-        // Build feature matrix
         let n_rows = msg.data.len();
         let n_cols = 1;
 
@@ -73,13 +64,12 @@ impl HFTStrategy {
 
         let matrix_b = matrix_a.clone();
 
-        // Send features to two different models
         self.send_feat_to_model_a(matrix_a).await?;
         self.send_feat_to_model_b(matrix_b).await?;
         Ok(())
     }
 
-    /// Send feature matrix to model A
+    /// Send features to model A.
     async fn send_feat_to_model_a(&mut self, feat: AltTensor) -> InfraResult<()> {
         if let Some(handle) =
             self.find_alt_handle(&AltTaskType::ModelPreds(ModelRunner::Zmq(1111)), 1111)
@@ -92,7 +82,7 @@ impl HFTStrategy {
         Ok(())
     }
 
-    /// Send feature matrix to model B
+    /// Send features to model B.
     async fn send_feat_to_model_b(&mut self, feat: AltTensor) -> InfraResult<()> {
         if let Some(handle) =
             self.find_alt_handle(&AltTaskType::ModelPreds(ModelRunner::Zmq(2222)), 2222)
@@ -105,8 +95,7 @@ impl HFTStrategy {
         Ok(())
     }
 
-    /// Send order(s) to the order execution task
-    /// Orders are sent via CommandHandle, not directly to the exchange
+    /// Forward orders to the order execution task.
     async fn send_order(&mut self, orders: Vec<AltOrder>) -> InfraResult<()> {
         if let Some(handle) = self.find_alt_handle(&AltTaskType::OrderExecution, 1) {
             let cmd = TaskCommand::OrderExecute(orders);
@@ -121,7 +110,6 @@ impl HFTStrategy {
         if let Some(handle) = self.find_ws_handle(channel, task_id) {
             info!("Sending connect to {:?}", handle);
 
-            // Step 1: Request connection URL
             let ws_url = self.api_cli.get_public_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsConnect {
@@ -132,14 +120,13 @@ impl HFTStrategy {
                 .send_command(cmd, Some((AckStatus::WsConnect, rx)))
                 .await?;
 
-            // Step 2: Subscribe to BTC/USDT perpetual trade updates
             let ws_msg = self
                 .api_cli
                 .get_public_sub_msg(channel, Some(&["BTC_USDT_PERP".into()]))
                 .await?;
             let cmd = TaskCommand::WsMessage {
                 msg: ws_msg,
-                ack: AckHandle::none(), // no need to wait for ack
+                ack: AckHandle::none(),
             };
             handle.send_command(cmd, None).await?;
         } else {
@@ -210,7 +197,7 @@ impl EventHandler for HFTStrategy {
         }
     }
 
-    /// Subscribe and react to public trades via WebSocket
+    /// Handle public trade batches.
     async fn on_trade(&mut self, msg: InfraMsg<Vec<WsTrade>>) {
         if let Err(e) = self.generate_signal(msg).await {
             error!("Error generating signal: {:?}", e);
@@ -218,13 +205,7 @@ impl EventHandler for HFTStrategy {
     }
 }
 
-/// -------------------------------------
-/// Account Module
-/// -------------------------------------
-/// Responsibilities:
-/// 1. Manage exchange connection and authentication
-/// 2. Execute orders sent from strategies
-/// 3. Receive account/order updates from exchange
+/// Account module for private websocket updates and execution requests.
 #[derive(Clone)]
 struct AccountModule {
     command_registry: Arc<CommandRegistry>,
@@ -239,16 +220,9 @@ impl AccountModule {
         }
     }
 
-    /// Connect and authenticate to OKX private WebSocket channels.
-    /// This function performs multiple sequential async requests:
-    /// - Connect
-    /// - Login
-    /// - Subscribe to account/order updates
-    ///
-    /// This is an IO-heavy path and should not block signal-processing tasks.
+    /// Connect, log in, and subscribe to the OKX private account channel.
     pub async fn connect_acc_channel(&mut self, channel: &WsChannel) -> InfraResult<()> {
         if let Some(handle) = self.find_ws_handle(channel, 1) {
-            // Step 1: Connect
             let ws_url = self.api_cli.get_private_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsConnect {
@@ -259,7 +233,6 @@ impl AccountModule {
                 .send_command(cmd, Some((AckStatus::WsConnect, rx)))
                 .await?;
 
-            // Step 2: Login
             let login_msg = self.api_cli.ws_login_msg()?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsMessage {
@@ -270,7 +243,6 @@ impl AccountModule {
                 .send_command(cmd, Some((AckStatus::WsMessage, rx)))
                 .await?;
 
-            // Step 3: Subscribe to private account/order updates
             let ws_msg = self.api_cli.get_private_sub_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsMessage {
@@ -309,18 +281,10 @@ impl EventHandler for AccountModule {
         EventMask::WS_EVENT | EventMask::ORDER_EXECUTION | EventMask::ACC_ORDER
     }
 
-    /// Handle incoming order execution requests from strategies.
-    /// This places the order on OKX via REST/WebSocket API.
+    /// Receive order execution requests.
     async fn on_order_execution(&mut self, msg: InfraMsg<Vec<AltOrder>>) {
         info!("Received model order execution, task id: {}", msg.task_id);
-        // Then use api_cli to sending order to exchange
-        // 1. REST API order placement
-        //    Using `api_cli` to asynchronously send a REST order request
-        //    (non-blocking; the task awaits the exchange's REST response).
-        //
-        // 2. WebSocket order placement
-        //    Constructing a WS order message.
-        //    Using Task command to send ws message to private ws channel.
+        // Order submission is intentionally omitted in this example.
     }
 
     /// Handle private account WebSocket events.
