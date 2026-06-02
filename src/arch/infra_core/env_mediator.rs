@@ -15,8 +15,8 @@ use crate::arch::{
 /// Executable runtime produced by [`EnvBuilder`].
 ///
 /// The mediator initializes strategies, registers tasks, provides the command
-/// registry to strategies, asks strategies to spawn any extra background work,
-/// and then keeps the runtime alive.
+/// registry to strategies, spawns strategy event loops, and then keeps the
+/// runtime alive.
 ///
 /// [`EnvBuilder`]: crate::arch::infra_core::env_builder::EnvBuilder
 pub struct EnvMediator<S> {

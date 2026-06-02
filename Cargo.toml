@@ -70,6 +70,7 @@ all = [
     "binance",
     "gate",
     "okx",
+    "lob_clients",
 ]
 
 lob_clients = [
@@ -83,6 +84,9 @@ hyperliquid = []
 binance = []
 gate = []
 okx = []
+
+[package.metadata.docs.rs]
+all-features = true
 
 [[example]]
 name = "empty_strategy_example"

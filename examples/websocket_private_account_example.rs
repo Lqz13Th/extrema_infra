@@ -1,8 +1,8 @@
 //! Private account websocket example.
 //!
-//! This example shows how a strategy module connects private account websocket
-//! relays for Binance UM futures and OKX, sends connect/login/subscribe
-//! commands, and receives account balance/position updates through callbacks.
+//! This example wires private account websocket relays for Binance UM futures
+//! and OKX. Binance UM uses a listen-key websocket URL, while OKX connects,
+//! logs in, and subscribes over the private websocket.
 //!
 //! Run it with:
 //!
@@ -54,7 +54,6 @@ impl AccountModule {
 
     pub async fn connect_okx_acc_channel(&mut self, channel: &WsChannel) -> InfraResult<()> {
         if let Some(handle) = self.find_ws_handle(channel, 1002) {
-            // Step 1: Connect
             let ws_url = self.okx_cli.get_private_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsConnect {
@@ -65,7 +64,6 @@ impl AccountModule {
                 .send_command(cmd, Some((AckStatus::WsConnect, rx)))
                 .await?;
 
-            // Step 2: Login
             let login_msg = self.okx_cli.ws_login_msg()?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsMessage {
@@ -76,7 +74,6 @@ impl AccountModule {
                 .send_command(cmd, Some((AckStatus::WsMessage, rx)))
                 .await?;
 
-            // Step 3: Subscribe to private account/order updates
             let ws_msg = self.okx_cli.get_private_sub_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsMessage {

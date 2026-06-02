@@ -189,6 +189,7 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
 /// | [`EventHandler::on_preds`] | `TaskCommand::FeatInput` to a model task | `BoardCastChannel::default_model_preds()` | `EventMask::MODEL_PREDS` |
 /// | [`EventHandler::on_ws_event`] | websocket relay startup/control | `BoardCastChannel::default_ws_event()` | `EventMask::WS_EVENT` |
 /// | [`EventHandler::on_trade`] | public trade websocket relay | `BoardCastChannel::default_trade()` | `EventMask::TRADE` |
+/// | [`EventHandler::on_lob`] | public LOB websocket relay | `BoardCastChannel::default_lob()` | `EventMask::LOB` |
 /// | [`EventHandler::on_candle`] | public candle websocket relay | `BoardCastChannel::default_candle()` | `EventMask::CANDLE` |
 /// | [`EventHandler::on_acc_order`] | private account-order websocket relay | `BoardCastChannel::default_account_order()` | `EventMask::ACC_ORDER` |
 /// | [`EventHandler::on_acc_bal_pos`] | private balance/position websocket relay | `BoardCastChannel::default_account_bal_pos()` | `EventMask::ACC_BAL_POS` |
@@ -218,7 +219,8 @@ pub trait EventHandler {
     ///
     /// The default is [`EventMask::ALL`] so existing strategies keep receiving
     /// every registered broadcast channel. Override this in latency-sensitive
-    /// modules to avoid receiver creation and wakeups for unused callbacks.
+    /// modules to avoid receiver creation and wakeups for unused callbacks. This
+    /// is read once when the strategy event loop starts.
     fn event_mask(&self) -> EventMask {
         EventMask::ALL
     }

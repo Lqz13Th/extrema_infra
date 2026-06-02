@@ -16,6 +16,8 @@ use crate::errors::{InfraError, InfraResult};
 /// commands are routed by `(WsChannel, task_id)`. The market is part of the
 /// task descriptor, but it is not part of the command key, so task ids must be
 /// unique when several tasks share the same task type or websocket channel.
+/// For `AltTaskType::ModelPreds`, the `ModelRunner` value is also part of the
+/// key.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CommandKey {
     /// Command key for a non-websocket task.
@@ -83,7 +85,8 @@ impl CommandRegistry {
     /// Finds a non-websocket task handle.
     ///
     /// Use this for `TaskCommand::OrderExecute`, `TaskCommand::InstIntent`, or
-    /// `TaskCommand::FeatInput` depending on the task type.
+    /// `TaskCommand::FeatInput` depending on the task type. Model task lookups
+    /// must use the exact registered `ModelRunner` value.
     pub fn find_alt_handle(
         &self,
         alt_task_type: &AltTaskType,

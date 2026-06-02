@@ -1,9 +1,6 @@
 //! Multiple strategy modules in one runtime.
 //!
-//! This example wires an empty scheduler-driven strategy together with a Binance
-//! public websocket strategy. It demonstrates how multiple modules share one
-//! `EnvBuilder`, receive independent callbacks, and send websocket commands
-//! through task handles.
+//! Runs a scheduler module and a Binance public candle module in one runtime.
 //!
 //! Run it with:
 //!
@@ -17,14 +14,7 @@ use tracing::{error, info, warn};
 
 use extrema_infra::{arch::market_assets::exchange::prelude::*, prelude::*};
 
-///---------------------------------------------------------
-/// Empty Strategy
-///---------------------------------------------------------
-/// This is a placeholder strategy that:
-/// - Initializes but does not trade
-/// - Logs incoming events (candles, schedules)
-///
-/// Useful for testing system wiring without executing orders.
+/// Scheduler and candle logger.
 #[derive(Clone)]
 struct EmptyStrategy;
 
@@ -39,7 +29,7 @@ impl Strategy for EmptyStrategy {
 }
 
 impl CommandEmitter for EmptyStrategy {
-    /// Register command channel (not used in EmptyStrategy).
+    /// Command registry is not used by this logger.
     fn command_init(&mut self, _registry: Arc<CommandRegistry>) {
         info!(
             "[EmptyStrategy] Command channel registered: {:?}",
@@ -47,33 +37,22 @@ impl CommandEmitter for EmptyStrategy {
         );
     }
 
-    /// No commands in this strategy.
     fn command_registry(&self) -> Arc<CommandRegistry> {
         Arc::new(CommandRegistry::default())
     }
 }
 
 impl EventHandler for EmptyStrategy {
-    /// Called periodically if scheduled tasks are configured.
     async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
         info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
     }
 
-    /// Called when new candles are broadcasted.
     async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
         info!("[EmptyStrategy] Candle event: {:?}", msg);
     }
 }
 
-///---------------------------------------------------------
-/// Binance Strategy
-///---------------------------------------------------------
-/// This strategy demonstrates:
-/// - Connecting to Binance UM Futures public WebSocket (candles, trades, etc.)
-/// - Subscribing to BTC/USDT perpetual candles
-/// - Receiving and logging events
-///
-/// Note: This strategy only listens/logs data, does not trade.
+/// Binance public candle subscriber.
 #[derive(Clone)]
 struct BinanceStrategy {
     command_registry: Arc<CommandRegistry>,
@@ -88,13 +67,11 @@ impl BinanceStrategy {
         }
     }
 
-    /// Connect to Binance WebSocket channel and send subscription.
-    /// This runs only when a LOB event is received that signals the channel is ready.
+    /// Connect after the websocket task emits `on_ws_event`.
     async fn connect_channel(&self, channel: &WsChannel) -> InfraResult<()> {
         if let Some(handle) = self.find_ws_handle(channel, 1) {
             info!("[BinanceStrategy] Sending connect to {:?}", handle);
 
-            // Step 1: Request connection URL
             let ws_url = self.binance_um_cli.get_public_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsConnect {
@@ -105,7 +82,6 @@ impl BinanceStrategy {
                 .send_command(cmd, Some((AckStatus::WsConnect, rx)))
                 .await?;
 
-            // Step 2: Subscribe to BTC/USDT perpetual candle updates
             let ws_msg = self
                 .binance_um_cli
                 .get_public_sub_msg(channel, Some(&["BTC_USDT_PERP".into()]))
@@ -113,7 +89,7 @@ impl BinanceStrategy {
 
             let cmd = TaskCommand::WsMessage {
                 msg: ws_msg,
-                ack: AckHandle::none(), // no need to wait for ack
+                ack: AckHandle::none(),
             };
             handle.send_command(cmd, None).await?;
         } else {
@@ -152,9 +128,7 @@ impl EventHandler for BinanceStrategy {
         info!("[BinanceStrategy] AltEventHandler: {:?}", msg);
     }
 
-    /// Triggered when a new WebSocket task is ready.
-    /// Example: After creating WsTaskInfo for Binance Candle, this event will be fired
-    /// and connect_channel() will be executed.
+    /// Start the websocket relay after its task handle is registered.
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         info!(
             "[BinanceStrategy] Triggering connect for channel: {:?}",
@@ -165,20 +139,13 @@ impl EventHandler for BinanceStrategy {
         }
     }
 
-    /// Handle incoming Binance candle data (1-minute candles here).
+    /// Handle Binance candle batches.
     async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
         info!("[BinanceStrategy] Candle event: {:?}", msg);
     }
 }
 
-///---------------------------------------------------------
-/// Main Entry Point
-///---------------------------------------------------------
-/// - Initializes logging
-/// - Creates strategies (EmptyStrategy + BinanceStrategy)
-/// - Creates tasks (Binance candle WebSocket, Alt scheduler)
-/// - Wires everything into EnvBuilder (pub/sub channels, strategies, tasks)
-/// - Executes mediator event loop
+/// Run the example runtime.
 #[tokio::main]
 async fn main() {
     rustls::crypto::aws_lc_rs::default_provider()
@@ -188,7 +155,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
     info!("Logger initialized");
 
-    // WebSocket Task: Binance Candle (1-minute)
+    // Binance 1-minute candle stream.
     let binance_ws_candle = WsTaskInfo {
         market: Market::BinanceUmFutures,
         ws_channel: WsChannel::Candles(Some(CandleParam::OneMinute)),
@@ -197,17 +164,13 @@ async fn main() {
         task_base_id: None,
     };
 
-    // Alt Task: Time Scheduler (fires every 5 seconds)
+    // Five-second scheduler.
     let alt_task = AltTaskInfo {
         alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
         chunk: 1,
         task_base_id: None,
     };
 
-    // EnvBuilder builds the full runtime:
-    // - Register broadcast channels (pub/sub message passing)
-    // - Register strategy modules
-    // - Register tasks
     let env = EnvBuilder::new()
         .with_board_cast_channel(BoardCastChannel::default_alt_event())
         .with_board_cast_channel(BoardCastChannel::default_ws_event())
@@ -220,6 +183,5 @@ async fn main() {
         .with_strategy_module(BinanceStrategy::new())
         .build();
 
-    // Start event loop (spawns all tasks, connects strategies, begins message flow)
     env.execute().await;
 }
