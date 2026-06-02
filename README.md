@@ -34,6 +34,7 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 - **Broadcast-based Data Distribution**
   - Subscribe once, broadcast to many.
   - Multiple strategies consume the same feed without extra I/O.
+  - Strategy modules can narrow their runtime subscriptions with `EventMask`.
 
 - **Static Efficiency**
   - Strategy registration avoids `Box<dyn Strategy>` and dynamic dispatch at the strategy-list boundary.
@@ -83,6 +84,7 @@ With **HList**:
 ## Strategy Execution Model
 
 - Trait-driven: `on_trade`, `on_candle`, `on_lob`.
+- Optional `EventMask` lets modules subscribe only to callbacks they use.
 - HList ensures safe registration of multiple strategy types.
 - All infra timestamps are unified to microseconds (µs).
 - All instrument names returned by the internal API are automatically normalized.

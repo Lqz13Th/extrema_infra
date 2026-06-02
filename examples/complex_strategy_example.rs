@@ -169,6 +169,10 @@ impl CommandEmitter for HFTStrategy {
 }
 
 impl EventHandler for HFTStrategy {
+    fn event_mask(&self) -> EventMask {
+        EventMask::WS_EVENT | EventMask::TRADE | EventMask::MODEL_PREDS
+    }
+
     /// Handle predictions from models and generate orders.
     async fn on_preds(&mut self, msg: InfraMsg<AltTensor>) {
         info!("Received model prediction, task id: {}", msg.task_id);
@@ -301,6 +305,10 @@ impl CommandEmitter for AccountModule {
 }
 
 impl EventHandler for AccountModule {
+    fn event_mask(&self) -> EventMask {
+        EventMask::WS_EVENT | EventMask::ORDER_EXECUTION | EventMask::ACC_ORDER
+    }
+
     /// Handle incoming order execution requests from strategies.
     /// This places the order on OKX via REST/WebSocket API.
     async fn on_order_execution(&mut self, msg: InfraMsg<Vec<AltOrder>>) {

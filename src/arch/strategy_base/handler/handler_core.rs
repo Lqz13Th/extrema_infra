@@ -4,7 +4,7 @@ use tokio::sync::broadcast;
 use tracing::error;
 
 use crate::arch::{
-    strategy_base::handler::{alt_events::*, lob_events::*},
+    strategy_base::handler::{alt_events::*, event_mask::EventMask, lob_events::*},
     task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
     traits::strategy::Strategy,
 };
@@ -12,7 +12,7 @@ use crate::arch::{
 /// Message envelope published through runtime broadcast channels.
 ///
 /// `task_id` identifies the task instance that produced the event. `data` is
-/// reference-counted so every subscribed strategy module can receive the same
+/// reference-counted so every interested strategy module can receive the same
 /// payload without copying the full event body.
 #[derive(Clone, Debug)]
 pub struct InfraMsg<T> {
@@ -26,7 +26,9 @@ pub struct InfraMsg<T> {
 ///
 /// Add the variants a process needs with
 /// [`EnvBuilder::with_board_cast_channel`]. Each variant maps to one callback
-/// on [`EventHandler`].
+/// on [`EventHandler`]. Strategy modules can narrow which registered channels
+/// they subscribe to by overriding
+/// [`EventHandler::event_mask`](crate::arch::traits::strategy::EventHandler::event_mask).
 ///
 /// [`EnvBuilder::with_board_cast_channel`]: crate::arch::infra_core::env_builder::EnvBuilder::with_board_cast_channel
 /// [`EventHandler`]: crate::arch::traits::strategy::EventHandler
@@ -129,31 +131,62 @@ async fn recv_or_pending<T: Clone>(
     }
 }
 
+fn subscribe_if<T, Find>(
+    mask: EventMask,
+    event: EventMask,
+    find_sender: Find,
+) -> Option<broadcast::Receiver<T>>
+where
+    T: Clone,
+    Find: FnOnce() -> Option<broadcast::Sender<T>>,
+{
+    if mask.contains(event) {
+        find_sender().map(|tx| tx.subscribe())
+    } else {
+        None
+    }
+}
+
 pub(crate) async fn strategy_handler_loop<S>(
     mut strategies: S,
     channels: &Arc<Vec<BoardCastChannel>>,
 ) where
     S: Strategy,
 {
+    let event_mask = strategies.event_mask();
+
     // Event init
-    let mut rx_alt_event = find_alt_event(channels).map(|tx| tx.subscribe());
-    let mut rx_ws_event = find_ws_event(channels).map(|tx| tx.subscribe());
+    let mut rx_alt_event = subscribe_if(event_mask, EventMask::ALT_EVENT, || {
+        find_alt_event(channels)
+    });
+    let mut rx_ws_event = subscribe_if(event_mask, EventMask::WS_EVENT, || find_ws_event(channels));
 
     // Alt event
-    let mut rx_order_execute = find_order_execution(channels).map(|tx| tx.subscribe());
-    let mut rx_inst_intent = find_inst_intent(channels).map(|tx| tx.subscribe());
-    let mut rx_preds = find_model_preds(channels).map(|tx| tx.subscribe());
-    let mut rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
+    let mut rx_order_execute = subscribe_if(event_mask, EventMask::ORDER_EXECUTION, || {
+        find_order_execution(channels)
+    });
+    let mut rx_inst_intent = subscribe_if(event_mask, EventMask::INST_INTENT, || {
+        find_inst_intent(channels)
+    });
+    let mut rx_preds = subscribe_if(event_mask, EventMask::MODEL_PREDS, || {
+        find_model_preds(channels)
+    });
+    let mut rx_schedule =
+        subscribe_if(event_mask, EventMask::SCHEDULE, || find_scheduler(channels));
 
     // Ws pub event
-    let mut rx_trade = find_trade(channels).map(|tx| tx.subscribe());
-    let mut rx_lob = find_lob(channels).map(|tx| tx.subscribe());
-    let mut rx_candle = find_candle(channels).map(|tx| tx.subscribe());
+    let mut rx_trade = subscribe_if(event_mask, EventMask::TRADE, || find_trade(channels));
+    let mut rx_lob = subscribe_if(event_mask, EventMask::LOB, || find_lob(channels));
+    let mut rx_candle = subscribe_if(event_mask, EventMask::CANDLE, || find_candle(channels));
 
     // Ws pri event
-    let mut rx_acc_order = find_acc_order(channels).map(|tx| tx.subscribe());
-    let mut rx_acc_bal_pos = find_acc_bal_pos(channels).map(|tx| tx.subscribe());
-    let mut rx_acc_pos = find_acc_pos(channels).map(|tx| tx.subscribe());
+    let mut rx_acc_order = subscribe_if(event_mask, EventMask::ACC_ORDER, || {
+        find_acc_order(channels)
+    });
+    let mut rx_acc_bal_pos = subscribe_if(event_mask, EventMask::ACC_BAL_POS, || {
+        find_acc_bal_pos(channels)
+    });
+    let mut rx_acc_pos = subscribe_if(event_mask, EventMask::ACC_POS, || find_acc_pos(channels));
 
     loop {
         tokio::select! {
@@ -164,7 +197,8 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_trade(msg).await,
                     Err(e) => {
                         error!("rx_trade err: {:?}, reconnecting...", e);
-                        rx_trade = find_trade(channels).map(|tx| tx.subscribe());
+                        rx_trade =
+                            subscribe_if(event_mask, EventMask::TRADE, || find_trade(channels));
                     },
                 };
             },
@@ -173,7 +207,7 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_lob(msg).await,
                     Err(e) => {
                         error!("rx_lob err: {:?}, reconnecting...", e);
-                        rx_lob = find_lob(channels).map(|tx| tx.subscribe());
+                        rx_lob = subscribe_if(event_mask, EventMask::LOB, || find_lob(channels));
                     },
                 };
             },
@@ -182,7 +216,8 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_candle(msg).await,
                     Err(e) => {
                         error!("rx_candle err: {:?}, reconnecting...", e);
-                        rx_candle = find_candle(channels).map(|tx| tx.subscribe());
+                        rx_candle =
+                            subscribe_if(event_mask, EventMask::CANDLE, || find_candle(channels));
                     },
                 };
             },
@@ -191,7 +226,9 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_acc_order(msg).await,
                     Err(e) => {
                         error!("rx_acc_order err: {:?}, reconnecting...", e);
-                        rx_acc_order = find_acc_order(channels).map(|tx| tx.subscribe());
+                        rx_acc_order = subscribe_if(event_mask, EventMask::ACC_ORDER, || {
+                            find_acc_order(channels)
+                        });
                     },
                 };
             },
@@ -200,7 +237,9 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_acc_bal_pos(msg).await,
                     Err(e) => {
                         error!("rx_acc_bal_pos err: {:?}, reconnecting...", e);
-                        rx_acc_bal_pos = find_acc_bal_pos(channels).map(|tx| tx.subscribe());
+                        rx_acc_bal_pos = subscribe_if(event_mask, EventMask::ACC_BAL_POS, || {
+                            find_acc_bal_pos(channels)
+                        });
                     },
                 };
             },
@@ -209,7 +248,8 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_acc_pos(msg).await,
                     Err(e) => {
                         error!("rx_acc_pos err: {:?}, reconnecting...", e);
-                        rx_acc_pos = find_acc_pos(channels).map(|tx| tx.subscribe());
+                        rx_acc_pos =
+                            subscribe_if(event_mask, EventMask::ACC_POS, || find_acc_pos(channels));
                     },
                 };
             },
@@ -218,7 +258,10 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_order_execution(msg).await,
                     Err(e) => {
                         error!("rx_order_execute err: {:?}, reconnecting...", e);
-                        rx_order_execute = find_order_execution(channels).map(|tx| tx.subscribe());
+                        rx_order_execute =
+                            subscribe_if(event_mask, EventMask::ORDER_EXECUTION, || {
+                                find_order_execution(channels)
+                            });
                     },
                 };
             },
@@ -227,7 +270,9 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_inst_intent(msg).await,
                     Err(e) => {
                         error!("rx_inst_intent err: {:?}, reconnecting...", e);
-                        rx_inst_intent = find_inst_intent(channels).map(|tx| tx.subscribe());
+                        rx_inst_intent = subscribe_if(event_mask, EventMask::INST_INTENT, || {
+                            find_inst_intent(channels)
+                        });
                     },
                 };
             },
@@ -236,7 +281,9 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_preds(msg).await,
                     Err(e) => {
                         error!("rx_preds err: {:?}, reconnecting...", e);
-                        rx_preds = find_model_preds(channels).map(|tx| tx.subscribe());
+                        rx_preds = subscribe_if(event_mask, EventMask::MODEL_PREDS, || {
+                            find_model_preds(channels)
+                        });
                     },
                 };
             },
@@ -245,7 +292,9 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_schedule(msg).await,
                     Err(e) => {
                         error!("rx_schedule err: {:?}, reconnecting...", e);
-                        rx_schedule = find_scheduler(channels).map(|tx| tx.subscribe());
+                        rx_schedule = subscribe_if(event_mask, EventMask::SCHEDULE, || {
+                            find_scheduler(channels)
+                        });
                     },
                 };
             },
@@ -254,7 +303,9 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_alt_event(msg).await,
                     Err(e) => {
                         error!("rx_alt_event err: {:?}, reconnecting...", e);
-                        rx_alt_event = find_alt_event(channels).map(|tx| tx.subscribe());
+                        rx_alt_event = subscribe_if(event_mask, EventMask::ALT_EVENT, || {
+                            find_alt_event(channels)
+                        });
                     },
                 };
             },
@@ -263,7 +314,9 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Ok(msg) => strategies.on_ws_event(msg).await,
                     Err(e) => {
                         error!("rx_ws_event err: {:?}, reconnecting...", e);
-                        rx_ws_event = find_ws_event(channels).map(|tx| tx.subscribe());
+                        rx_ws_event = subscribe_if(event_mask, EventMask::WS_EVENT, || {
+                            find_ws_event(channels)
+                        });
                     },
                 };
             },

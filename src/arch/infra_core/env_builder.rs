@@ -111,9 +111,11 @@ impl<HeadList> EnvBuilder<HeadList> {
 
     /// Registers one strategy module.
     ///
-    /// Calling this method repeatedly creates a static module chain. All modules
-    /// receive the same broadcast events and may independently send commands to
-    /// the tasks they care about.
+    /// Calling this method repeatedly creates a static module chain. By default,
+    /// modules subscribe to every registered broadcast event for backwards
+    /// compatibility. Modules that override `EventHandler::event_mask` subscribe
+    /// only to their selected event streams. All modules may independently send
+    /// commands to the tasks they care about.
     pub fn with_strategy_module<S>(self, strategy: S) -> EnvBuilder<HCons<S, HeadList>>
     where
         S: Strategy + Clone,
