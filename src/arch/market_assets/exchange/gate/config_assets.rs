@@ -58,6 +58,10 @@ pub const GATE_ACCOUNT_MAIN_KEYS: &str = "/api/v4/account/main_keys";
 pub const GATE_WALLET_CURRENCY_CHAINS: &str = "/api/v4/wallet/currency_chains";
 pub const GATE_WALLET_DEPOSIT_ADDRESS: &str = "/api/v4/wallet/deposit_address";
 pub const GATE_WALLET_SAVED_ADDRESS: &str = "/api/v4/wallet/saved_address";
+pub const GATE_WALLET_SUB_ACCOUNT_TRANSFERS: &str = "/api/v4/wallet/sub_account_transfers";
+pub const GATE_WALLET_SUB_ACCOUNT_TO_SUB_ACCOUNT: &str =
+    "/api/v4/wallet/sub_account_to_sub_account";
+pub const GATE_WALLET_ORDER_STATUS: &str = "/api/v4/wallet/order_status";
 pub const GATE_WITHDRAWALS: &str = "/api/v4/withdrawals";
 pub const GATE_WALLET_WITHDRAWALS_LIST: &str = "/api/v4/wallet/withdrawals";
 pub const GATE_WALLET_DEPOSITS_LIST: &str = "/api/v4/wallet/deposits";

@@ -21,8 +21,15 @@ use crate::arch::{
                 wallet_rest::{
                     currency_chains::RestCurrencyChainGate,
                     deposit_address::RestDepositAddressGate,
-                    deposit_history::RestDepositHistoryGate, saved_address::RestSavedAddressGate,
-                    withdraw::RestWithdrawGate, withdraw_history::RestWithdrawHistoryGate,
+                    deposit_history::RestDepositHistoryGate,
+                    saved_address::RestSavedAddressGate,
+                    sub_account_to_sub_account::RestSubAccountToSubAccountTransferGate,
+                    sub_account_transfer::{
+                        RestSubAccountTransferGate, RestSubAccountTransferHistoryGate,
+                    },
+                    transfer_order_status::RestTransferOrderStatusGate,
+                    withdraw::RestWithdrawGate,
+                    withdraw_history::RestWithdrawHistoryGate,
                 },
             },
         },
@@ -180,6 +187,122 @@ impl GateSpotCli {
             .await?;
 
         res.into_vec()
+    }
+
+    pub async fn sub_account_transfer(
+        &self,
+        req: GateSubAccountTransferReq,
+    ) -> InfraResult<RestSubAccountTransferGate> {
+        let res: RestResGate<RestSubAccountTransferGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&req.to_body_string()),
+                GATE_BASE_URL,
+                GATE_WALLET_SUB_ACCOUNT_TRANSFERS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No sub-account transfer response data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_sub_account_transfer_history(
+        &self,
+        req: GateSubAccountTransferHistoryReq,
+    ) -> InfraResult<Vec<RestSubAccountTransferHistoryGate>> {
+        let query = req.to_query_string();
+
+        let res: RestResGate<RestSubAccountTransferHistoryGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query.as_deref(),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_SUB_ACCOUNT_TRANSFERS,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn sub_account_to_sub_account_transfer(
+        &self,
+        req: GateSubAccountToSubAccountTransferReq,
+    ) -> InfraResult<RestSubAccountToSubAccountTransferGate> {
+        let res: RestResGate<RestSubAccountToSubAccountTransferGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&req.to_body_string()),
+                GATE_BASE_URL,
+                GATE_WALLET_SUB_ACCOUNT_TO_SUB_ACCOUNT,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No sub-account to sub-account transfer data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_transfer_order_status(
+        &self,
+        req: GateTransferOrderStatusReq,
+    ) -> InfraResult<RestTransferOrderStatusGate> {
+        let query = req.to_query_string().ok_or_else(|| {
+            InfraError::ApiCliError(
+                "Gate wallet/order_status requires client_order_id or tx_id".into(),
+            )
+        })?;
+
+        let res: RestResGate<RestTransferOrderStatusGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_ORDER_STATUS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No transfer order status data returned".into(),
+            ))?;
+
+        Ok(data)
     }
 
     pub async fn get_currency_chains(

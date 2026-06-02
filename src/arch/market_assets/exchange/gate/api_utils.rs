@@ -229,6 +229,175 @@ impl GateWithdrawReq {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GateSubAccountTransferAccountType {
+    Spot,
+    Futures,
+    CrossMargin,
+    Delivery,
+    Options,
+}
+
+impl GateSubAccountTransferAccountType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Spot => "spot",
+            Self::Futures => "futures",
+            Self::CrossMargin => "cross_margin",
+            Self::Delivery => "delivery",
+            Self::Options => "options",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GateSubAccountToSubAccountTransferAccountType {
+    Spot,
+    Futures,
+    Delivery,
+}
+
+impl GateSubAccountToSubAccountTransferAccountType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Spot => "spot",
+            Self::Futures => "futures",
+            Self::Delivery => "delivery",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GateSubAccountTransferDirection {
+    To,
+    From,
+}
+
+impl GateSubAccountTransferDirection {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::To => "to",
+            Self::From => "from",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateSubAccountTransferReq {
+    pub sub_account: String,
+    pub sub_account_type: Option<GateSubAccountTransferAccountType>,
+    pub currency: String,
+    pub amount: String,
+    pub direction: GateSubAccountTransferDirection,
+    pub client_order_id: Option<String>,
+}
+
+impl GateSubAccountTransferReq {
+    pub(crate) fn to_body_string(&self) -> String {
+        let mut body = json!({
+            "sub_account": self.sub_account,
+            "currency": self.currency.to_uppercase(),
+            "amount": self.amount,
+            "direction": self.direction.as_str(),
+        });
+
+        if let Some(sub_account_type) = self.sub_account_type.as_ref() {
+            body["sub_account_type"] = json!(sub_account_type.as_str());
+        }
+        if let Some(client_order_id) = self.client_order_id.as_deref() {
+            body["client_order_id"] = json!(client_order_id);
+        }
+
+        body.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateSubAccountTransferHistoryReq {
+    pub sub_uid: Option<String>,
+    pub from: Option<u64>,
+    pub to: Option<u64>,
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+}
+
+impl GateSubAccountTransferHistoryReq {
+    pub(crate) fn to_query_string(&self) -> Option<String> {
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(sub_uid) = self.sub_uid.as_deref() {
+            parts.push(format!("sub_uid={sub_uid}"));
+        }
+        if let Some(from) = self.from {
+            parts.push(format!("from={from}"));
+        }
+        if let Some(to) = self.to {
+            parts.push(format!("to={to}"));
+        }
+        if let Some(limit) = self.limit {
+            parts.push(format!("limit={limit}"));
+        }
+        if let Some(offset) = self.offset {
+            parts.push(format!("offset={offset}"));
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("&"))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateSubAccountToSubAccountTransferReq {
+    pub currency: String,
+    pub sub_account_from: String,
+    pub sub_account_from_type: GateSubAccountToSubAccountTransferAccountType,
+    pub sub_account_to: String,
+    pub sub_account_to_type: GateSubAccountToSubAccountTransferAccountType,
+    pub amount: String,
+}
+
+impl GateSubAccountToSubAccountTransferReq {
+    pub(crate) fn to_body_string(&self) -> String {
+        json!({
+            "currency": self.currency.to_uppercase(),
+            "sub_account_from": self.sub_account_from,
+            "sub_account_from_type": self.sub_account_from_type.as_str(),
+            "sub_account_to": self.sub_account_to,
+            "sub_account_to_type": self.sub_account_to_type.as_str(),
+            "amount": self.amount,
+        })
+        .to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateTransferOrderStatusReq {
+    pub client_order_id: Option<String>,
+    pub tx_id: Option<String>,
+}
+
+impl GateTransferOrderStatusReq {
+    pub(crate) fn to_query_string(&self) -> Option<String> {
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(client_order_id) = self.client_order_id.as_deref() {
+            parts.push(format!("client_order_id={client_order_id}"));
+        }
+        if let Some(tx_id) = self.tx_id.as_deref() {
+            parts.push(format!("tx_id={tx_id}"));
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join("&"))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -281,5 +450,82 @@ mod tests {
             )]);
             assert!(take_gate_channel_id(&mut extra).is_err());
         }
+    }
+
+    #[test]
+    fn builds_gate_sub_account_transfer_body() {
+        let req = GateSubAccountTransferReq {
+            sub_account: "10001".into(),
+            sub_account_type: Some(GateSubAccountTransferAccountType::Futures),
+            currency: "usdt".into(),
+            amount: "10".into(),
+            direction: GateSubAccountTransferDirection::To,
+            client_order_id: Some("order-1".into()),
+        };
+
+        let body: serde_json::Value = serde_json::from_str(&req.to_body_string()).unwrap();
+        assert_eq!(body["sub_account"], "10001");
+        assert_eq!(body["sub_account_type"], "futures");
+        assert_eq!(body["currency"], "USDT");
+        assert_eq!(body["amount"], "10");
+        assert_eq!(body["direction"], "to");
+        assert_eq!(body["client_order_id"], "order-1");
+    }
+
+    #[test]
+    fn builds_gate_sub_account_to_sub_account_transfer_body() {
+        let req = GateSubAccountToSubAccountTransferReq {
+            currency: "btc".into(),
+            sub_account_from: "10001".into(),
+            sub_account_from_type: GateSubAccountToSubAccountTransferAccountType::Spot,
+            sub_account_to: "10002".into(),
+            sub_account_to_type: GateSubAccountToSubAccountTransferAccountType::Delivery,
+            amount: "0.1".into(),
+        };
+
+        let body: serde_json::Value = serde_json::from_str(&req.to_body_string()).unwrap();
+        assert_eq!(body["currency"], "BTC");
+        assert_eq!(body["sub_account_from"], "10001");
+        assert_eq!(body["sub_account_from_type"], "spot");
+        assert_eq!(body["sub_account_to"], "10002");
+        assert_eq!(body["sub_account_to_type"], "delivery");
+        assert_eq!(body["amount"], "0.1");
+    }
+
+    #[test]
+    fn builds_gate_transfer_query_strings() {
+        assert_eq!(
+            GateSubAccountTransferAccountType::CrossMargin.as_str(),
+            "cross_margin"
+        );
+        assert_eq!(
+            GateSubAccountTransferAccountType::Options.as_str(),
+            "options"
+        );
+        assert_eq!(
+            GateSubAccountToSubAccountTransferAccountType::Futures.as_str(),
+            "futures"
+        );
+
+        let history_req = GateSubAccountTransferHistoryReq {
+            sub_uid: Some("10001".into()),
+            from: Some(1),
+            to: Some(2),
+            limit: Some(3),
+            offset: Some(4),
+        };
+        assert_eq!(
+            history_req.to_query_string().as_deref(),
+            Some("sub_uid=10001&from=1&to=2&limit=3&offset=4")
+        );
+
+        let status_req = GateTransferOrderStatusReq {
+            client_order_id: Some("order-1".into()),
+            tx_id: Some("tx-1".into()),
+        };
+        assert_eq!(
+            status_req.to_query_string().as_deref(),
+            Some("client_order_id=order-1&tx_id=tx-1")
+        );
     }
 }

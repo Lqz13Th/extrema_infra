@@ -2,5 +2,8 @@ pub mod currency_chains;
 pub mod deposit_address;
 pub mod deposit_history;
 pub mod saved_address;
+pub mod sub_account_to_sub_account;
+pub mod sub_account_transfer;
+pub mod transfer_order_status;
 pub mod withdraw;
 pub mod withdraw_history;
