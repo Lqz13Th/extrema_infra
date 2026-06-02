@@ -2,6 +2,8 @@ pub mod all_coins_info;
 pub mod deposit_address;
 pub mod deposit_address_list;
 pub mod deposit_history;
+pub mod sub_account_transfer;
+pub mod sub_account_transfer_history;
 pub mod transfer;
 pub mod transfer_history;
 pub mod withdraw;

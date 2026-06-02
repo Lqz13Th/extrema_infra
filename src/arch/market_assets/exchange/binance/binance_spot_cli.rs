@@ -32,7 +32,10 @@ use super::{
             all_coins_info::RestCapitalConfigCoinBinance,
             deposit_address::RestDepositAddressBinance,
             deposit_address_list::RestDepositAddressListBinance,
-            deposit_history::RestDepositHistoryBinance, transfer::RestUserUniversalTransferBinance,
+            deposit_history::RestDepositHistoryBinance,
+            sub_account_transfer::RestSubAccountUniversalTransferBinance,
+            sub_account_transfer_history::RestSubAccountTransferHistoryBinance,
+            transfer::RestUserUniversalTransferBinance,
             transfer_history::RestTransferHistoryBinance, withdraw::RestWithdrawBinance,
             withdraw_address_list::RestWithdrawAddressBinance,
             withdraw_history::RestWithdrawHistoryBinance,
@@ -147,6 +150,35 @@ impl BinanceSpotCli {
         Ok(data)
     }
 
+    pub async fn sub_account_universal_transfer(
+        &self,
+        req: BinanceSubAccountUniversalTransferReq,
+    ) -> InfraResult<RestSubAccountUniversalTransferBinance> {
+        let query = req.to_query_string()?;
+        let res: RestResBinance<RestSubAccountUniversalTransferBinance> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&query),
+                BINANCE_SPOT_BASE_URL,
+                BINANCE_SUB_ACCOUNT_UNIVERSAL_TRANSFER,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No sub-account transfer response data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
     pub async fn transfer_spot_to_um(
         &self,
         asset: &str,
@@ -231,6 +263,35 @@ impl BinanceSpotCli {
             .next()
             .ok_or(InfraError::ApiCliError(
                 "No transfer history data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_sub_account_universal_transfer_history(
+        &self,
+        req: BinanceSubAccountUniversalTransferHistoryReq,
+    ) -> InfraResult<RestSubAccountTransferHistoryBinance> {
+        let query = req.to_query_string()?;
+        let res: RestResBinance<RestSubAccountTransferHistoryBinance> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query.as_deref(),
+                BINANCE_SPOT_BASE_URL,
+                BINANCE_SUB_ACCOUNT_UNIVERSAL_TRANSFER,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No sub-account transfer history data returned".into(),
             ))?;
 
         Ok(data)

@@ -9,6 +9,7 @@ pub const BINANCE_SPOT_ACCOUNT_INFO: &str = "/api/v3/account";
 pub const BINANCE_SPOT_MY_TRADES: &str = "/api/v3/myTrades";
 pub const SPOT_USER_DATA_STREAM: &str = "/api/v3/userDataStream";
 pub const BINANCE_USER_UNIVERSAL_TRANSFER: &str = "/sapi/v1/asset/transfer";
+pub const BINANCE_SUB_ACCOUNT_UNIVERSAL_TRANSFER: &str = "/sapi/v1/sub-account/universalTransfer";
 pub const BINANCE_CAPITAL_CONFIG_GETALL: &str = "/sapi/v1/capital/config/getall";
 pub const BINANCE_DEPOSIT_ADDRESS: &str = "/sapi/v1/capital/deposit/address";
 pub const BINANCE_DEPOSIT_ADDRESS_LIST: &str = "/sapi/v1/capital/deposit/address/list";

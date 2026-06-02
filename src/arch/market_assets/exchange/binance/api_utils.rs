@@ -5,6 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use tracing::warn;
 
 use crate::arch::market_assets::base_data::SUBSCRIBE;
+use crate::errors::{InfraError, InfraResult};
 
 use super::api_key::BinanceKey;
 
@@ -137,6 +138,136 @@ impl BinanceUniversalTransferHistoryReq {
         }
 
         parts.join("&")
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BinanceSubAccountTransferAccountType {
+    Spot,
+    UsdtFuture,
+    CoinFuture,
+    Margin,
+    IsolatedMargin,
+    Alpha,
+}
+
+impl BinanceSubAccountTransferAccountType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Spot => "SPOT",
+            Self::UsdtFuture => "USDT_FUTURE",
+            Self::CoinFuture => "COIN_FUTURE",
+            Self::Margin => "MARGIN",
+            Self::IsolatedMargin => "ISOLATED_MARGIN",
+            Self::Alpha => "ALPHA",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinanceSubAccountUniversalTransferReq {
+    pub from_email: Option<String>,
+    pub to_email: Option<String>,
+    pub from_account_type: BinanceSubAccountTransferAccountType,
+    pub to_account_type: BinanceSubAccountTransferAccountType,
+    pub client_tran_id: Option<String>,
+    pub symbol: Option<String>,
+    pub asset: String,
+    pub amount: String,
+    pub recv_window: Option<u64>,
+}
+
+impl BinanceSubAccountUniversalTransferReq {
+    pub(crate) fn to_query_string(&self) -> InfraResult<String> {
+        if self.from_account_type == self.to_account_type
+            && self.from_email.is_none()
+            && self.to_email.is_none()
+        {
+            return Err(InfraError::ApiCliError(
+                "Binance sub-account universal transfer requires fromEmail or toEmail when account types are the same".into(),
+            ));
+        }
+
+        let mut parts = vec![
+            format!("fromAccountType={}", self.from_account_type.as_str()),
+            format!("toAccountType={}", self.to_account_type.as_str()),
+            format!("asset={}", self.asset.to_uppercase()),
+            format!("amount={}", self.amount),
+        ];
+
+        if let Some(from_email) = self.from_email.as_deref() {
+            parts.push(format!("fromEmail={from_email}"));
+        }
+        if let Some(to_email) = self.to_email.as_deref() {
+            parts.push(format!("toEmail={to_email}"));
+        }
+        if let Some(client_tran_id) = self.client_tran_id.as_deref() {
+            parts.push(format!("clientTranId={client_tran_id}"));
+        }
+        if let Some(symbol) = self.symbol.as_deref() {
+            parts.push(format!("symbol={symbol}"));
+        }
+        if let Some(recv_window) = self.recv_window {
+            parts.push(format!("recvWindow={recv_window}"));
+        }
+
+        Ok(parts.join("&"))
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinanceSubAccountUniversalTransferHistoryReq {
+    pub from_email: Option<String>,
+    pub to_email: Option<String>,
+    pub client_tran_id: Option<String>,
+    pub start_time: Option<u64>,
+    pub end_time: Option<u64>,
+    pub page: Option<u32>,
+    pub limit: Option<u32>,
+    pub recv_window: Option<u64>,
+}
+
+impl BinanceSubAccountUniversalTransferHistoryReq {
+    pub(crate) fn to_query_string(&self) -> InfraResult<Option<String>> {
+        if self.from_email.is_some() && self.to_email.is_some() {
+            return Err(InfraError::ApiCliError(
+                "Binance sub-account transfer history cannot send fromEmail and toEmail together"
+                    .into(),
+            ));
+        }
+
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(from_email) = self.from_email.as_deref() {
+            parts.push(format!("fromEmail={from_email}"));
+        }
+        if let Some(to_email) = self.to_email.as_deref() {
+            parts.push(format!("toEmail={to_email}"));
+        }
+        if let Some(client_tran_id) = self.client_tran_id.as_deref() {
+            parts.push(format!("clientTranId={client_tran_id}"));
+        }
+        if let Some(start_time) = self.start_time {
+            parts.push(format!("startTime={start_time}"));
+        }
+        if let Some(end_time) = self.end_time {
+            parts.push(format!("endTime={end_time}"));
+        }
+        if let Some(page) = self.page {
+            parts.push(format!("page={page}"));
+        }
+        if let Some(limit) = self.limit {
+            parts.push(format!("limit={limit}"));
+        }
+        if let Some(recv_window) = self.recv_window {
+            parts.push(format!("recvWindow={recv_window}"));
+        }
+
+        if parts.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(parts.join("&")))
+        }
     }
 }
 
@@ -460,5 +591,77 @@ mod tests {
         assert_eq!(cli_perp_to_binance_cm_pair("BTC_USD_PERP"), "BTCUSD");
         assert_eq!(cli_perp_to_binance_cm_pair("BTC_USDT_PERP"), "BTCUSD");
         assert_eq!(cli_perp_to_binance_cm_pair("BTC_USD_FUT_240329"), "BTCUSD");
+    }
+
+    #[test]
+    fn builds_binance_sub_account_universal_transfer_query() {
+        let req = BinanceSubAccountUniversalTransferReq {
+            from_email: None,
+            to_email: Some("sub@example.com".into()),
+            from_account_type: BinanceSubAccountTransferAccountType::Spot,
+            to_account_type: BinanceSubAccountTransferAccountType::UsdtFuture,
+            client_tran_id: Some("client-1".into()),
+            symbol: None,
+            asset: "usdt".into(),
+            amount: "1.25".into(),
+            recv_window: Some(5_000),
+        };
+
+        assert_eq!(
+            req.to_query_string().unwrap(),
+            "fromAccountType=SPOT&toAccountType=USDT_FUTURE&asset=USDT&amount=1.25&toEmail=sub@example.com&clientTranId=client-1&recvWindow=5000"
+        );
+    }
+
+    #[test]
+    fn rejects_binance_same_account_type_transfer_without_email() {
+        let req = BinanceSubAccountUniversalTransferReq {
+            from_email: None,
+            to_email: None,
+            from_account_type: BinanceSubAccountTransferAccountType::Spot,
+            to_account_type: BinanceSubAccountTransferAccountType::Spot,
+            client_tran_id: None,
+            symbol: None,
+            asset: "USDT".into(),
+            amount: "1".into(),
+            recv_window: None,
+        };
+
+        assert!(req.to_query_string().is_err());
+    }
+
+    #[test]
+    fn builds_binance_sub_account_transfer_history_query() {
+        let empty_req = BinanceSubAccountUniversalTransferHistoryReq::default();
+        assert_eq!(empty_req.to_query_string().unwrap(), None);
+
+        let req = BinanceSubAccountUniversalTransferHistoryReq {
+            from_email: Some("from@example.com".into()),
+            to_email: None,
+            client_tran_id: Some("client-2".into()),
+            start_time: Some(1),
+            end_time: Some(2),
+            page: Some(3),
+            limit: Some(4),
+            recv_window: None,
+        };
+
+        assert_eq!(
+            req.to_query_string().unwrap().as_deref(),
+            Some(
+                "fromEmail=from@example.com&clientTranId=client-2&startTime=1&endTime=2&page=3&limit=4"
+            )
+        );
+    }
+
+    #[test]
+    fn rejects_binance_sub_account_transfer_history_with_both_emails() {
+        let req = BinanceSubAccountUniversalTransferHistoryReq {
+            from_email: Some("from@example.com".into()),
+            to_email: Some("to@example.com".into()),
+            ..Default::default()
+        };
+
+        assert!(req.to_query_string().is_err());
     }
 }
