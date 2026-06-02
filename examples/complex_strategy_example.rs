@@ -8,7 +8,7 @@
 //! Run it with:
 //!
 //! ```text
-//! cargo run --example complex_strategy_example --features okx
+//! cargo run --example complex_strategy_example --features okx,model_zmq
 //! ```
 
 use std::{collections::HashMap, sync::Arc};

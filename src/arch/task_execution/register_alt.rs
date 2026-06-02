@@ -1,4 +1,7 @@
+#[cfg(feature = "model_onnx")]
 mod model_onnx;
+
+#[cfg(feature = "model_zmq")]
 mod model_zmq;
 
 use std::{sync::Arc, time::Duration};
@@ -10,8 +13,10 @@ use tokio::{
 
 use tracing::{error, info, warn};
 
+#[cfg(any(feature = "model_onnx", feature = "model_zmq"))]
+use super::task_alt::ModelRunner;
 use super::{
-    task_alt::{AltTaskInfo, AltTaskType, ModelRunner},
+    task_alt::{AltTaskInfo, AltTaskType},
     task_general::LogLevel,
 };
 use crate::arch::{
@@ -35,6 +40,7 @@ pub(crate) struct AltTaskBuilder {
 }
 
 impl AltTaskBuilder {
+    #[allow(dead_code)]
     async fn recv_feat_input(&mut self) -> Option<AltTensor> {
         loop {
             match self.cmd_rx.recv().await {
@@ -48,6 +54,7 @@ impl AltTaskBuilder {
         }
     }
 
+    #[allow(dead_code)]
     fn emit_model_preds(&self, tx: &broadcast::Sender<InfraMsg<AltTensor>>, tensor: AltTensor) {
         let _ = tx.send(InfraMsg {
             task_id: self.task_id,
@@ -147,6 +154,7 @@ impl AltTaskBuilder {
                     );
                 }
             },
+            #[cfg(feature = "model_zmq")]
             AltTaskType::ModelPreds(ModelRunner::Zmq(port)) => {
                 if let Some(tx) = find_model_preds(&self.board_cast_channel) {
                     self.model_preds_zmq(tx, port).await
@@ -157,6 +165,7 @@ impl AltTaskBuilder {
                     );
                 }
             },
+            #[cfg(feature = "model_onnx")]
             AltTaskType::ModelPreds(ModelRunner::Onnx(config_path)) => {
                 if let Some(tx) = find_model_preds(&self.board_cast_channel) {
                     self.model_preds_onnx(tx, config_path).await

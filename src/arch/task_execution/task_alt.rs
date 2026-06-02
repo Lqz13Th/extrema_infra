@@ -23,6 +23,7 @@ pub enum AltTaskType {
     /// Instrument, allocation, or portfolio intent task.
     InstIntent,
     /// Model prediction worker.
+    #[cfg(any(feature = "model_onnx", feature = "model_zmq"))]
     ModelPreds(ModelRunner),
     /// Periodic scheduler task.
     TimeScheduler(Duration),
@@ -32,7 +33,9 @@ pub enum AltTaskType {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ModelRunner {
     /// External model worker reached over ZeroMQ.
+    #[cfg(feature = "model_zmq")]
     Zmq(u64),
     /// In-process ONNX model loaded from a path or JSON config.
+    #[cfg(feature = "model_onnx")]
     Onnx(String),
 }

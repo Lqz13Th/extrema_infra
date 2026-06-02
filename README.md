@@ -72,12 +72,12 @@ With **HList**:
 
 ## Traditional vs HList Approach
 
-| Aspect | Traditional `Vec<Box<dyn Trait>>` | HList-based Extrema Infra |
-| --- | --- | --- |
-| **Dispatch** | Dynamic (runtime `vtable`) | Static (compile-time inlined) |
-| **Type Safety** | Runtime only | Compile-time enforced |
-| **Performance** | Extra indirection, heap alloc | Zero overhead, no heap alloc |
-| **Compile-time Checking** | Limited | Full (trait bounds enforced) |
+| Aspect                    | Traditional `Vec<Box<dyn Trait>>` | HList-based Extrema Infra     |
+|---------------------------|-----------------------------------|-------------------------------|
+| **Dispatch**              | Dynamic (runtime `vtable`)        | Static (compile-time inlined) |
+| **Type Safety**           | Runtime only                      | Compile-time enforced         |
+| **Performance**           | Extra indirection, heap alloc     | Zero overhead, no heap alloc  |
+| **Compile-time Checking** | Limited                           | Full (trait bounds enforced)  |
 
 ---
 
@@ -121,6 +121,7 @@ A minimal strategy must implement at least `Strategy` + `CommandEmitter` + `Even
 ## ONNX Model Runner
 
 `extrema_infra` supports local ONNX inference through `AltTaskType::ModelPreds(ModelRunner::Onnx(...))`.
+Enable the `model_onnx` feature, or `model_runner` / `all`, to make this backend available.
 
 - The ONNX model is loaded once during task initialization.
 - Inference requests are routed through a dedicated worker thread owned by the ONNX task.
@@ -334,7 +335,7 @@ For a practical implementation, see the [complex strategy example](examples/comp
 - **Supporting tasks**
   - Order execution, feature generation, Risk checks, Position management etc.
   - These tasks communicate with the latency-sensitive task via channels (**CommandEmitter** → **OrderExecute**) or Rwlock.
-  - Using **AltTask** for feature extraction, sending data to Torch prediction via command handle, then generating signals to execute orders.
+  - Using **AltTask** for feature extraction, sending data to a ZMQ or ONNX model runner via command handle, then generating signals to execute orders.
 
 Latency-sensitive logic can be decomposed into multiple tasks.
 where each task handles only a subset of instruments for maximum efficiency.

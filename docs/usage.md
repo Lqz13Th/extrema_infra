@@ -97,15 +97,19 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
 
-Exchange clients and websocket routing are feature-gated. Enable only the
-markets used by the binary:
+Exchange clients and websocket routing are controlled by Cargo features. Enable
+only the markets used by the binary:
 
 ```toml
 extrema_infra = { path = "../extrema_infra", features = ["binance", "okx"] }
 ```
 
 Use `features = ["lob_clients"]` for the `LobClients` aggregate helper.
-Use `features = ["all"]` for every exchange module and `LobClients`.
+Use `features = ["model_zmq"]` or `features = ["model_onnx"]` for model
+prediction task variants; `features = ["model_runner"]` enables both. Use
+`features = ["polars"]` only when downstream code needs the Polars error
+conversion. Use `features = ["all"]` for every exchange module, `LobClients`,
+both model runners, and Polars support.
 
 ## Strategy Module Checklist
 
@@ -197,7 +201,9 @@ Common `AltTaskType` values:
   `on_inst_intent`.
 - `OrderExecution`: order batches delivered to `on_order_execution`.
 - `ModelPreds(ModelRunner::Zmq(..))`: external model process integration.
-- `ModelPreds(ModelRunner::Onnx(..))`: in-process ONNX inference.
+  Enable `model_zmq`, `model_runner`, or `all`, to make this variant available.
+- `ModelPreds(ModelRunner::Onnx(..))`: in-process ONNX inference. Enable
+  `model_onnx`, `model_runner`, or `all`, to make this variant available.
 
 Each alt task needs its matching channel and callback: scheduler tasks use
 `BoardCastChannel::default_scheduler()` and `on_schedule`, intent tasks use

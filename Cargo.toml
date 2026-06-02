@@ -50,9 +50,9 @@ data-encoding = "2.11.0"
 rustls = { version = "0.23.40", features = ["aws-lc-rs"] }
 
 # IPC / Model inference / Data processing
-zeromq = "0.6.0"
-tract-onnx = "0.22.1"
-polars = { version = "0.53.0", default-features = false }
+zeromq = { version = "0.6.0", optional = true }
+tract-onnx = { version = "0.23.0", optional = true }
+polars = { version = "0.53.0", default-features = false, optional = true }
 
 # Logging & Tracing
 tracing = "0.1.44"
@@ -71,6 +71,8 @@ all = [
     "gate",
     "okx",
     "lob_clients",
+    "model_runner",
+    "polars",
 ]
 
 lob_clients = [
@@ -85,6 +87,11 @@ binance = []
 gate = []
 okx = []
 
+model_onnx = ["dep:tract-onnx"]
+model_zmq = ["dep:zeromq"]
+model_runner = ["model_onnx", "model_zmq"]
+polars = ["dep:polars"]
+
 [package.metadata.docs.rs]
 all-features = true
 
@@ -97,7 +104,7 @@ required-features = ["hyperliquid"]
 
 [[example]]
 name = "complex_strategy_example"
-required-features = ["okx"]
+required-features = ["okx", "model_zmq"]
 
 [[example]]
 name = "multi_strategy_example"
