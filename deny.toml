@@ -18,6 +18,7 @@ allow = [
     "Zlib",
 ]
 exceptions = [
+    { allow = ["MPL-2.0"], crate = "dyn-eq" },
     { allow = ["CDLA-Permissive-2.0"], crate = "webpki-root-certs" },
     { allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },
 ]
