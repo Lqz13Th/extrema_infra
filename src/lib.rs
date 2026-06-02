@@ -13,14 +13,16 @@
 //!   strategy module or several independent modules in the same runtime.
 //! - [`EventHandler`] contains async callbacks for schedule ticks, model
 //!   predictions, order execution intents, trades, LOB updates, candles, and
-//!   private account updates. All callbacks default to no-op.
+//!   private account updates. All callbacks default to no-op, and
+//!   [`EventMask`] can be used to subscribe only to the event streams a module
+//!   actually handles.
 //! - [`CommandEmitter`] gives a strategy access to task command handles after
 //!   the runtime has spawned those tasks.
 //! - [`TaskInfo`] declares work that the runtime owns, such as [`AltTaskInfo`]
 //!   for scheduler/model/order-intent work or [`WsTaskInfo`] for websocket
 //!   relays.
 //! - [`BoardCastChannel`] declares which event streams are available to
-//!   strategies. Add only the channels you want to consume or publish.
+//!   strategies. Add only the channels your process needs to consume or publish.
 //! - [`prelude`] re-exports the common types used by strategy binaries.
 //!
 //! # Why Events Drive Strategies
@@ -36,8 +38,8 @@
 //!
 //! - Runtime tasks own IO, timers, model workers, and order relays.
 //! - Tasks publish normalized messages into typed broadcast channels.
-//! - Strategy modules implement event callbacks for only the streams they care
-//!   about.
+//! - Strategy modules use [`EventMask`] to subscribe to the streams they care
+//!   about and implement the matching event callbacks.
 //! - Strategy modules send commands back to tasks through command handles when
 //!   they need active work such as websocket connect/subscribe or order
 //!   execution.
@@ -56,7 +58,9 @@
 //! [`EventHandler`] is the inbound event surface. Its methods are callbacks:
 //! `on_schedule`, `on_trade`, `on_candle`, `on_acc_pos`, `on_inst_intent`,
 //! `on_order_execution`, and so on. Every callback defaults to no-op, so modules
-//! stay narrow and only implement the events that matter to them.
+//! stay narrow and only implement the events that matter to them. Existing
+//! modules receive every registered channel by default; override
+//! `event_mask()` to avoid receiver creation and wakeups for unused callbacks.
 //!
 //! [`CommandEmitter`] is the outbound command surface. After tasks are spawned,
 //! the runtime supplies a [`CommandRegistry`]. Strategy modules store that
@@ -82,6 +86,7 @@
 //!       -> spawn AltTask/WsTask workers
 //!       -> CommandEmitter::command_init()
 //!       -> spawn strategy event loops
+//!       -> strategy loops subscribe according to EventHandler::event_mask()
 //!       -> tasks publish InfraMsg<T>
 //!       -> EventHandler callbacks react
 //!       -> strategies send TaskCommand through CommandHandle when needed
@@ -175,6 +180,7 @@
 //!
 //! [`Strategy`]: crate::arch::traits::strategy::Strategy
 //! [`EventHandler`]: crate::arch::traits::strategy::EventHandler
+//! [`EventMask`]: crate::arch::strategy_base::handler::event_mask::EventMask
 //! [`CommandEmitter`]: crate::arch::traits::strategy::CommandEmitter
 //! [`EnvBuilder`]: crate::arch::infra_core::env_builder::EnvBuilder
 //! [`EnvMediator::execute`]: crate::arch::infra_core::env_mediator::EnvMediator::execute

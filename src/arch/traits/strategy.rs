@@ -5,6 +5,7 @@ use crate::arch::{
         command::command_core::{CommandHandle, CommandRegistry},
         handler::{
             alt_events::*,
+            event_mask::EventMask,
             handler_core::{BoardCastChannel, InfraMsg},
             lob_events::*,
         },
@@ -161,9 +162,12 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
 /// - model prediction tasks emit when inference finishes;
 /// - order and intent tasks emit when another module sends a command.
 ///
-/// A strategy module implements only the callbacks it consumes. Every method
+/// A strategy module implements only the callbacks it consumes. Every callback
 /// defaults to no-op, so a module can be as narrow as "only account positions"
-/// or as broad as "schedule + prices + account + orders".
+/// or as broad as "schedule + prices + account + orders". By default,
+/// [`EventHandler::event_mask`] subscribes to every registered channel for
+/// backwards compatibility; latency-sensitive modules can override it to avoid
+/// receiver creation and wakeups for unused callbacks.
 ///
 /// Each callback receives an [`InfraMsg<T>`]. The payload is shared through
 /// `Arc<T>`, and `msg.task_id` identifies the task instance that emitted the
@@ -177,18 +181,18 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
 ///
 /// Common callback/channel pairs:
 ///
-/// | Callback | Typical source | Required broadcast channel |
-/// | --- | --- | --- |
-/// | [`EventHandler::on_schedule`] | `AltTaskType::TimeScheduler` | `BoardCastChannel::default_scheduler()` |
-/// | [`EventHandler::on_inst_intent`] | `TaskCommand::InstIntent` | `BoardCastChannel::default_inst_intent()` |
-/// | [`EventHandler::on_order_execution`] | `TaskCommand::OrderExecute` | `BoardCastChannel::default_order_execution()` |
-/// | [`EventHandler::on_preds`] | `TaskCommand::FeatInput` to a model task | `BoardCastChannel::default_model_preds()` |
-/// | [`EventHandler::on_ws_event`] | websocket relay startup/control | `BoardCastChannel::default_ws_event()` |
-/// | [`EventHandler::on_trade`] | public trade websocket relay | `BoardCastChannel::default_trade()` |
-/// | [`EventHandler::on_candle`] | public candle websocket relay | `BoardCastChannel::default_candle()` |
-/// | [`EventHandler::on_acc_order`] | private account-order websocket relay | `BoardCastChannel::default_account_order()` |
-/// | [`EventHandler::on_acc_bal_pos`] | private balance/position websocket relay | `BoardCastChannel::default_account_bal_pos()` |
-/// | [`EventHandler::on_acc_pos`] | private position websocket relay | `BoardCastChannel::default_account_pos()` |
+/// | Callback | Typical source | Required channel | Event mask |
+/// | --- | --- | --- | --- |
+/// | [`EventHandler::on_schedule`] | `AltTaskType::TimeScheduler` | `BoardCastChannel::default_scheduler()` | `EventMask::SCHEDULE` |
+/// | [`EventHandler::on_inst_intent`] | `TaskCommand::InstIntent` | `BoardCastChannel::default_inst_intent()` | `EventMask::INST_INTENT` |
+/// | [`EventHandler::on_order_execution`] | `TaskCommand::OrderExecute` | `BoardCastChannel::default_order_execution()` | `EventMask::ORDER_EXECUTION` |
+/// | [`EventHandler::on_preds`] | `TaskCommand::FeatInput` to a model task | `BoardCastChannel::default_model_preds()` | `EventMask::MODEL_PREDS` |
+/// | [`EventHandler::on_ws_event`] | websocket relay startup/control | `BoardCastChannel::default_ws_event()` | `EventMask::WS_EVENT` |
+/// | [`EventHandler::on_trade`] | public trade websocket relay | `BoardCastChannel::default_trade()` | `EventMask::TRADE` |
+/// | [`EventHandler::on_candle`] | public candle websocket relay | `BoardCastChannel::default_candle()` | `EventMask::CANDLE` |
+/// | [`EventHandler::on_acc_order`] | private account-order websocket relay | `BoardCastChannel::default_account_order()` | `EventMask::ACC_ORDER` |
+/// | [`EventHandler::on_acc_bal_pos`] | private balance/position websocket relay | `BoardCastChannel::default_account_bal_pos()` | `EventMask::ACC_BAL_POS` |
+/// | [`EventHandler::on_acc_pos`] | private position websocket relay | `BoardCastChannel::default_account_pos()` | `EventMask::ACC_POS` |
 ///
 /// ```rust
 /// use extrema_infra::prelude::*;
@@ -196,6 +200,10 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
 /// struct PositionLogger;
 ///
 /// impl EventHandler for PositionLogger {
+///     fn event_mask(&self) -> EventMask {
+///         EventMask::ACC_POS
+///     }
+///
 ///     async fn on_acc_pos(&mut self, msg: InfraMsg<Vec<WsAccPosition>>) {
 ///         println!(
 ///             "task_id={} positions={}",
@@ -206,6 +214,15 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
 /// }
 /// ```
 pub trait EventHandler {
+    /// Declares which runtime event streams this module wants to subscribe to.
+    ///
+    /// The default is [`EventMask::ALL`] so existing strategies keep receiving
+    /// every registered broadcast channel. Override this in latency-sensitive
+    /// modules to avoid receiver creation and wakeups for unused callbacks.
+    fn event_mask(&self) -> EventMask {
+        EventMask::ALL
+    }
+
     /// Receives generic alt-task lifecycle/control events.
     ///
     /// Alt tasks emit this event before entering their main task distribution

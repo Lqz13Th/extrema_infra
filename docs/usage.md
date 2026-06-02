@@ -11,8 +11,9 @@ An application usually has four layers:
 1. **Strategy modules** implement business logic.
 2. **Tasks** own long-running work such as timers, model workers,
    order-execution relays, and websocket relays.
-3. **Broadcast channels** publish task output to all registered strategy
-   modules.
+3. **Broadcast channels** make task output streams available to strategy
+   modules. A module can override `EventHandler::event_mask()` to subscribe
+   only to the streams it consumes.
 4. **Command handles** let strategies send commands back to tasks after the
    runtime has spawned them.
 
@@ -141,7 +142,26 @@ impl EventHandler for MyModule {}
 
 Use `initialize` for startup-only work. Use `command_init` only to store the
 runtime-provided command registry. Implement only the event callbacks your
-module needs; all other callbacks default to no-op.
+module needs; all other callbacks default to no-op. By default, a module
+subscribes to every registered broadcast channel for backwards compatibility.
+Override `event_mask()` when you want to avoid receiver creation and wakeups for
+unused callbacks:
+
+```rust,ignore
+impl EventHandler for MyModule {
+    fn event_mask(&self) -> EventMask {
+        EventMask::SCHEDULE | EventMask::ORDER_EXECUTION
+    }
+
+    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
+        let _ = msg;
+    }
+
+    async fn on_order_execution(&mut self, msg: InfraMsg<Vec<AltOrder>>) {
+        let _ = msg;
+    }
+}
+```
 
 ## Scheduler and Intent Tasks
 
@@ -224,6 +244,10 @@ use extrema_infra::prelude::*;
 struct MyPublicWsModule;
 
 impl EventHandler for MyPublicWsModule {
+    fn event_mask(&self) -> EventMask {
+        EventMask::WS_EVENT | EventMask::TRADE
+    }
+
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         // Find the Ws handle, connect, and subscribe.
         let _ = msg;
@@ -371,7 +395,10 @@ let env = EnvBuilder::new()
 
 `EnvBuilder` stores strategy modules in a heterogeneous list. This keeps each
 module as its concrete type instead of forcing all modules into
-`Box<dyn Strategy>`.
+`Box<dyn Strategy>`. Each module has its own event loop and can independently
+override `event_mask()`; for example, a signal module can subscribe to market
+data and model predictions while an account module subscribes only to account
+and order-execution streams.
 
 ## Task IDs and Chunks
 
@@ -395,7 +422,9 @@ accounts.
 
 Only add channels that the process needs. `EnvBuilder` skips duplicate channel
 variants, so adding `BoardCastChannel::default_trade()` twice still results in
-one trade broadcast channel.
+one trade broadcast channel. `BoardCastChannel` controls which streams exist in
+the runtime; `EventMask` controls which of those streams a particular strategy
+module subscribes to.
 
 Common channel pairs:
 
