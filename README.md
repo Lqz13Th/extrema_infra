@@ -234,13 +234,13 @@ edition = "2024"
 extrema_infra = { version = "0.1", features = ["all"] }
 
 # Enable exchange clients explicitly when needed.
-# extrema_infra = { version = "0.1", features = ["binance", "okx"] }
+# extrema_infra = { version = "0.1", features = ["hyperliquid", "okx"] }
 # extrema_infra = { version = "0.1", features = ["lob_clients"] }
 
 # For local development.
 # extrema_infra = { path = "../extrema_infra", features = ["all"] }
 
-# Or use the latest main branch directly.
+# Or use the latest default branch directly.
 # extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["all"] }
 
 # Tokio async runtime
