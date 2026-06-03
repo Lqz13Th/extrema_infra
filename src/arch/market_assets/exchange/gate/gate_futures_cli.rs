@@ -13,9 +13,7 @@ use crate::arch::{
         api_general::{
             OrderParams, RequestMethod, get_seconds_timestamp, parse_json_response, value_to_f64,
         },
-        base_data::{
-            InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER, TRADING_LOWER,
-        },
+        base_data::{InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER},
     },
     task_execution::task_ws::{CandleParam, WsChannel},
     traits::{
@@ -417,12 +415,14 @@ impl GateFuturesCli {
     async fn _get_live_instruments(&self, _inst_type: InstrumentType) -> InfraResult<Vec<String>> {
         let mut data: Vec<String> = Vec::new();
 
+        let now_secs = get_seconds_timestamp();
+
         for settle in ["usdt", "btc"] {
             let contracts = self._get_futures_contracts(settle, None, None).await?;
             data.extend(
                 contracts
                     .into_iter()
-                    .filter(|c| c.status.as_str() == TRADING_LOWER)
+                    .filter(|c| c.is_live(now_secs))
                     .map(|c| gate_fut_inst_to_cli(&c.name)),
             );
         }

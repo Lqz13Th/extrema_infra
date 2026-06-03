@@ -4,8 +4,8 @@ use std::sync::Arc;
 use crate::arch::{
     market_assets::{
         api_data::utils_data::InstrumentInfo,
-        api_general::parse_json_response,
-        base_data::{InstrumentType, TRADING_LOWER},
+        api_general::{get_seconds_timestamp, parse_json_response},
+        base_data::InstrumentType,
     },
     traits::{
         conversion::IntoInfraVec,
@@ -132,18 +132,14 @@ impl GateDeliveryCli {
             ));
         }
 
+        let now_secs = get_seconds_timestamp();
+
         for settle in ["usdt", "btc"] {
             let contracts = self._get_delivery_contracts(settle, None, None).await?;
             data.extend(
                 contracts
                     .into_iter()
-                    .filter(|c| {
-                        if !c.status.is_empty() {
-                            c.status.as_str() == TRADING_LOWER
-                        } else {
-                            !c.in_delisting
-                        }
-                    })
+                    .filter(|c| c.is_live(now_secs))
                     .map(|c| gate_fut_inst_to_cli(&c.name)),
             );
         }

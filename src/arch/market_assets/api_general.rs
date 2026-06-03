@@ -183,6 +183,37 @@ where
     }
 }
 
+pub fn de_opt_u64_from_string_or_number<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::Null => Ok(None),
+        Value::Number(n) => {
+            if let Some(u) = n.as_u64() {
+                Ok((u > 0).then_some(u))
+            } else if let Some(f) = n.as_f64() {
+                let value = f as u64;
+                Ok((value > 0).then_some(value))
+            } else {
+                Err(de::Error::custom("invalid optional u64 number"))
+            }
+        },
+        Value::String(s) => {
+            let trimmed = s.trim();
+            if trimmed.is_empty() || trimmed == "0" {
+                return Ok(None);
+            }
+            trimmed.parse::<u64>().map(Some).map_err(de::Error::custom)
+        },
+        other => Err(de::Error::custom(format!(
+            "invalid optional u64 type: {:?}",
+            other
+        ))),
+    }
+}
+
 pub fn de_micros_from_int<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
