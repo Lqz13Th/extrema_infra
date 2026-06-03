@@ -61,116 +61,90 @@ Each module owns local state and communicates through async channels instead of
 directly sharing mutable state.
 
 ```mermaid
-flowchart LR
-    subgraph EXS["N Exchanges"]
-        EX1["Binance"]
-        EX2["OKX"]
-        EX3["Gate"]
-        EX4["Hyperliquid"]
-    end
+flowchart TB
+    EXS["N Exchanges<br/>Binance / OKX / Gate / Hyperliquid"]
 
     subgraph RT["Extrema Infra runtime"]
-        direction LR
+        direction TB
 
-        subgraph WS1["WS Task: Public Market"]
-            WSM["WebSocket Channel"]
-            PUBTX["Broadcast TX<br/>trade / book / price"]
-            WSM --> PUBTX
+        subgraph INGEST["WS ingestion tasks"]
+            direction LR
+            PUB["Public market WS<br/>trade / book / price"]
+            ACC["Account WS<br/>position / order / fill"]
         end
 
-        subgraph WS2["WS Task: Account Stream"]
-            WSA["WebSocket Channel"]
-            ACCTX["Broadcast TX<br/>account pos / order reports"]
-            WSA --> ACCTX
-        end
-
-        subgraph SIGS["N Strategy Signal Modules"]
+        subgraph SIGS["N strategy signal modules"]
             direction TB
-            S1["Signal Module A<br/>subscribe market WS"]
-            S2["Signal Module B<br/>subscribe market WS"]
-            S3["Signal Module N<br/>subscribe market WS"]
-            FEAT["Feature / AltTensor TX"]
-            S1 --> FEAT
-            S2 --> FEAT
-            S3 --> FEAT
+            S1["Signal A"]
+            S2["Signal B"]
+            S3["Signal N"]
         end
 
-        subgraph MODELS["N Model Strategy Modules"]
+        FEAT["Feature stream<br/>AltTensor"]
+
+        subgraph MODELS["N model strategy modules"]
             direction TB
-            M1["Model Module A<br/>LightGBM / Python / ZMQ"]
-            M2["Model Module B<br/>ONNX / Rust"]
-            M3["Model Module N"]
-            MPRED["Model Preds<br/>AltTensor"]
-            M1 --> MPRED
-            M2 --> MPRED
-            M3 --> MPRED
+            M1["LightGBM<br/>Python / ZMQ"]
+            M2["ONNX<br/>Rust"]
+            M3["Model N"]
         end
 
-        subgraph ALLOCS["N Allocator Strategy Modules"]
+        MPRED["Model preds<br/>AltTensor"]
+        ALLOC["Allocator modules<br/>preds + price + account state"]
+        PM["Portfolio mediator<br/>risk / constraints / OMS"]
+        PLAN["Order planner<br/>slice / net / reduce-only / route"]
+
+        subgraph ORDERS["N order tasks"]
             direction TB
-            ARX1["Receive Model Preds"]
-            ARX2["Receive Account Pos / Order Reports"]
-            ARX3["Receive Price"]
-            AINT["Allocator Intent<br/>target exposure / target weight"]
-            ARX1 --> AINT
-            ARX2 --> AINT
-            ARX3 --> AINT
+            O1["Account A"]
+            O2["Account B"]
+            O3["Account N"]
         end
 
-        subgraph PM["Portfolio Mediator Strategy Module<br/>Risk / Constraint / OMS Layer"]
-            PRX["Receive Allocator Intent"]
-            STATE["Portfolio State<br/>current vs target"]
-            RISK["Risk + Constraints<br/>delisting / leverage / collateral / exposure"]
-            PLAN["Order Planner<br/>slice / net / reduce-only / route"]
-            PRX --> STATE --> RISK --> PLAN
-        end
-
-        subgraph ORDERS["N Order Tasks"]
-            O1["Order Task A<br/>Account A"]
-            O2["Order Task B<br/>Account B"]
-            O3["Order Task N<br/>Account N"]
-        end
-
-        subgraph CMD["Strategy Cmd Path"]
-            CMDTX["CommandHandle TX"]
-            CMDRX["CommandHandle RX"]
-            CMDTX --> CMDRX
-        end
+        CMD["Strategy Cmd Path<br/>optional WS order route"]
     end
 
-    EXS -->|public trades / book / price| WSM
-    EXS -->|account pos / order reports| WSA
+    EXS -->|market stream| PUB
+    EXS -->|account stream| ACC
 
-    PUBTX -->|market events| S1
-    PUBTX -->|market events| S2
-    PUBTX -->|market events| S3
-    PUBTX -->|price events| ARX3
+    PUB -->|market events| S1
+    PUB -->|market events| S2
+    PUB -->|market events| S3
+    PUB -->|price events| ALLOC
 
-    FEAT -->|features / AltTensor| M1
-    FEAT -->|features / AltTensor| M2
-    FEAT -->|features / AltTensor| M3
+    S1 --> FEAT
+    S2 --> FEAT
+    S3 --> FEAT
 
-    MPRED -->|model preds / AltTensor| ARX1
-    ACCTX -->|fills / positions / order reports| ARX2
-    ACCTX -->|fills / positions / order reports| PM
+    FEAT --> M1
+    FEAT --> M2
+    FEAT --> M3
 
-    AINT -->|allocator intent| PRX
+    M1 --> MPRED
+    M2 --> MPRED
+    M3 --> MPRED
 
-    PLAN -->|order instruction<br/>account_id + orders| O1
-    PLAN -->|order instruction<br/>account_id + orders| O2
-    PLAN -->|order instruction<br/>account_id + orders| O3
+    MPRED -->|model preds| ALLOC
+    ACC -->|positions / fills| ALLOC
+    ACC -->|order reports| PM
+
+    ALLOC -->|allocator intent| PM
+    PM --> PLAN
+
+    PLAN -->|order instruction| O1
+    PLAN -->|order instruction| O2
+    PLAN -->|order instruction| O3
 
     O1 -->|async REST order| EXS
     O2 -->|async REST order| EXS
     O3 -->|async REST order| EXS
 
-    O1 -.->|WS order via Strategy Cmd| CMDTX
-    O2 -.->|WS order via Strategy Cmd| CMDTX
-    O3 -.->|WS order via Strategy Cmd| CMDTX
-    CMDRX -.->|WS order command| EXS
+    O1 -.->|WS order via command handle| CMD
+    O2 -.->|WS order via command handle| CMD
+    O3 -.->|WS order via command handle| CMD
+    CMD -.->|WS order command| EXS
 
-    ACCTX -.->|state update feedback| ALLOCS
-    ACCTX -.->|state update feedback| PM
+    ACC -.->|state feedback| PM
 ```
 
 Signal, model, allocator, and portfolio-mediator components can all be Strategy
