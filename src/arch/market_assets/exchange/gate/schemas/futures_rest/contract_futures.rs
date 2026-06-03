@@ -3,7 +3,8 @@ use serde::Deserialize;
 use crate::arch::market_assets::{
     api_data::utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
     api_general::{
-        de_string_from_any, de_u64_from_string_or_number, get_micros_timestamp, ts_to_micros,
+        de_opt_u64_from_string_or_number, de_string_from_any, de_u64_from_string_or_number,
+        get_micros_timestamp, get_seconds_timestamp, ts_to_micros,
     },
     base_data::{InstrumentStatus, InstrumentType},
     exchange::gate::api_utils::gate_fut_inst_to_cli,
@@ -25,6 +26,10 @@ pub struct RestContractGateFutures {
     pub status: String,
     #[serde(default)]
     pub in_delisting: bool,
+    #[serde(default, deserialize_with = "de_opt_u64_from_string_or_number")]
+    pub delisting_time: Option<u64>,
+    #[serde(default, deserialize_with = "de_opt_u64_from_string_or_number")]
+    pub delisted_time: Option<u64>,
     #[serde(deserialize_with = "de_string_from_any")]
     pub funding_rate: String,
     #[serde(deserialize_with = "de_u64_from_string_or_number")]
@@ -33,21 +38,46 @@ pub struct RestContractGateFutures {
     pub funding_next_apply: u64,
 }
 
+impl RestContractGateFutures {
+    pub fn instrument_status(&self, now_secs: u64) -> InstrumentStatus {
+        match self.status.as_str() {
+            "delisted" => return InstrumentStatus::Closed,
+            "delisting" => return InstrumentStatus::Delisting,
+            _ => {},
+        }
+
+        if self
+            .delisted_time
+            .is_some_and(|delisted_time| delisted_time > 0 && now_secs >= delisted_time)
+        {
+            return InstrumentStatus::Closed;
+        }
+
+        if self.in_delisting
+            || self
+                .delisting_time
+                .is_some_and(|delisting_time| delisting_time > 0)
+        {
+            return InstrumentStatus::Delisting;
+        }
+
+        match self.status.as_str() {
+            "trading" => InstrumentStatus::Live,
+            _ => InstrumentStatus::Unknown,
+        }
+    }
+
+    pub fn is_live(&self, now_secs: u64) -> bool {
+        self.instrument_status(now_secs) == InstrumentStatus::Live
+    }
+}
+
 impl From<RestContractGateFutures> for InstrumentInfo {
     fn from(d: RestContractGateFutures) -> Self {
         let lot_size = d.order_size_min.parse().unwrap_or_default();
         let max_size = d.order_size_max.parse().unwrap_or_default();
         let tick_size = d.order_price_round.parse().unwrap_or_default();
-        let state = if d.in_delisting {
-            InstrumentStatus::Delisting
-        } else {
-            match d.status.as_str() {
-                "trading" => InstrumentStatus::Live,
-                "delisting" => InstrumentStatus::Delisting,
-                "delisted" => InstrumentStatus::Closed,
-                _ => InstrumentStatus::Unknown,
-            }
-        };
+        let state = d.instrument_status(get_seconds_timestamp());
 
         InstrumentInfo {
             inst: gate_fut_inst_to_cli(&d.name),
@@ -85,5 +115,57 @@ impl From<RestContractGateFutures> for FundingRateInfo {
             inst: gate_fut_inst_to_cli(&d.name),
             funding_interval_sec: d.funding_interval as f64,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn contract(status: &str) -> RestContractGateFutures {
+        RestContractGateFutures {
+            name: "DEGO_USDT".to_string(),
+            order_price_round: "0.0001".to_string(),
+            order_size_min: "1".to_string(),
+            order_size_max: "680000".to_string(),
+            quanto_multiplier: "0.1".to_string(),
+            status: status.to_string(),
+            in_delisting: false,
+            delisting_time: None,
+            delisted_time: None,
+            funding_rate: "0".to_string(),
+            funding_interval: 28_800,
+            funding_next_apply: 0,
+        }
+    }
+
+    #[test]
+    fn scheduled_delisting_time_marks_contract_as_delisting() {
+        let mut c = contract("trading");
+        c.delisting_time = Some(1_780_644_600);
+        c.delisted_time = Some(1_780_646_400);
+
+        assert_eq!(
+            c.instrument_status(1_780_481_685),
+            InstrumentStatus::Delisting
+        );
+        assert!(!c.is_live(1_780_481_685));
+    }
+
+    #[test]
+    fn delisted_time_after_now_marks_contract_as_closed() {
+        let mut c = contract("trading");
+        c.delisting_time = Some(1_780_644_600);
+        c.delisted_time = Some(1_780_646_400);
+
+        assert_eq!(c.instrument_status(1_780_646_400), InstrumentStatus::Closed);
+    }
+
+    #[test]
+    fn trading_without_delisting_time_stays_live() {
+        let c = contract("trading");
+
+        assert_eq!(c.instrument_status(1_780_481_685), InstrumentStatus::Live);
+        assert!(c.is_live(1_780_481_685));
     }
 }
