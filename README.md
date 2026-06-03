@@ -4,7 +4,7 @@ A quantitative trading environment built in Rust.
 
 - Event-driven, channel-based, and designed for modular strategy execution across multiple exchanges.
 
-- Maximizes runtime efficiency through **static dispatch** and promotes scalability with **Heterogeneous Lists (HList)** for strategy registration.  
+- Maximizes runtime efficiency through **static dispatch** and promotes scalability with **Heterogeneous Lists (HList)** for strategy registration.
 
 At its core: **One unified framework for multiple exchanges, multiple strategies, zero runtime boxing.**
 
@@ -43,13 +43,139 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 - **Channel-based Concurrency**
   - Message passing via Tokio channels and broadcast streams keeps data flow explicit.
   - Reduces shared-state contention for real-time trading workloads.
-  - Perfect for real-time trading workloads.
+  - Fits latency-sensitive, multi-consumer data flows.
 
 ---
 
 ## Extrema Infra Architecture
 
 ![Extrema Infra Architecture](./arch.png)
+
+---
+
+## Architecture Example: From Signal To Execution
+
+Extrema Infra can model signal generation, model inference, allocation, portfolio
+mediation, and execution orchestration as independent tasks or strategy modules.
+Each module owns local state and communicates through async channels instead of
+directly sharing mutable state.
+
+```mermaid
+flowchart LR
+    subgraph EXS["N Exchanges"]
+        EX1["Binance"]
+        EX2["OKX"]
+        EX3["Gate"]
+        EX4["Hyperliquid"]
+    end
+
+    subgraph RT["Extrema Infra runtime"]
+        direction LR
+
+        subgraph WS1["WS Task: Public Market"]
+            WSM["WebSocket Channel"]
+            PUBTX["Broadcast TX<br/>trade / book / price"]
+            WSM --> PUBTX
+        end
+
+        subgraph WS2["WS Task: Account Stream"]
+            WSA["WebSocket Channel"]
+            ACCTX["Broadcast TX<br/>account pos / order reports"]
+            WSA --> ACCTX
+        end
+
+        subgraph SIGS["N Strategy Signal Modules"]
+            direction TB
+            S1["Signal Module A<br/>subscribe market WS"]
+            S2["Signal Module B<br/>subscribe market WS"]
+            S3["Signal Module N<br/>subscribe market WS"]
+            FEAT["Feature / AltTensor TX"]
+            S1 --> FEAT
+            S2 --> FEAT
+            S3 --> FEAT
+        end
+
+        subgraph MODELS["N Model Strategy Modules"]
+            direction TB
+            M1["Model Module A<br/>LightGBM / Python / ZMQ"]
+            M2["Model Module B<br/>ONNX / Rust"]
+            M3["Model Module N"]
+            MPRED["Model Preds<br/>AltTensor"]
+            M1 --> MPRED
+            M2 --> MPRED
+            M3 --> MPRED
+        end
+
+        subgraph ALLOCS["N Allocator Strategy Modules"]
+            direction TB
+            ARX1["Receive Model Preds"]
+            ARX2["Receive Account Pos / Order Reports"]
+            ARX3["Receive Price"]
+            AINT["Allocator Intent<br/>target exposure / target weight"]
+            ARX1 --> AINT
+            ARX2 --> AINT
+            ARX3 --> AINT
+        end
+
+        subgraph PM["Portfolio Mediator Strategy Module<br/>Risk / Constraint / OMS Layer"]
+            PRX["Receive Allocator Intent"]
+            STATE["Portfolio State<br/>current vs target"]
+            RISK["Risk + Constraints<br/>delisting / leverage / collateral / exposure"]
+            PLAN["Order Planner<br/>slice / net / reduce-only / route"]
+            PRX --> STATE --> RISK --> PLAN
+        end
+
+        subgraph ORDERS["N Order Tasks"]
+            O1["Order Task A<br/>Account A"]
+            O2["Order Task B<br/>Account B"]
+            O3["Order Task N<br/>Account N"]
+        end
+
+        subgraph CMD["Strategy Cmd Path"]
+            CMDTX["CommandHandle TX"]
+            CMDRX["CommandHandle RX"]
+            CMDTX --> CMDRX
+        end
+    end
+
+    EXS -->|public trades / book / price| WSM
+    EXS -->|account pos / order reports| WSA
+
+    PUBTX -->|market events| S1
+    PUBTX -->|market events| S2
+    PUBTX -->|market events| S3
+    PUBTX -->|price events| ARX3
+
+    FEAT -->|features / AltTensor| M1
+    FEAT -->|features / AltTensor| M2
+    FEAT -->|features / AltTensor| M3
+
+    MPRED -->|model preds / AltTensor| ARX1
+    ACCTX -->|fills / positions / order reports| ARX2
+    ACCTX -->|fills / positions / order reports| PM
+
+    AINT -->|allocator intent| PRX
+
+    PLAN -->|order instruction<br/>account_id + orders| O1
+    PLAN -->|order instruction<br/>account_id + orders| O2
+    PLAN -->|order instruction<br/>account_id + orders| O3
+
+    O1 -->|async REST order| EXS
+    O2 -->|async REST order| EXS
+    O3 -->|async REST order| EXS
+
+    O1 -.->|WS order via Strategy Cmd| CMDTX
+    O2 -.->|WS order via Strategy Cmd| CMDTX
+    O3 -.->|WS order via Strategy Cmd| CMDTX
+    CMDRX -.->|WS order command| EXS
+
+    ACCTX -.->|state update feedback| ALLOCS
+    ACCTX -.->|state update feedback| PM
+```
+
+Signal, model, allocator, and portfolio-mediator components can all be Strategy
+Modules. The runtime composes them with websocket tasks, scheduler tasks,
+model-prediction tasks, command handles, and account-bound order tasks.
 
 ---
 
@@ -194,7 +320,7 @@ For connecting to exchanges, you need to implement these traits for each exchang
 This framework relies on `rustls` for secure REST and WebSocket connections
 (e.g. via `reqwest` and `tokio-tungstenite`).
 
-Starting from **rustls v0.23**, the TLS crypto backend (e.g. `aws-lc-rs` or `ring`)
+Starting with **rustls v0.23**, the TLS crypto backend (e.g. `aws-lc-rs` or `ring`)
 **must be explicitly selected by the final binary**.
 
 ### ⚠️ Required for binaries that use TLS-enabled REST/WebSocket functionality
@@ -223,7 +349,7 @@ Install the latest published crate:
 cargo add extrema_infra --features all
 ```
 
-On your strategy Cargo.toml:
+In your strategy `Cargo.toml`:
 
 ```toml
 [package]
@@ -255,7 +381,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
 
-Then, on your main.rs:
+Then in `main.rs`:
 
 ```rust,no_run
 use std::{sync::Arc, time::Duration};
@@ -330,20 +456,15 @@ For a practical implementation, see the [complex strategy example](examples/comp
 - **Latency-sensitive task**  
   - Handles order placement, cancel/replace, LOB reaction, etc.
   - Minimal logic, no blocking, no heavy computation.
-  - Data sampling etc.
+  - Samples only the data needed by the fast path.
 
 - **Supporting tasks**
-  - Order execution, feature generation, Risk checks, Position management etc.
-  - These tasks communicate with the latency-sensitive task via channels (**CommandEmitter** → **OrderExecute**) or Rwlock.
-  - Using **AltTask** for feature extraction, sending data to a ZMQ or ONNX model runner via command handle, then generating signals to execute orders.
+  - Order execution, feature generation, risk checks, position management, and evaluation.
+  - These tasks communicate with the latency-sensitive task through channels (**CommandEmitter** -> **OrderExecution**) and task-local state.
+  - Use **AltTask** for feature extraction, sending data to a ZMQ or ONNX model runner via command handle, then generating signals to execute orders.
 
-Latency-sensitive logic can be decomposed into multiple tasks.
-where each task handles only a subset of instruments for maximum efficiency.
-
-Meanwhile, support logic can also be split into dedicated tasks,
-with each task focusing on a single role to maintain clarity and modularity.
-
-![Extrema Infra Architecture](complex_example.png)
+Latency-sensitive logic can be decomposed into multiple tasks, with each task
+handling only a subset of instruments for maximum efficiency.
 
 ---
 

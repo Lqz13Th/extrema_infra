@@ -81,9 +81,8 @@ async fn main() {
 
 Strategy binaries should declare their direct runtime dependencies. Do not rely
 on transitive dependencies from `extrema_infra` when using `tokio`, `rustls`, or
-logging crates in your own code. Binaries that use REST or websocket clients
-must also install the `rustls` AWS-LC provider before constructing those
-clients.
+logging crates in your own code. For process-wide TLS provider initialization,
+see [TLS Setup](#tls-setup).
 
 ```toml
 [dependencies]
