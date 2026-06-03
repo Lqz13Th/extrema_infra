@@ -147,17 +147,6 @@
 //! }
 //! ```
 //!
-//! # TLS initialization
-//!
-//! Binaries that use TLS-backed REST or websocket clients must install a
-//! `rustls` crypto provider before creating those clients:
-//!
-//! ```rust,no_run
-//! rustls::crypto::aws_lc_rs::default_provider()
-//!     .install_default()
-//!     .expect("failed to install rustls crypto provider");
-//! ```
-//!
 //! # Downstream usage shape
 //!
 //! Real strategy binaries usually follow the same shape as the minimal example:
