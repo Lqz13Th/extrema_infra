@@ -13,7 +13,7 @@ use crate::arch::{
         api_general::{OrderParams, get_micros_timestamp, parse_json_response},
         base_data::{InstrumentType, MarginMode},
     },
-    task_execution::task_ws::{TradesParam, WsChannel},
+    task_execution::task_ws::{LobParam, TradesParam, WsChannel},
     traits::{
         conversion::IntoInfraVec,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
@@ -615,7 +615,8 @@ impl HyperliquidCli {
         match channel {
             WsChannel::Trades(Some(TradesParam::AggTrades))
             | WsChannel::Trades(Some(TradesParam::AllTrades))
-            | WsChannel::Trades(None) => Ok(HYPERLIQUID_WS.into()),
+            | WsChannel::Trades(None)
+            | WsChannel::Lob(_) => Ok(HYPERLIQUID_WS.into()),
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -636,6 +637,7 @@ impl HyperliquidCli {
             WsChannel::Trades(Some(TradesParam::AggTrades))
             | WsChannel::Trades(Some(TradesParam::AllTrades))
             | WsChannel::Trades(None) => self._ws_subscribe_trades(insts),
+            WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -684,6 +686,40 @@ impl HyperliquidCli {
                     "method": "subscribe",
                     "subscription": {
                         "type": "trades",
+                        "coin": coin.to_string(),
+                    }
+                })
+                .to_string())
+            })
+            .collect();
+
+        Ok(msgs?.join("\n"))
+    }
+
+    fn _ws_subscribe_lob(
+        &self,
+        lob_param: &Option<LobParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        let insts = insts.ok_or_else(|| {
+            InfraError::ApiCliError("Hyperliquid lob ws requires at least one instrument".into())
+        })?;
+
+        if insts.is_empty() {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid lob ws requires at least one instrument".into(),
+            ));
+        }
+
+        let subscription_type = hyperliquid_lob_subscription_type(lob_param)?;
+        let msgs: InfraResult<Vec<String>> = insts
+            .iter()
+            .map(|inst| {
+                let coin = self._inst_to_trade_coin(inst)?;
+                Ok(json!({
+                    "method": "subscribe",
+                    "subscription": {
+                        "type": subscription_type,
                         "coin": coin.to_string(),
                     }
                 })

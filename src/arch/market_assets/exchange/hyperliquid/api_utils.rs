@@ -1,9 +1,12 @@
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
-use crate::arch::market_assets::{
-    api_general::OrderParams,
-    base_data::{InstrumentType, OrderSide, OrderType, TimeInForce},
+use crate::arch::{
+    market_assets::{
+        api_general::OrderParams,
+        base_data::{InstrumentType, OrderSide, OrderType, TimeInForce},
+    },
+    task_execution::task_ws::{LobFrequency, LobParam},
 };
 use crate::errors::{InfraError, InfraResult};
 
@@ -63,6 +66,35 @@ pub fn hyperliquid_dex_from_scope_extra(extra: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|dex| !dex.is_empty())
         .map(ToString::to_string)
+}
+
+pub(crate) fn hyperliquid_lob_subscription_type(
+    lob_param: &Option<LobParam>,
+) -> InfraResult<&'static str> {
+    match lob_param {
+        None => Ok("l2Book"),
+        Some(LobParam::Bbo { frequency }) => match frequency {
+            None | Some(LobFrequency::Realtime) => Ok("bbo"),
+            Some(freq) => Err(InfraError::ApiCliError(format!(
+                "Hyperliquid bbo does not support requested frequency: {:?}",
+                freq
+            ))),
+        },
+        Some(LobParam::Snapshot { depth, frequency }) => {
+            if depth.is_none() && frequency.is_none() {
+                Ok("l2Book")
+            } else {
+                Err(InfraError::ApiCliError(format!(
+                    "Hyperliquid l2Book does not support depth/frequency: depth={:?}, frequency={:?}",
+                    depth, frequency
+                )))
+            }
+        },
+        Some(LobParam::Incremental { depth, frequency }) => Err(InfraError::ApiCliError(format!(
+            "Hyperliquid does not support incremental LOB updates: depth={:?}, frequency={:?}",
+            depth, frequency
+        ))),
+    }
 }
 
 pub fn hyperliquid_spot_asset_id(index: u32) -> String {
