@@ -3,13 +3,20 @@ use crate::arch::{
         gate_ws_msg::GateWsData,
         schemas::futures_ws::{
             account_order::WsAccountOrderGateFutures,
-            account_position::WsAccountPositionGateFutures, candles::WsCandleGateFutures,
+            account_position::WsAccountPositionGateFutures,
+            candles::WsCandleGateFutures,
+            lob::{WsBookTickerGateFutures, WsOrderBookGateFutures, WsOrderBookUpdateGateFutures},
             trades::WsTradeGateFutures,
         },
         schemas::spot_ws::account_order::WsAccountOrderGateSpot,
     },
-    strategy_base::handler::handler_core::{find_acc_order, find_acc_pos, find_candle, find_trade},
-    task_execution::{task_general::LogLevel, task_ws::WsChannel},
+    strategy_base::handler::handler_core::{
+        find_acc_order, find_acc_pos, find_candle, find_lob, find_trade,
+    },
+    task_execution::{
+        task_general::LogLevel,
+        task_ws::{LobParam, WsChannel},
+    },
 };
 
 use super::{WsStream, WsTaskBuilder};
@@ -58,6 +65,29 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Gate Futures Trades",
+                    );
+                }
+            },
+            WsChannel::Lob(lob_param) => {
+                if let Some(tx) = find_lob(&self.board_cast_channel) {
+                    match lob_param {
+                        Some(LobParam::Bbo { .. }) => {
+                            self.ws_loop::<GateWsData<WsBookTickerGateFutures>>(tx, ws_stream)
+                                .await;
+                        },
+                        Some(LobParam::Snapshot { .. }) => {
+                            self.ws_loop::<GateWsData<WsOrderBookGateFutures>>(tx, ws_stream)
+                                .await;
+                        },
+                        None | Some(LobParam::Incremental { .. }) => {
+                            self.ws_loop::<GateWsData<WsOrderBookUpdateGateFutures>>(tx, ws_stream)
+                                .await;
+                        },
+                    }
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Gate Futures LOB",
                     );
                 }
             },

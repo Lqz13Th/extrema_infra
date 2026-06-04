@@ -8,6 +8,7 @@ use crate::arch::traits::conversion::IntoWsData;
 #[serde(untagged)]
 pub enum GateWsData<T> {
     Channel(GateWsChannel<T>),
+    Single(GateWsSingleChannel<T>),
     Event(GateWsEvent),
 }
 
@@ -16,6 +17,13 @@ pub struct GateWsChannel<T> {
     pub channel: String,
     pub event: String,
     pub result: Vec<T>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GateWsSingleChannel<T> {
+    pub channel: String,
+    pub event: String,
+    pub result: T,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -41,6 +49,7 @@ where
     fn into_ws(self) -> Self::Output {
         match self {
             GateWsData::Channel(c) => c.result.into_iter().map(|d| d.into_ws()).collect(),
+            GateWsData::Single(c) => vec![c.result.into_ws()],
             GateWsData::Event(res) => {
                 if let Some(err) = res.error {
                     warn!(

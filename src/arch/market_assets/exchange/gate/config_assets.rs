@@ -45,6 +45,9 @@ pub const GATE_WS_FUTURES_BALANCES: &str = "futures.balances";
 pub const GATE_WS_FUTURES_POSITIONS: &str = "futures.positions";
 pub const GATE_WS_FUTURES_TRADES: &str = "futures.trades";
 pub const GATE_WS_FUTURES_CANDLES: &str = "futures.candlesticks";
+pub const GATE_WS_FUTURES_BOOK_TICKER: &str = "futures.book_ticker";
+pub const GATE_WS_FUTURES_ORDER_BOOK: &str = "futures.order_book";
+pub const GATE_WS_FUTURES_ORDER_BOOK_UPDATE: &str = "futures.order_book_update";
 
 /// Delivery REST endpoints
 pub const GATE_DELIVERY_CONTRACTS: &str = "/api/v4/delivery/{settle}/contracts";
