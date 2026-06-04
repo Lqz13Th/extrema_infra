@@ -14,7 +14,10 @@ pub struct RestResOkx<T> {
 impl<T: std::fmt::Debug> IntoInfraVec<T> for RestResOkx<T> {
     fn into_vec(self) -> InfraResult<Vec<T>> {
         if self.code != "0" {
-            warn!("OKX REST error {}: {:?}, data: {:?}", self.code, self.msg, self.data);
+            warn!(
+                "OKX REST error {}: {:?}, data: {:?}",
+                self.code, self.msg, self.data
+            );
             return Err(InfraError::ApiCliError(format!(
                 "OKX REST error (code={}): {:?}",
                 self.code, self.msg
