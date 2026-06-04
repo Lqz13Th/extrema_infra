@@ -17,28 +17,6 @@ use super::{WsStream, WsTaskBuilder};
 impl WsTaskBuilder {
     pub(super) async fn ws_channel_gate_futures(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
-            WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsTradeGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Trades",
-                    );
-                }
-            },
-            WsChannel::Candles(..) => {
-                if let Some(tx) = find_candle(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsCandleGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Candles",
-                    );
-                }
-            },
             WsChannel::AccountOrders => {
                 if let Some(tx) = find_acc_order(&self.board_cast_channel) {
                     self.ws_loop::<GateWsData<WsAccountOrderGateFutures>>(tx, ws_stream)
@@ -58,6 +36,28 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Gate Futures Acc Position",
+                    );
+                }
+            },
+            WsChannel::Candles(..) => {
+                if let Some(tx) = find_candle(&self.board_cast_channel) {
+                    self.ws_loop::<GateWsData<WsCandleGateFutures>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Gate Futures Candles",
+                    );
+                }
+            },
+            WsChannel::Trades(..) => {
+                if let Some(tx) = find_trade(&self.board_cast_channel) {
+                    self.ws_loop::<GateWsData<WsTradeGateFutures>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Gate Futures Trades",
                     );
                 }
             },

@@ -788,7 +788,6 @@ impl BinanceUmCli {
         match ws_channel {
             WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
             WsChannel::Trades(_) => self._ws_subscribe_aggtrade(insts),
-            WsChannel::Tick => Err(InfraError::Unimplemented),
             WsChannel::Lob(_) => Err(InfraError::Unimplemented),
             _ => Err(InfraError::Unimplemented),
         }
@@ -797,7 +796,7 @@ impl BinanceUmCli {
     fn _get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         let url = match channel {
             WsChannel::Candles(_) | WsChannel::Trades(_) => BINANCE_UM_FUTURES_WS_MKT,
-            WsChannel::Tick | WsChannel::Lob(_) => BINANCE_UM_FUTURES_WS_PUB,
+            WsChannel::Lob(_) => BINANCE_UM_FUTURES_WS_PUB,
             _ => return Err(InfraError::Unimplemented),
         };
 

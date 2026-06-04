@@ -37,8 +37,6 @@ pub enum WsChannel {
     Candles(Option<CandleParam>),
     /// Public trades, optionally parameterized by trade stream type.
     Trades(Option<TradesParam>),
-    /// Public ticker stream.
-    Tick,
     /// Public order book stream, optionally parameterized by feed shape.
     Lob(Option<LobParam>),
     /// Public market-by-order order book stream.

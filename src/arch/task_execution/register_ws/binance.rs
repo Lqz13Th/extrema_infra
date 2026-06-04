@@ -19,28 +19,6 @@ use super::{WsStream, WsTaskBuilder};
 impl WsTaskBuilder {
     pub(super) async fn ws_channel_binance_um(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
-            WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Trades",
-                    );
-                }
-            },
-            WsChannel::Candles(..) => {
-                if let Some(tx) = find_candle(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Candles",
-                    );
-                }
-            },
             WsChannel::AccountOrders => {
                 if let Some(tx) = find_acc_order(&self.board_cast_channel) {
                     self.ws_loop::<BinanceWsData<WsAccountOrderBinanceUM>>(tx, ws_stream)
@@ -71,6 +49,28 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Binance UmFutures Acc Position",
+                    );
+                }
+            },
+            WsChannel::Candles(..) => {
+                if let Some(tx) = find_candle(&self.board_cast_channel) {
+                    self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Binance UmFutures Candles",
+                    );
+                }
+            },
+            WsChannel::Trades(..) => {
+                if let Some(tx) = find_trade(&self.board_cast_channel) {
+                    self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Binance UmFutures Trades",
                     );
                 }
             },

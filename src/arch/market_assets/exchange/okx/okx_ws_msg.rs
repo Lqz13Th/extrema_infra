@@ -3,16 +3,33 @@ use tracing::{info, warn};
 
 use crate::arch::traits::conversion::IntoWsData;
 
+pub(crate) trait IntoOkxWsData {
+    type Output;
+
+    fn into_ws_with_okx_context(self, arg: &WsArg, action: Option<&str>) -> Self::Output;
+}
+
+impl<T> IntoOkxWsData for T
+where
+    T: IntoWsData,
+{
+    type Output = T::Output;
+
+    fn into_ws_with_okx_context(self, _arg: &WsArg, _action: Option<&str>) -> Self::Output {
+        self.into_ws()
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-pub enum OkxWsData<T> {
+pub(crate) enum OkxWsData<T> {
     ChannelBatch(OkxWsChannel<T>),
     Event(OkxWsEvent),
 }
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub struct OkxWsEvent {
+pub(crate) struct OkxWsEvent {
     pub event: Option<String>,
     pub code: Option<String>,
     pub msg: Option<String>,
@@ -22,26 +39,34 @@ pub struct OkxWsEvent {
 
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
-pub struct WsArg {
+pub(crate) struct WsArg {
     pub channel: Option<String>,
     pub instId: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct OkxWsChannel<T> {
+pub(crate) struct OkxWsChannel<T> {
     pub arg: WsArg,
+    pub action: Option<String>,
     pub data: Vec<T>,
 }
 
 impl<T> IntoWsData for OkxWsData<T>
 where
-    T: IntoWsData + for<'de> Deserialize<'de>,
+    T: IntoOkxWsData + for<'de> Deserialize<'de>,
 {
     type Output = Vec<T::Output>;
 
     fn into_ws(self) -> Self::Output {
         match self {
-            OkxWsData::ChannelBatch(c) => c.data.into_iter().map(|d| d.into_ws()).collect(),
+            OkxWsData::ChannelBatch(c) => {
+                let action = c.action.as_deref();
+
+                c.data
+                    .into_iter()
+                    .map(|d| d.into_ws_with_okx_context(&c.arg, action))
+                    .collect()
+            },
             OkxWsData::Event(res) => {
                 if let Some(event) = res.event {
                     match event.as_str() {
