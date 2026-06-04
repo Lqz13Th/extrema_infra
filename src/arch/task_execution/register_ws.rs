@@ -1,6 +1,14 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-#![allow(unused_variables)]
+#[cfg(feature = "hyperliquid")]
+mod hyperliquid;
+
+#[cfg(feature = "binance")]
+mod binance;
+
+#[cfg(feature = "gate")]
+mod gate;
+
+#[cfg(feature = "okx")]
+mod okx;
 
 use futures_util::{SinkExt, StreamExt};
 use serde::de::DeserializeOwned;
@@ -29,50 +37,12 @@ use crate::arch::{
 };
 use crate::errors::{InfraError, InfraResult};
 
-#[cfg(feature = "binance")]
-use crate::arch::market_assets::exchange::binance::{
-    binance_ws_msg::BinanceWsData,
-    schemas::spot_ws::account_order::WsAccountOrderEnvelopeBinanceSpot,
-    schemas::um_futures_ws::{
-        account_bal_and_pos::WsBalAndPosBinanceUM, account_order::WsAccountOrderBinanceUM,
-        account_position::WsAccountPositionBinanceUM, agg_trades::WsAggTradeBinanceUM,
-        candles::WsCandleBinanceUM,
-    },
-};
-#[cfg(feature = "gate")]
-use crate::arch::market_assets::exchange::gate::{
-    gate_ws_msg::GateWsData,
-    schemas::futures_ws::{
-        account_order::WsAccountOrderGateFutures, account_position::WsAccountPositionGateFutures,
-        candles::WsCandleGateFutures, trades::WsTradeGateFutures,
-    },
-    schemas::spot_ws::account_order::WsAccountOrderGateSpot,
-};
-#[cfg(feature = "hyperliquid")]
-use crate::arch::market_assets::exchange::hyperliquid::{
-    hyperliquid_ws_msg::HyperliquidWsData,
-    schemas::ws::{
-        account_order::WsAccountOrderHyperliquid, account_position::WsAccountPositionHyperliquid,
-        trades::WsTradeHyperliquid,
-    },
-};
-#[cfg(feature = "okx")]
-use crate::arch::market_assets::exchange::okx::{
-    okx_ws_msg::OkxWsData,
-    schemas::ws::{
-        account_bal_and_pos::WsBalAndPosOkx, account_order::WsAccountOrderOkx,
-        account_position::WsAccountPositionOkx, trades::WsTradesOkx,
-    },
-};
-
-use super::{
-    task_general::LogLevel,
-    task_ws::{WsChannel, WsTaskInfo},
-};
+use super::{task_general::LogLevel, task_ws::WsTaskInfo};
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
-static PING: Bytes = Bytes::from_static(b"ping");
+static _PING: Bytes = Bytes::from_static(b"ping");
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct WsTaskBuilder {
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
@@ -82,6 +52,7 @@ pub(crate) struct WsTaskBuilder {
     pub task_id: u64,
 }
 
+#[allow(dead_code)]
 impl WsTaskBuilder {
     async fn connect_websocket(&self, url: &str) -> InfraResult<WsStream> {
         let (ws_stream, _) = connect_async(url).await.map_err(|e| {
@@ -162,7 +133,7 @@ impl WsTaskBuilder {
             Err(_) => {
                 let keepalive = match &self.ws_info.market {
                     Market::HyperLiquid => Message::Text("{\"method\":\"ping\"}".into()),
-                    _ => Message::Ping(PING.clone()),
+                    _ => Message::Ping(_PING.clone()),
                 };
 
                 if let Err(e) = ws_stream.send(keepalive).await {
@@ -246,31 +217,31 @@ impl WsTaskBuilder {
         }
     }
 
-    pub async fn ws_channel_distribution(&mut self, ws_stream: &mut WsStream) {
+    pub async fn ws_channel_distribution(&mut self, _ws_stream: &mut WsStream) {
         match &self.ws_info.market {
             #[cfg(feature = "hyperliquid")]
             Market::HyperLiquid => {
-                self.ws_channel_hyperliquid(ws_stream).await;
+                self.ws_channel_hyperliquid(_ws_stream).await;
             },
             #[cfg(feature = "binance")]
             Market::BinanceUmFutures => {
-                self.ws_channel_binance_um(ws_stream).await;
+                self.ws_channel_binance_um(_ws_stream).await;
             },
             #[cfg(feature = "binance")]
             Market::BinanceSpot => {
-                self.ws_channel_binance_spot(ws_stream).await;
+                self.ws_channel_binance_spot(_ws_stream).await;
             },
             #[cfg(feature = "okx")]
             Market::Okx => {
-                self.ws_channel_okx(ws_stream).await;
+                self.ws_channel_okx(_ws_stream).await;
             },
             #[cfg(feature = "gate")]
             Market::GateFutures => {
-                self.ws_channel_gate_futures(ws_stream).await;
+                self.ws_channel_gate_futures(_ws_stream).await;
             },
             #[cfg(feature = "gate")]
             Market::GateSpot => {
-                self.ws_channel_gate_spot(ws_stream).await;
+                self.ws_channel_gate_spot(_ws_stream).await;
             },
             m => self.log(LogLevel::Warn, &format!("Unsupported market: {:?}", m)),
         };
@@ -351,268 +322,5 @@ impl WsTaskBuilder {
                 )
             },
         }
-    }
-
-    #[cfg(feature = "hyperliquid")]
-    async fn ws_channel_hyperliquid(&mut self, ws_stream: &mut WsStream) {
-        match &self.ws_info.ws_channel {
-            WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<HyperliquidWsData<WsTradeHyperliquid>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Hyperliquid Trades",
-                    );
-                }
-            },
-            WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<HyperliquidWsData<WsAccountOrderHyperliquid>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Hyperliquid Acc Order",
-                    );
-                }
-            },
-            WsChannel::AccountPositions => {
-                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<HyperliquidWsData<WsAccountPositionHyperliquid>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Hyperliquid Acc Position",
-                    );
-                }
-            },
-            c => {
-                self.log(
-                    LogLevel::Warn,
-                    &format!("Unknown Hyperliquid channel: {:?}", c),
-                );
-            },
-        };
-    }
-
-    #[cfg(feature = "binance")]
-    async fn ws_channel_binance_um(&mut self, ws_stream: &mut WsStream) {
-        match &self.ws_info.ws_channel {
-            WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Trades",
-                    );
-                }
-            },
-            WsChannel::Candles(..) => {
-                if let Some(tx) = find_candle(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Candles",
-                    );
-                }
-            },
-            WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAccountOrderBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Acc order",
-                    );
-                }
-            },
-            WsChannel::AccountBalAndPos => {
-                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Acc Bal and Pos",
-                    );
-                }
-            },
-            WsChannel::AccountPositions => {
-                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAccountPositionBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Acc Position",
-                    );
-                }
-            },
-            c => {
-                self.log(
-                    LogLevel::Warn,
-                    &format!("Unknown Binance UM channel: {:?}", c),
-                );
-            },
-        };
-    }
-
-    #[cfg(feature = "binance")]
-    async fn ws_channel_binance_spot(&mut self, ws_stream: &mut WsStream) {
-        match &self.ws_info.ws_channel {
-            WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAccountOrderEnvelopeBinanceSpot>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance Spot Acc order",
-                    );
-                }
-            },
-            c => {
-                self.log(
-                    LogLevel::Warn,
-                    &format!("Unknown Binance Spot channel: {:?}", c),
-                );
-            },
-        };
-    }
-
-    #[cfg(feature = "okx")]
-    async fn ws_channel_okx(&mut self, ws_stream: &mut WsStream) {
-        match &self.ws_info.ws_channel {
-            WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsTradesOkx>>(tx, ws_stream).await;
-                } else {
-                    self.log(LogLevel::Warn, "No broadcast channel found for Okx Trades");
-                }
-            },
-            WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsAccountOrderOkx>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Okx Acc Order",
-                    );
-                }
-            },
-            WsChannel::AccountPositions => {
-                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsAccountPositionOkx>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Okx Acc Position",
-                    );
-                }
-            },
-            WsChannel::AccountBalAndPos => {
-                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
-                    self.ws_loop::<OkxWsData<WsBalAndPosOkx>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Okx Acc Bal and Pos",
-                    );
-                }
-            },
-            c => {
-                self.log(LogLevel::Warn, &format!("Unknown Okx channel: {:?}", c));
-            },
-        };
-    }
-
-    #[cfg(feature = "gate")]
-    async fn ws_channel_gate_futures(&mut self, ws_stream: &mut WsStream) {
-        match &self.ws_info.ws_channel {
-            WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsTradeGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Trades",
-                    );
-                }
-            },
-            WsChannel::Candles(..) => {
-                if let Some(tx) = find_candle(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsCandleGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Candles",
-                    );
-                }
-            },
-            WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsAccountOrderGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Acc Order",
-                    );
-                }
-            },
-            WsChannel::AccountPositions => {
-                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsAccountPositionGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Acc Position",
-                    );
-                }
-            },
-            c => {
-                self.log(
-                    LogLevel::Warn,
-                    &format!("Unknown Gate Futures channel: {:?}", c),
-                );
-            },
-        };
-    }
-
-    #[cfg(feature = "gate")]
-    async fn ws_channel_gate_spot(&mut self, ws_stream: &mut WsStream) {
-        match &self.ws_info.ws_channel {
-            WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsAccountOrderGateSpot>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Spot Acc Order",
-                    );
-                }
-            },
-            c => {
-                self.log(
-                    LogLevel::Warn,
-                    &format!("Unknown Gate Spot channel: {:?}", c),
-                );
-            },
-        };
     }
 }
