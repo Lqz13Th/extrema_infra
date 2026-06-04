@@ -263,6 +263,20 @@ pub fn hyperliquid_inst_to_cli(coin: &str) -> String {
         );
     }
 
+    if let Some((dex, base)) = coin.split_once(':') {
+        let dex = dex.trim();
+        let base = base.trim();
+
+        if !dex.is_empty()
+            && !base.is_empty()
+            && let Some(quote) = hyperliquid_known_builder_perp_quote(dex)
+        {
+            return hyperliquid_perp_parts_to_cli(base, quote);
+        }
+
+        return coin.to_string();
+    }
+
     hyperliquid_perp_to_cli(coin, HYPERLIQUID_QUOTE)
 }
 
@@ -341,6 +355,16 @@ fn hyperliquid_raw_perp_base(symbol: &str) -> &str {
         .split_once(':')
         .map(|(_, base)| base)
         .unwrap_or(symbol)
+}
+
+fn hyperliquid_known_builder_perp_quote(dex: &str) -> Option<&'static str> {
+    match dex.to_ascii_lowercase().as_str() {
+        "xyz" | "abcd" | "para" => Some("USDC"),
+        "flx" | "vntl" | "km" => Some("USDH"),
+        "hyna" => Some("USDE"),
+        "cash" => Some("USDT0"),
+        _ => None,
+    }
 }
 
 fn hyperliquid_perp_parts_to_cli(base: &str, quote: &str) -> String {
@@ -557,6 +581,29 @@ mod tests {
                 expected,
                 "raw={raw}, quote={quote}"
             );
+        }
+    }
+
+    #[test]
+    fn normalizes_hyperliquid_coin_ids_without_meta() {
+        let cases = [
+            ("BTC", "BTC_USDC_PERP"),
+            ("kPEPE", "1000PEPE_USDC_PERP"),
+            ("xyz:AAPL", "AAPL_USDC_PERP"),
+            ("flx:OIL", "OIL_USDH_PERP"),
+            ("vntl:OPENAI", "OPENAI_USDH_PERP"),
+            ("hyna:BTC", "BTC_USDE_PERP"),
+            ("km:GOLD", "GOLD_USDH_PERP"),
+            ("abcd:TEST", "TEST_USDC_PERP"),
+            ("cash:WTI", "WTI_USDT0_PERP"),
+            ("para:AVGO", "AVGO_USDC_PERP"),
+            ("newdex:ABC", "newdex:ABC"),
+            ("@123", "@123"),
+            ("PURR/USDC", "PURR_USDC"),
+        ];
+
+        for (raw, expected) in cases {
+            assert_eq!(hyperliquid_inst_to_cli(raw), expected, "raw={raw}");
         }
     }
 
