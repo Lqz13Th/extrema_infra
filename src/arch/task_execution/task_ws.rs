@@ -39,8 +39,8 @@ pub enum WsChannel {
     Trades(Option<TradesParam>),
     /// Public ticker stream.
     Tick,
-    /// Public order book stream.
-    Lob,
+    /// Public order book stream, optionally parameterized by feed shape.
+    Lob(Option<LobParam>),
     /// Public market-by-order order book stream.
     LobMbo,
     /// Exchange-specific or custom stream.
@@ -59,13 +59,6 @@ pub enum CandleParam {
     OneDay,
     OneWeek,
     Custom(String),
-}
-
-/// Trade stream variant for exchanges that expose several trade feeds.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum TradesParam {
-    AggTrades,
-    AllTrades,
 }
 
 impl CandleParam {
@@ -98,4 +91,56 @@ impl CandleParam {
             CandleParam::Custom(s) => s.as_str(),
         }
     }
+}
+
+/// Trade stream variant for exchanges that expose several trade feeds.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TradesParam {
+    /// Aggregated or compressed trade stream.
+    AggTrades,
+    /// Raw trade stream when the exchange exposes one.
+    AllTrades,
+}
+
+/// Order book feed variant for exchanges that expose several book streams.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum LobParam {
+    /// Best bid/offer stream.
+    Bbo {
+        /// Optional feed update frequency.
+        frequency: Option<LobFrequency>,
+    },
+    /// Limited-depth book snapshot stream.
+    Snapshot {
+        /// Optional number of price levels to request.
+        depth: Option<u16>,
+        /// Optional feed update frequency.
+        frequency: Option<LobFrequency>,
+    },
+    /// Incremental book update stream for maintaining a local book.
+    Incremental {
+        /// Optional number of price levels to request.
+        depth: Option<u16>,
+        /// Optional feed update frequency.
+        frequency: Option<LobFrequency>,
+    },
+}
+
+/// Order book feed update frequency.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum LobFrequency {
+    /// Push updates as soon as the exchange publishes them.
+    Realtime,
+    /// Ten millisecond updates.
+    Ms10,
+    /// One hundred millisecond updates.
+    Ms100,
+    /// Two hundred fifty millisecond updates.
+    Ms250,
+    /// Five hundred millisecond updates.
+    Ms500,
+    /// One second updates.
+    Ms1000,
+    /// Exchange-specific frequency string.
+    Custom(String),
 }

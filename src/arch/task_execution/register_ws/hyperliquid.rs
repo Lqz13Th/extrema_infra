@@ -3,10 +3,11 @@ use crate::arch::{
         hyperliquid_ws_msg::HyperliquidWsData,
         schemas::ws::{
             account_order::WsAccountOrderHyperliquid,
-            account_position::WsAccountPositionHyperliquid, trades::WsTradeHyperliquid,
+            account_position::WsAccountPositionHyperliquid, lob::WsLobHyperliquid,
+            trades::WsTradeHyperliquid,
         },
     },
-    strategy_base::handler::handler_core::{find_acc_order, find_acc_pos, find_trade},
+    strategy_base::handler::handler_core::{find_acc_order, find_acc_pos, find_lob, find_trade},
     task_execution::{task_general::LogLevel, task_ws::WsChannel},
 };
 
@@ -45,6 +46,17 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Hyperliquid Acc Position",
+                    );
+                }
+            },
+            WsChannel::Lob(..) => {
+                if let Some(tx) = find_lob(&self.board_cast_channel) {
+                    self.ws_loop::<HyperliquidWsData<WsLobHyperliquid>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Hyperliquid LOB",
                     );
                 }
             },

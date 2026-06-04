@@ -20,8 +20,9 @@ pub struct HyperliquidWsChannel<T> {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum HyperliquidWsState<T> {
-    Batch(Vec<T>),
+    ChannelBatch(Vec<T>),
     Clearinghouse(WsAccountPositionMsgHyperliquid<T>),
+    ChannelSingle(T),
 }
 
 #[allow(non_snake_case)]
@@ -56,13 +57,16 @@ where
     fn into_ws(self) -> Self::Output {
         match self {
             HyperliquidWsData::Channel(c) => match c.data {
-                HyperliquidWsState::Batch(data) => data.into_iter().map(|d| d.into_ws()).collect(),
+                HyperliquidWsState::ChannelBatch(data) => {
+                    data.into_iter().map(|d| d.into_ws()).collect()
+                },
                 HyperliquidWsState::Clearinghouse(msg) => msg
                     .clearinghouseState
                     .assetPositions
                     .into_iter()
                     .map(|position| position.into_ws())
                     .collect(),
+                HyperliquidWsState::ChannelSingle(data) => vec![data.into_ws()],
             },
             HyperliquidWsData::Event(event) => {
                 if !matches!(event.channel.as_deref(), Some("pong")) {

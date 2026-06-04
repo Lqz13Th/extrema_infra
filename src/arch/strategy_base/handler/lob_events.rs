@@ -28,9 +28,9 @@ pub struct WsLob {
 
 #[derive(Clone, Debug)]
 pub enum LobEventKind {
-    Snapshot,
-    Delta,
     Bbo,
+    Snapshot,
+    Incremental,
     Heartbeat,
 }
 
