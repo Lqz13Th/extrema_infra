@@ -1095,10 +1095,7 @@ impl OkxCli {
                 TradesParam::AggTrades => OKX_WS_PUB,
                 TradesParam::AllTrades => OKX_WS_BUS,
             },
-            WsChannel::Candles(_)
-            | WsChannel::Tick
-            | WsChannel::Lob(_)
-            | WsChannel::Trades(None) => OKX_WS_PUB,
+            WsChannel::Candles(_) | WsChannel::Lob(_) | WsChannel::Trades(None) => OKX_WS_PUB,
             WsChannel::Other(s) if s == "instruments" || s == "funding-rate" => OKX_WS_BUS,
             _ => return Err(InfraError::Unimplemented),
         };
@@ -1114,7 +1111,6 @@ impl OkxCli {
         match ws_channel {
             WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
             WsChannel::Trades(trades_param) => self._ws_subscribe_trades(trades_param, insts),
-            WsChannel::Tick => Err(InfraError::Unimplemented),
             WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
             _ => Err(InfraError::Unimplemented),
         }

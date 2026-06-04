@@ -634,7 +634,7 @@ impl GateFuturesCli {
         match ws_channel {
             WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
             WsChannel::Trades(_) => self._ws_subscribe_trades(insts),
-            WsChannel::Tick | WsChannel::Lob(_) => Err(InfraError::Unimplemented),
+            WsChannel::Lob(_) => Err(InfraError::Unimplemented),
             _ => Err(InfraError::Unimplemented),
         }
     }
