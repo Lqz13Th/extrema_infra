@@ -35,9 +35,10 @@ impl EventMask {
     pub const ACC_BAL_POS: Self = Self(1 << 10);
     /// Private position-only updates.
     pub const ACC_POS: Self = Self(1 << 11);
-
+    /// Public market-by-order order book updates.
+    pub const LOB_MBO: Self = Self(1 << 12);
     /// Subscribe to every runtime event stream.
-    pub const ALL: Self = Self((1 << 12) - 1);
+    pub const ALL: Self = Self((1 << 13) - 1);
 
     /// Returns [`EventMask::NONE`].
     pub const fn none() -> Self {
@@ -75,11 +76,13 @@ mod tests {
 
     #[test]
     fn contains_combined_event_bits() {
-        let mask = EventMask::TRADE | EventMask::ACC_BAL_POS | EventMask::MODEL_PREDS;
+        let mask =
+            EventMask::TRADE | EventMask::ACC_BAL_POS | EventMask::MODEL_PREDS | EventMask::LOB_MBO;
 
         assert!(mask.contains(EventMask::TRADE));
         assert!(mask.contains(EventMask::ACC_BAL_POS));
         assert!(mask.contains(EventMask::MODEL_PREDS));
+        assert!(mask.contains(EventMask::LOB_MBO));
         assert!(!mask.contains(EventMask::CANDLE));
     }
 

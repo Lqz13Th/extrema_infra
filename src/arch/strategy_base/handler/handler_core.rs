@@ -9,6 +9,33 @@ use crate::arch::{
     traits::strategy::Strategy,
 };
 
+/// Default generic alt-task channel capacity, measured in messages.
+pub const ALT_EVENT_CHANNEL_CAPACITY: usize = 2_048;
+/// Default generic websocket-task channel capacity, measured in messages.
+pub const WS_EVENT_CHANNEL_CAPACITY: usize = 2_048;
+/// Default order execution channel capacity, measured in messages.
+pub const ORDER_EXECUTION_CHANNEL_CAPACITY: usize = 8_192;
+/// Default instrument intent channel capacity, measured in messages.
+pub const INST_INTENT_CHANNEL_CAPACITY: usize = 2_048;
+/// Default model prediction channel capacity, measured in messages.
+pub const MODEL_PREDS_CHANNEL_CAPACITY: usize = 8_192;
+/// Default scheduler channel capacity, measured in messages.
+pub const SCHEDULE_CHANNEL_CAPACITY: usize = 1_024;
+/// Default public trade channel capacity, measured in messages.
+pub const TRADE_CHANNEL_CAPACITY: usize = 8_192;
+/// Default public order book channel capacity, measured in messages.
+pub const LOB_CHANNEL_CAPACITY: usize = 16_384;
+/// Default public market-by-order order book channel capacity, measured in messages.
+pub const LOB_MBO_CHANNEL_CAPACITY: usize = 65_536;
+/// Default public candle channel capacity, measured in messages.
+pub const CANDLE_CHANNEL_CAPACITY: usize = 2_048;
+/// Default private account order channel capacity, measured in messages.
+pub const ACC_ORDER_CHANNEL_CAPACITY: usize = 8_192;
+/// Default private balance/position channel capacity, measured in messages.
+pub const ACC_BAL_POS_CHANNEL_CAPACITY: usize = 8_192;
+/// Default private account position channel capacity, measured in messages.
+pub const ACC_POS_CHANNEL_CAPACITY: usize = 8_192;
+
 /// Message envelope published through runtime broadcast channels.
 ///
 /// `task_id` identifies the task instance that produced the event. `data` is
@@ -50,6 +77,8 @@ pub enum BoardCastChannel {
     Trade(broadcast::Sender<InfraMsg<Vec<WsTrade>>>),
     /// Public order book updates.
     Lob(broadcast::Sender<InfraMsg<Vec<WsLob>>>),
+    /// Public market-by-order order book updates.
+    LobMbo(broadcast::Sender<InfraMsg<Vec<WsLobMbo>>>),
     /// Public candle batches.
     Candle(broadcast::Sender<InfraMsg<Vec<WsCandle>>>),
     /// Private account order updates.
@@ -63,62 +92,132 @@ pub enum BoardCastChannel {
 impl BoardCastChannel {
     /// Creates the default generic alt-task event channel.
     pub fn default_alt_event() -> Self {
-        BoardCastChannel::Alt(broadcast::channel(2048).0)
+        Self::alt_event_with_capacity(ALT_EVENT_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a generic alt-task event channel with a custom capacity.
+    pub fn alt_event_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::Alt(broadcast::channel(capacity).0)
     }
 
     /// Creates the default generic websocket-task event channel.
     pub fn default_ws_event() -> Self {
-        BoardCastChannel::Ws(broadcast::channel(2048).0)
+        Self::ws_event_with_capacity(WS_EVENT_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a generic websocket-task event channel with a custom capacity.
+    pub fn ws_event_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::Ws(broadcast::channel(capacity).0)
     }
 
     /// Creates the default order execution channel.
     pub fn default_order_execution() -> Self {
-        BoardCastChannel::OrderExecute(broadcast::channel(2048).0)
+        Self::order_execution_with_capacity(ORDER_EXECUTION_CHANNEL_CAPACITY)
+    }
+
+    /// Creates an order execution channel with a custom capacity.
+    pub fn order_execution_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::OrderExecute(broadcast::channel(capacity).0)
     }
 
     /// Creates the default instrument intent channel.
     pub fn default_inst_intent() -> Self {
-        BoardCastChannel::InstIntent(broadcast::channel(2048).0)
+        Self::inst_intent_with_capacity(INST_INTENT_CHANNEL_CAPACITY)
+    }
+
+    /// Creates an instrument intent channel with a custom capacity.
+    pub fn inst_intent_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::InstIntent(broadcast::channel(capacity).0)
     }
 
     /// Creates the default model prediction channel.
     pub fn default_model_preds() -> Self {
-        BoardCastChannel::ModelPreds(broadcast::channel(2048).0)
+        Self::model_preds_with_capacity(MODEL_PREDS_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a model prediction channel with a custom capacity.
+    pub fn model_preds_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::ModelPreds(broadcast::channel(capacity).0)
     }
 
     /// Creates the default scheduler channel.
     pub fn default_scheduler() -> Self {
-        BoardCastChannel::Schedule(broadcast::channel(2048).0)
+        Self::scheduler_with_capacity(SCHEDULE_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a scheduler channel with a custom capacity.
+    pub fn scheduler_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::Schedule(broadcast::channel(capacity).0)
     }
 
     /// Creates the default public trade channel.
     pub fn default_trade() -> Self {
-        BoardCastChannel::Trade(broadcast::channel(2048).0)
+        Self::trade_with_capacity(TRADE_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a public trade channel with a custom capacity.
+    pub fn trade_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::Trade(broadcast::channel(capacity).0)
     }
 
     /// Creates the default public order book channel.
     pub fn default_lob() -> Self {
-        BoardCastChannel::Lob(broadcast::channel(2048).0)
+        Self::lob_with_capacity(LOB_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a public order book channel with a custom capacity.
+    pub fn lob_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::Lob(broadcast::channel(capacity).0)
+    }
+
+    /// Creates the default public market-by-order order book channel.
+    pub fn default_lob_mbo() -> Self {
+        Self::lob_mbo_with_capacity(LOB_MBO_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a public market-by-order order book channel with a custom capacity.
+    pub fn lob_mbo_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::LobMbo(broadcast::channel(capacity).0)
     }
 
     /// Creates the default public candle channel.
     pub fn default_candle() -> Self {
-        BoardCastChannel::Candle(broadcast::channel(2048).0)
+        Self::candle_with_capacity(CANDLE_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a public candle channel with a custom capacity.
+    pub fn candle_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::Candle(broadcast::channel(capacity).0)
     }
 
     /// Creates the default private account order channel.
     pub fn default_account_order() -> Self {
-        BoardCastChannel::AccOrder(broadcast::channel(2048).0)
+        Self::account_order_with_capacity(ACC_ORDER_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a private account order channel with a custom capacity.
+    pub fn account_order_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::AccOrder(broadcast::channel(capacity).0)
     }
 
     /// Creates the default private balance/position channel.
     pub fn default_account_bal_pos() -> Self {
-        BoardCastChannel::AccBalPos(broadcast::channel(2048).0)
+        Self::account_bal_pos_with_capacity(ACC_BAL_POS_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a private balance/position channel with a custom capacity.
+    pub fn account_bal_pos_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::AccBalPos(broadcast::channel(capacity).0)
     }
 
     /// Creates the default private account position channel.
     pub fn default_account_pos() -> Self {
-        BoardCastChannel::AccPos(broadcast::channel(2048).0)
+        Self::account_pos_with_capacity(ACC_POS_CHANNEL_CAPACITY)
+    }
+
+    /// Creates a private account position channel with a custom capacity.
+    pub fn account_pos_with_capacity(capacity: usize) -> Self {
+        BoardCastChannel::AccPos(broadcast::channel(capacity).0)
     }
 }
 
@@ -177,6 +276,7 @@ pub(crate) async fn strategy_handler_loop<S>(
     // Ws pub event
     let mut rx_trade = subscribe_if(event_mask, EventMask::TRADE, || find_trade(channels));
     let mut rx_lob = subscribe_if(event_mask, EventMask::LOB, || find_lob(channels));
+    let mut rx_lob_mbo = subscribe_if(event_mask, EventMask::LOB_MBO, || find_lob_mbo(channels));
     let mut rx_candle = subscribe_if(event_mask, EventMask::CANDLE, || find_candle(channels));
 
     // Ws pri event
@@ -208,6 +308,16 @@ pub(crate) async fn strategy_handler_loop<S>(
                     Err(e) => {
                         error!("rx_lob err: {:?}, reconnecting...", e);
                         rx_lob = subscribe_if(event_mask, EventMask::LOB, || find_lob(channels));
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_lob_mbo) => {
+                match msg {
+                    Ok(msg) => strategies.on_lob_mbo(msg).await,
+                    Err(e) => {
+                        error!("rx_lob_mbo err: {:?}, reconnecting...", e);
+                        rx_lob_mbo =
+                            subscribe_if(event_mask, EventMask::LOB_MBO, || find_lob_mbo(channels));
                     },
                 };
             },
@@ -413,6 +523,18 @@ pub(crate) fn find_lob(
 ) -> Option<broadcast::Sender<InfraMsg<Vec<WsLob>>>> {
     channels.iter().find_map(|ch| {
         if let BoardCastChannel::Lob(tx) = ch {
+            Some(tx.clone())
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn find_lob_mbo(
+    channels: &Arc<Vec<BoardCastChannel>>,
+) -> Option<broadcast::Sender<InfraMsg<Vec<WsLobMbo>>>> {
+    channels.iter().find_map(|ch| {
+        if let BoardCastChannel::LobMbo(tx) = ch {
             Some(tx.clone())
         } else {
             None

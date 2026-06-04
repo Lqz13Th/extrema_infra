@@ -116,6 +116,12 @@ where
         tokio::join!(fut_head, fut_tail);
     }
 
+    async fn on_lob_mbo(&mut self, msg: InfraMsg<Vec<WsLobMbo>>) {
+        let fut_head = self.head.on_lob_mbo(msg.clone());
+        let fut_tail = self.tail.on_lob_mbo(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
     async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
         let fut_head = self.head.on_candle(msg.clone());
         let fut_tail = self.tail.on_candle(msg);

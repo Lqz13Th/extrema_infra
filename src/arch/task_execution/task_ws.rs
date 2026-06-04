@@ -41,6 +41,8 @@ pub enum WsChannel {
     Tick,
     /// Public order book stream.
     Lob,
+    /// Public market-by-order order book stream.
+    LobMbo,
     /// Exchange-specific or custom stream.
     Other(String),
 }
