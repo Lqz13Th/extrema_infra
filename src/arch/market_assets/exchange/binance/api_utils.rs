@@ -4,7 +4,10 @@ use serde_json::json;
 use std::{collections::HashMap, sync::Arc};
 use tracing::warn;
 
-use crate::arch::market_assets::base_data::SUBSCRIBE;
+use crate::arch::{
+    market_assets::base_data::SUBSCRIBE,
+    task_execution::task_ws::{LobFrequency, LobParam},
+};
 use crate::errors::{InfraError, InfraResult};
 
 use super::api_key::BinanceKey;
@@ -458,6 +461,83 @@ pub fn ws_subscribe_msg_binance(param: &str, insts: Option<&[String]>) -> String
     subscribe_msg.to_string()
 }
 
+pub fn ws_subscribe_msg_binance_cm(param: &str, insts: Option<&[String]>) -> String {
+    let params: Vec<String> = match insts {
+        Some(list) => list
+            .iter()
+            .map(|symbol| {
+                format!(
+                    "{}@{}",
+                    cli_perp_to_binance_cm(symbol).to_lowercase(),
+                    param
+                )
+            })
+            .collect(),
+        None => vec![param.into()],
+    };
+
+    let subscribe_msg = json!({
+        "method": SUBSCRIBE,
+        "params": params,
+        "id": 1
+    });
+
+    subscribe_msg.to_string()
+}
+
+pub fn binance_lob_stream(lob_param: &Option<LobParam>) -> InfraResult<String> {
+    match lob_param {
+        None => Ok(format!("depth{}", binance_lob_frequency_suffix(&None)?)),
+        Some(LobParam::Bbo { frequency }) => match frequency {
+            None | Some(LobFrequency::Realtime) => Ok("bookTicker".into()),
+            Some(freq) => Err(InfraError::ApiCliError(format!(
+                "Binance bookTicker does not support requested frequency: {:?}",
+                freq
+            ))),
+        },
+        Some(LobParam::Snapshot { depth, frequency }) => {
+            let depth = match depth.as_ref().copied() {
+                None => 20,
+                Some(depth @ (5 | 10 | 20)) => depth,
+                Some(depth) => {
+                    return Err(InfraError::ApiCliError(format!(
+                        "Binance partial depth supports only 5, 10, or 20 levels: {}",
+                        depth
+                    )));
+                },
+            };
+
+            Ok(format!(
+                "depth{}{}",
+                depth,
+                binance_lob_frequency_suffix(frequency)?
+            ))
+        },
+        Some(LobParam::Incremental { depth, frequency }) => {
+            if depth.is_some() {
+                return Err(InfraError::ApiCliError(format!(
+                    "Binance diff depth does not support a depth parameter: {:?}",
+                    depth
+                )));
+            }
+
+            Ok(format!("depth{}", binance_lob_frequency_suffix(frequency)?))
+        },
+    }
+}
+
+fn binance_lob_frequency_suffix(frequency: &Option<LobFrequency>) -> InfraResult<&'static str> {
+    match frequency {
+        None | Some(LobFrequency::Ms250) => Ok(""),
+        Some(LobFrequency::Ms100) => Ok("@100ms"),
+        Some(LobFrequency::Ms500) => Ok("@500ms"),
+        Some(freq) => Err(InfraError::ApiCliError(format!(
+            "Binance LOB supports only 100ms, 250ms, or 500ms frequency: {:?}",
+            freq
+        ))),
+    }
+}
+
 pub fn binance_fut_inst_to_cli(symbol: &str) -> String {
     let upper = symbol.to_uppercase();
     let quote_currencies = ["USDT", "USDC", "USD"];
@@ -573,6 +653,8 @@ pub fn cli_spot_to_binance_spot(inst: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::arch::task_execution::task_ws::{LobFrequency, LobParam};
+
     use super::*;
 
     #[test]
@@ -591,6 +673,78 @@ mod tests {
         assert_eq!(cli_perp_to_binance_cm_pair("BTC_USD_PERP"), "BTCUSD");
         assert_eq!(cli_perp_to_binance_cm_pair("BTC_USDT_PERP"), "BTCUSD");
         assert_eq!(cli_perp_to_binance_cm_pair("BTC_USD_FUT_240329"), "BTCUSD");
+    }
+
+    #[test]
+    fn builds_binance_lob_stream_names() {
+        assert_eq!(binance_lob_stream(&None).unwrap(), "depth");
+        assert_eq!(
+            binance_lob_stream(&Some(LobParam::Bbo { frequency: None })).unwrap(),
+            "bookTicker"
+        );
+        assert_eq!(
+            binance_lob_stream(&Some(LobParam::Snapshot {
+                depth: None,
+                frequency: Some(LobFrequency::Ms100),
+            }))
+            .unwrap(),
+            "depth20@100ms"
+        );
+        assert_eq!(
+            binance_lob_stream(&Some(LobParam::Snapshot {
+                depth: Some(10),
+                frequency: Some(LobFrequency::Ms500),
+            }))
+            .unwrap(),
+            "depth10@500ms"
+        );
+        assert_eq!(
+            binance_lob_stream(&Some(LobParam::Incremental {
+                depth: None,
+                frequency: Some(LobFrequency::Ms250),
+            }))
+            .unwrap(),
+            "depth"
+        );
+    }
+
+    #[test]
+    fn rejects_unsupported_binance_lob_requests() {
+        assert!(
+            binance_lob_stream(&Some(LobParam::Bbo {
+                frequency: Some(LobFrequency::Ms100),
+            }))
+            .is_err()
+        );
+        assert!(
+            binance_lob_stream(&Some(LobParam::Snapshot {
+                depth: Some(50),
+                frequency: None,
+            }))
+            .is_err()
+        );
+        assert!(
+            binance_lob_stream(&Some(LobParam::Incremental {
+                depth: Some(20),
+                frequency: None,
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn builds_binance_lob_subscribe_symbols() {
+        let um_insts = vec!["BTC_USDT_PERP".into()];
+        let um_msg: serde_json::Value =
+            serde_json::from_str(&ws_subscribe_msg_binance("depth20@100ms", Some(&um_insts)))
+                .unwrap();
+        assert_eq!(um_msg["params"][0], "btcusdt@depth20@100ms");
+
+        let cm_insts = vec!["BTC_USD_PERP".into()];
+        let cm_msg: serde_json::Value =
+            serde_json::from_str(&ws_subscribe_msg_binance_cm("bookTicker", Some(&cm_insts)))
+                .unwrap();
+        assert_eq!(cm_msg["params"][0], "btcusd_perp@bookTicker");
     }
 
     #[test]

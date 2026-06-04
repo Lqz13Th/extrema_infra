@@ -224,6 +224,10 @@ impl WsTaskBuilder {
                 self.ws_channel_hyperliquid(_ws_stream).await;
             },
             #[cfg(feature = "binance")]
+            Market::BinanceCmFutures => {
+                self.ws_channel_binance_cm(_ws_stream).await;
+            },
+            #[cfg(feature = "binance")]
             Market::BinanceUmFutures => {
                 self.ws_channel_binance_um(_ws_stream).await;
             },
