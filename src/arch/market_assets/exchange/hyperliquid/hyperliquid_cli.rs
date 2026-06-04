@@ -1,7 +1,7 @@
 use reqwest::Client;
 use serde_json::{Value, json};
 use std::{collections::HashMap, sync::Arc};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::arch::{
     market_assets::{
@@ -678,22 +678,24 @@ impl HyperliquidCli {
             ));
         }
 
-        let msgs: InfraResult<Vec<String>> = insts
-            .iter()
-            .map(|inst| {
-                let coin = self._inst_to_trade_coin(inst)?;
-                Ok(json!({
-                    "method": "subscribe",
-                    "subscription": {
-                        "type": "trades",
-                        "coin": coin.to_string(),
-                    }
-                })
-                .to_string())
-            })
-            .collect();
+        if insts.len() > 1 {
+            warn!(
+                "Hyperliquid trades ws supports one instrument per subscription message; got {} instruments: {:?}",
+                insts.len(),
+                insts
+            );
+        }
 
-        Ok(msgs?.join("\n"))
+        let inst = insts.first().expect("checked non-empty insts");
+        let coin = self._inst_to_trade_coin(inst)?;
+        Ok(json!({
+            "method": "subscribe",
+            "subscription": {
+                "type": "trades",
+                "coin": coin.to_string(),
+            }
+        })
+        .to_string())
     }
 
     fn _ws_subscribe_lob(
@@ -711,23 +713,25 @@ impl HyperliquidCli {
             ));
         }
 
-        let subscription_type = hyperliquid_lob_subscription_type(lob_param)?;
-        let msgs: InfraResult<Vec<String>> = insts
-            .iter()
-            .map(|inst| {
-                let coin = self._inst_to_trade_coin(inst)?;
-                Ok(json!({
-                    "method": "subscribe",
-                    "subscription": {
-                        "type": subscription_type,
-                        "coin": coin.to_string(),
-                    }
-                })
-                .to_string())
-            })
-            .collect();
+        if insts.len() > 1 {
+            warn!(
+                "Hyperliquid lob ws supports one instrument per subscription message; got {} instruments: {:?}",
+                insts.len(),
+                insts
+            );
+        }
 
-        Ok(msgs?.join("\n"))
+        let subscription_type = hyperliquid_lob_subscription_type(lob_param)?;
+        let inst = insts.first().expect("checked non-empty insts");
+        let coin = self._inst_to_trade_coin(inst)?;
+        Ok(json!({
+            "method": "subscribe",
+            "subscription": {
+                "type": subscription_type,
+                "coin": coin.to_string(),
+            }
+        })
+        .to_string())
     }
 
     fn _inst_to_trade_coin(&self, inst: &str) -> InfraResult<String> {
