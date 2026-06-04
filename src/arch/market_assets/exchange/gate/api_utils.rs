@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::arch::market_assets::{api_general::get_seconds_timestamp, base_data::SUBSCRIBE_LOWER};
 use crate::arch::task_execution::task_ws::LobFrequency;
@@ -52,8 +52,18 @@ pub fn cli_perp_to_gate_inst(symbol: &str) -> String {
 }
 
 pub fn gate_first_contract(insts: Option<&[String]>) -> InfraResult<String> {
-    let inst = insts
-        .and_then(|list| list.first())
+    let list = insts
+        .ok_or_else(|| InfraError::ApiCliError("Gate futures ws requires one instrument".into()))?;
+    if list.len() > 1 {
+        warn!(
+            "Gate futures ws supports one instrument for this channel; got {} instruments: {:?}; using the first one",
+            list.len(),
+            list
+        );
+    }
+
+    let inst = list
+        .first()
         .ok_or_else(|| InfraError::ApiCliError("Gate futures ws requires one instrument".into()))?;
     Ok(cli_perp_to_gate_inst(inst))
 }
