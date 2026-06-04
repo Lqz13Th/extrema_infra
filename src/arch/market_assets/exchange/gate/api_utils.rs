@@ -5,6 +5,7 @@ use serde_json::json;
 use tracing::error;
 
 use crate::arch::market_assets::{api_general::get_seconds_timestamp, base_data::SUBSCRIBE_LOWER};
+use crate::arch::task_execution::task_ws::LobFrequency;
 use crate::errors::{InfraError, InfraResult};
 
 pub const GATE_CHANNEL_ID_EXTRA_KEY: &str = "gate_channel_id";
@@ -67,6 +68,55 @@ pub fn gate_contracts_from_insts(insts: Option<&[String]>) -> InfraResult<Vec<St
         ));
     }
     Ok(list.iter().map(|s| cli_perp_to_gate_inst(s)).collect())
+}
+
+pub(crate) fn gate_lob_depth(depth: &Option<u16>) -> InfraResult<u16> {
+    match depth.as_ref().copied() {
+        None => Ok(20),
+        Some(depth @ (20 | 50 | 100)) => Ok(depth),
+        Some(depth) => Err(InfraError::ApiCliError(format!(
+            "Gate futures LOB supports only 20, 50, or 100 levels: {}",
+            depth
+        ))),
+    }
+}
+
+pub(crate) fn gate_lob_bbo_frequency(frequency: &Option<LobFrequency>) -> InfraResult<()> {
+    match frequency {
+        None | Some(LobFrequency::Realtime) => Ok(()),
+        Some(freq) => Err(InfraError::ApiCliError(format!(
+            "Gate futures book ticker does not support requested frequency: {:?}",
+            freq
+        ))),
+    }
+}
+
+pub(crate) fn gate_lob_snapshot_frequency(frequency: &Option<LobFrequency>) -> InfraResult<()> {
+    match frequency {
+        None => Ok(()),
+        Some(freq) => Err(InfraError::ApiCliError(format!(
+            "Gate futures order book snapshot does not support frequency: {:?}",
+            freq
+        ))),
+    }
+}
+
+pub(crate) fn gate_lob_update_frequency(
+    frequency: &Option<LobFrequency>,
+    depth: u16,
+) -> InfraResult<&'static str> {
+    match frequency {
+        None | Some(LobFrequency::Ms100) => Ok("100ms"),
+        Some(LobFrequency::Ms20) if depth == 20 => Ok("20ms"),
+        Some(LobFrequency::Ms20) => Err(InfraError::ApiCliError(format!(
+            "Gate futures 20ms LOB updates support only 20 levels, got {}",
+            depth
+        ))),
+        Some(freq) => Err(InfraError::ApiCliError(format!(
+            "Gate futures LOB updates support only 20ms or 100ms frequency: {:?}",
+            freq
+        ))),
+    }
 }
 
 pub fn infer_settle_from_inst(inst: &str) -> String {

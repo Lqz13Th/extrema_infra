@@ -131,6 +131,8 @@ pub enum LobFrequency {
     Realtime,
     /// Ten millisecond updates.
     Ms10,
+    /// Twenty millisecond updates.
+    Ms20,
     /// One hundred millisecond updates.
     Ms100,
     /// Two hundred fifty millisecond updates.

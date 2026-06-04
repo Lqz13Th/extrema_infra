@@ -15,7 +15,7 @@ use crate::arch::{
         },
         base_data::{InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER},
     },
-    task_execution::task_ws::{CandleParam, WsChannel},
+    task_execution::task_ws::{CandleParam, LobParam, WsChannel},
     traits::{
         conversion::IntoInfraVec,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
@@ -634,7 +634,7 @@ impl GateFuturesCli {
         match ws_channel {
             WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
             WsChannel::Trades(_) => self._ws_subscribe_trades(insts),
-            WsChannel::Lob(_) => Err(InfraError::Unimplemented),
+            WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -661,6 +661,48 @@ impl GateFuturesCli {
         ))
     }
 
+    fn _ws_subscribe_lob(
+        &self,
+        lob_param: &Option<LobParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        match lob_param {
+            Some(LobParam::Bbo { frequency }) => {
+                gate_lob_bbo_frequency(frequency)?;
+                let contracts = gate_contracts_from_insts(insts)?;
+                Ok(ws_subscribe_msg_gate_futures(
+                    GATE_WS_FUTURES_BOOK_TICKER,
+                    contracts,
+                ))
+            },
+            Some(LobParam::Snapshot { depth, frequency }) => {
+                gate_lob_snapshot_frequency(frequency)?;
+                let contract = gate_first_contract(insts)?;
+                let depth = gate_lob_depth(depth)?;
+                Ok(ws_subscribe_msg_gate_futures(
+                    GATE_WS_FUTURES_ORDER_BOOK,
+                    vec![contract, depth.to_string(), "0".into()],
+                ))
+            },
+            None => {
+                let contract = gate_first_contract(insts)?;
+                Ok(ws_subscribe_msg_gate_futures(
+                    GATE_WS_FUTURES_ORDER_BOOK_UPDATE,
+                    vec![contract, "100ms".into(), "20".into()],
+                ))
+            },
+            Some(LobParam::Incremental { depth, frequency }) => {
+                let contract = gate_first_contract(insts)?;
+                let depth = gate_lob_depth(depth)?;
+                let frequency = gate_lob_update_frequency(frequency, depth)?;
+                Ok(ws_subscribe_msg_gate_futures(
+                    GATE_WS_FUTURES_ORDER_BOOK_UPDATE,
+                    vec![contract, frequency.into(), depth.to_string()],
+                ))
+            },
+        }
+    }
+
     fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         let topic = match channel {
             WsChannel::AccountOrders => GATE_WS_FUTURES_ORDERS,
@@ -668,5 +710,87 @@ impl GateFuturesCli {
             _ => return Err(InfraError::Unimplemented),
         };
         self.ws_subscribe_private(topic)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::arch::{
+        market_assets::exchange::gate::gate_futures_cli::GateFuturesCli,
+        task_execution::task_ws::{LobFrequency, LobParam, WsChannel},
+        traits::market_lob::LobWebsocket,
+    };
+
+    #[tokio::test]
+    async fn builds_gate_lob_subscription_messages() {
+        let cli = GateFuturesCli::default();
+        let insts = vec!["BTC_USDT_PERP".to_string(), "ETH_USDT_PERP".to_string()];
+
+        let bbo = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Bbo {
+                    frequency: Some(LobFrequency::Realtime),
+                })),
+                Some(&insts),
+            )
+            .await
+            .unwrap();
+        assert!(bbo.contains("\"channel\":\"futures.book_ticker\""));
+        assert!(bbo.contains("\"BTC_USDT\""));
+        assert!(bbo.contains("\"ETH_USDT\""));
+
+        let snapshot = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Snapshot {
+                    depth: Some(50),
+                    frequency: None,
+                })),
+                Some(&insts),
+            )
+            .await
+            .unwrap();
+        assert!(snapshot.contains("\"channel\":\"futures.order_book\""));
+        assert!(snapshot.contains("\"payload\":[\"BTC_USDT\",\"50\",\"0\"]"));
+
+        let incremental = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Incremental {
+                    depth: Some(20),
+                    frequency: Some(LobFrequency::Ms20),
+                })),
+                Some(&insts),
+            )
+            .await
+            .unwrap();
+        assert!(incremental.contains("\"channel\":\"futures.order_book_update\""));
+        assert!(incremental.contains("\"payload\":[\"BTC_USDT\",\"20ms\",\"20\"]"));
+    }
+
+    #[tokio::test]
+    async fn rejects_unsupported_gate_lob_subscription_params() {
+        let cli = GateFuturesCli::default();
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+
+        let err = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Snapshot {
+                    depth: Some(20),
+                    frequency: Some(LobFrequency::Ms100),
+                })),
+                Some(&insts),
+            )
+            .await;
+        assert!(err.is_err());
+
+        let err = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Incremental {
+                    depth: Some(50),
+                    frequency: Some(LobFrequency::Ms20),
+                })),
+                Some(&insts),
+            )
+            .await;
+        assert!(err.is_err());
     }
 }
