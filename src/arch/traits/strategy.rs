@@ -190,6 +190,7 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
 /// | [`EventHandler::on_ws_event`] | websocket relay startup/control | `BoardCastChannel::default_ws_event()` | `EventMask::WS_EVENT` |
 /// | [`EventHandler::on_trade`] | public trade websocket relay | `BoardCastChannel::default_trade()` | `EventMask::TRADE` |
 /// | [`EventHandler::on_lob`] | public LOB websocket relay | `BoardCastChannel::default_lob()` | `EventMask::LOB` |
+/// | [`EventHandler::on_lob_mbo`] | public market-by-order websocket relay | `BoardCastChannel::default_lob_mbo()` | `EventMask::LOB_MBO` |
 /// | [`EventHandler::on_candle`] | public candle websocket relay | `BoardCastChannel::default_candle()` | `EventMask::CANDLE` |
 /// | [`EventHandler::on_acc_order`] | private account-order websocket relay | `BoardCastChannel::default_account_order()` | `EventMask::ACC_ORDER` |
 /// | [`EventHandler::on_acc_bal_pos`] | private balance/position websocket relay | `BoardCastChannel::default_account_bal_pos()` | `EventMask::ACC_BAL_POS` |
@@ -294,6 +295,14 @@ pub trait EventHandler {
     /// Emitted by exchange relays that implement [`WsChannel::Lob`] routing and
     /// publish into `BoardCastChannel::default_lob()`.
     fn on_lob(&mut self, _msg: InfraMsg<Vec<WsLob>>) -> impl Future<Output = ()> + Send {
+        ready(())
+    }
+
+    /// Receives normalized market-by-order order book updates.
+    ///
+    /// Emitted by exchange relays that implement [`WsChannel::LobMbo`] routing
+    /// and publish into `BoardCastChannel::default_lob_mbo()`.
+    fn on_lob_mbo(&mut self, _msg: InfraMsg<Vec<WsLobMbo>>) -> impl Future<Output = ()> + Send {
         ready(())
     }
 
