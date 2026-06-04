@@ -3,11 +3,11 @@ use crate::arch::{
         okx_ws_msg::OkxWsData,
         schemas::ws::{
             account_bal_and_pos::WsBalAndPosOkx, account_order::WsAccountOrderOkx,
-            account_position::WsAccountPositionOkx, trades::WsTradesOkx,
+            account_position::WsAccountPositionOkx, lob::OkxWsLobBook, trades::WsTradesOkx,
         },
     },
     strategy_base::handler::handler_core::{
-        find_acc_bal_pos, find_acc_order, find_acc_pos, find_trade,
+        find_acc_bal_pos, find_acc_order, find_acc_pos, find_lob, find_trade,
     },
     task_execution::{task_general::LogLevel, task_ws::WsChannel},
 };
@@ -22,6 +22,13 @@ impl WsTaskBuilder {
                     self.ws_loop::<OkxWsData<WsTradesOkx>>(tx, ws_stream).await;
                 } else {
                     self.log(LogLevel::Warn, "No broadcast channel found for Okx Trades");
+                }
+            },
+            WsChannel::Lob(..) => {
+                if let Some(tx) = find_lob(&self.board_cast_channel) {
+                    self.ws_loop::<OkxWsData<OkxWsLobBook>>(tx, ws_stream).await;
+                } else {
+                    self.log(LogLevel::Warn, "No broadcast channel found for Okx LOB");
                 }
             },
             WsChannel::AccountOrders => {

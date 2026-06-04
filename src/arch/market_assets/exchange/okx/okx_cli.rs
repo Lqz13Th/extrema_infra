@@ -1115,7 +1115,7 @@ impl OkxCli {
             WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
             WsChannel::Trades(trades_param) => self._ws_subscribe_trades(trades_param, insts),
             WsChannel::Tick => Err(InfraError::Unimplemented),
-            WsChannel::Lob(_) => Err(InfraError::Unimplemented),
+            WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -1130,6 +1130,51 @@ impl OkxCli {
         let channel = format!("candle{}", interval);
 
         Ok(ws_subscribe_msg_okx(&channel, insts))
+    }
+
+    fn _ws_subscribe_lob(
+        &self,
+        lob_param: &Option<LobParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        let channel = match lob_param {
+            None => "books",
+            Some(LobParam::Bbo { frequency }) => match frequency {
+                None | Some(LobFrequency::Realtime) | Some(LobFrequency::Ms10) => "bbo-tbt",
+                Some(freq) => {
+                    return Err(InfraError::ApiCliError(format!(
+                        "OKX bbo-tbt does not support requested frequency: {:?}",
+                        freq
+                    )));
+                },
+            },
+            Some(LobParam::Snapshot { depth, frequency }) => match (depth, frequency) {
+                (None | Some(5), None | Some(LobFrequency::Ms100)) => "books5",
+                _ => {
+                    return Err(InfraError::ApiCliError(format!(
+                        "OKX snapshot LOB supports only books5: depth={:?}, frequency={:?}",
+                        depth, frequency
+                    )));
+                },
+            },
+            Some(LobParam::Incremental { depth, frequency }) => match (depth, frequency) {
+                (None | Some(400), None | Some(LobFrequency::Ms100)) => "books",
+                (None | Some(400), Some(LobFrequency::Realtime) | Some(LobFrequency::Ms10)) => {
+                    "books-l2-tbt"
+                },
+                (Some(50), None | Some(LobFrequency::Realtime) | Some(LobFrequency::Ms10)) => {
+                    "books50-l2-tbt"
+                },
+                _ => {
+                    return Err(InfraError::ApiCliError(format!(
+                        "Unsupported OKX incremental LOB request: depth={:?}, frequency={:?}",
+                        depth, frequency
+                    )));
+                },
+            },
+        };
+
+        Ok(ws_subscribe_msg_okx(channel, insts))
     }
 
     fn _ws_subscribe_trades(
@@ -1173,5 +1218,80 @@ impl OkxCli {
         });
 
         Ok(msg.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::Value;
+
+    use super::*;
+
+    #[test]
+    fn builds_okx_lob_subscribe_channels() {
+        let cli = OkxCli::default();
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+        let cases = [
+            (
+                WsChannel::Lob(Some(LobParam::Bbo {
+                    frequency: Some(LobFrequency::Ms10),
+                })),
+                "bbo-tbt",
+            ),
+            (
+                WsChannel::Lob(Some(LobParam::Snapshot {
+                    depth: Some(5),
+                    frequency: Some(LobFrequency::Ms100),
+                })),
+                "books5",
+            ),
+            (
+                WsChannel::Lob(Some(LobParam::Incremental {
+                    depth: Some(400),
+                    frequency: Some(LobFrequency::Ms100),
+                })),
+                "books",
+            ),
+            (
+                WsChannel::Lob(Some(LobParam::Incremental {
+                    depth: Some(50),
+                    frequency: Some(LobFrequency::Ms10),
+                })),
+                "books50-l2-tbt",
+            ),
+            (
+                WsChannel::Lob(Some(LobParam::Incremental {
+                    depth: Some(400),
+                    frequency: Some(LobFrequency::Ms10),
+                })),
+                "books-l2-tbt",
+            ),
+        ];
+
+        for (channel, expected) in cases {
+            let msg = cli._get_public_sub_msg(&channel, Some(&insts)).unwrap();
+            let value: Value = serde_json::from_str(&msg).unwrap();
+
+            assert_eq!(value["op"], "subscribe");
+            assert_eq!(value["args"][0]["channel"], expected);
+            assert_eq!(value["args"][0]["instId"], "BTC-USDT-SWAP");
+        }
+    }
+
+    #[test]
+    fn rejects_unsupported_okx_lob_subscribe_requests() {
+        let cli = OkxCli::default();
+
+        let err = cli
+            ._get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Snapshot {
+                    depth: Some(20),
+                    frequency: None,
+                })),
+                None,
+            )
+            .unwrap_err();
+
+        assert!(matches!(err, InfraError::ApiCliError(_)));
     }
 }
