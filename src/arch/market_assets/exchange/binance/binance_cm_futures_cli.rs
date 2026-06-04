@@ -49,8 +49,8 @@ impl LobPublicRest for BinanceCmCli {
         self._get_instrument_info(inst_type).await
     }
 
-    async fn get_live_instruments(&self, _inst_type: InstrumentType) -> InfraResult<Vec<String>> {
-        self._get_live_instruments().await
+    async fn get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        self._get_live_instruments(inst_type).await
     }
 }
 
@@ -235,28 +235,13 @@ impl BinanceCmCli {
         Ok(data)
     }
 
-    async fn _get_live_instruments(&self) -> InfraResult<Vec<String>> {
-        let url = [
-            BINANCE_CM_FUTURES_BASE_URL,
-            BINANCE_CM_FUTURES_EXCHANGE_INFO,
-        ]
-        .concat();
-
-        let response = self.client.get(url).send().await?;
-        let res: RestResBinance<RestExchangeInfoBinanceCM> =
-            parse_json_response("BinanceCmFutures live_instruments", response).await?;
-
-        let data: Vec<String> = res
-            .into_vec()?
+    async fn _get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        let data = self
+            ._get_instrument_info(inst_type)
+            .await?
             .into_iter()
-            .next()
-            .ok_or(InfraError::ApiCliError(
-                "No CM exchange info data returned".into(),
-            ))?
-            .symbols
-            .into_iter()
-            .filter(|ins| ins.contractType == PERPETUAL && ins.contractStatus == TRADING)
-            .map(|s| binance_fut_inst_to_cli(&s.symbol))
+            .filter(|inst| inst.state == InstrumentStatus::Live)
+            .map(|inst| inst.inst)
             .collect();
 
         Ok(data)
@@ -297,7 +282,7 @@ impl BinanceCmCli {
         match ws_channel {
             WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
             WsChannel::Trades(_) => Err(InfraError::Unimplemented),
-            WsChannel::Lob(_) => Err(InfraError::Unimplemented),
+            WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -337,5 +322,15 @@ impl BinanceCmCli {
         let channel = format!("kline_{}", interval);
 
         Ok(ws_subscribe_msg_binance(&channel, insts))
+    }
+
+    fn _ws_subscribe_lob(
+        &self,
+        lob_param: &Option<LobParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        let channel = binance_lob_stream(lob_param)?;
+
+        Ok(ws_subscribe_msg_binance_cm(&channel, insts))
     }
 }
