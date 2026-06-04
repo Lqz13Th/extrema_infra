@@ -16,17 +16,6 @@ use super::{WsStream, WsTaskBuilder};
 impl WsTaskBuilder {
     pub(super) async fn ws_channel_hyperliquid(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
-            WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<HyperliquidWsData<WsTradeHyperliquid>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Hyperliquid Trades",
-                    );
-                }
-            },
             WsChannel::AccountOrders => {
                 if let Some(tx) = find_acc_order(&self.board_cast_channel) {
                     self.ws_loop::<HyperliquidWsData<WsAccountOrderHyperliquid>>(tx, ws_stream)
@@ -46,6 +35,17 @@ impl WsTaskBuilder {
                     self.log(
                         LogLevel::Warn,
                         "No broadcast channel found for Hyperliquid Acc Position",
+                    );
+                }
+            },
+            WsChannel::Trades(..) => {
+                if let Some(tx) = find_trade(&self.board_cast_channel) {
+                    self.ws_loop::<HyperliquidWsData<WsTradeHyperliquid>>(tx, ws_stream)
+                        .await;
+                } else {
+                    self.log(
+                        LogLevel::Warn,
+                        "No broadcast channel found for Hyperliquid Trades",
                     );
                 }
             },
