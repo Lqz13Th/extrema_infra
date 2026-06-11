@@ -70,17 +70,51 @@ impl LobPublicRest for LobClients {
         }
     }
 
-    async fn get_candles(&self, inst: &str, interval: CandleParam) -> InfraResult<Vec<CandleData>> {
+    async fn get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
         match self {
-            LobClients::Hyperliquid(c) => c.get_candles(inst, interval).await,
-            LobClients::BinanceCm(c) => c.get_candles(inst, interval).await,
-            LobClients::BinanceSpot(c) => c.get_candles(inst, interval).await,
-            LobClients::BinanceUm(c) => c.get_candles(inst, interval).await,
-            LobClients::GateDelivery(c) => c.get_candles(inst, interval).await,
-            LobClients::GateFutures(c) => c.get_candles(inst, interval).await,
-            LobClients::GateSpot(c) => c.get_candles(inst, interval).await,
-            LobClients::GateUni(c) => c.get_candles(inst, interval).await,
-            LobClients::Okx(c) => c.get_candles(inst, interval).await,
+            LobClients::Hyperliquid(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
+            LobClients::BinanceCm(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
+            LobClients::BinanceSpot(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
+            LobClients::BinanceUm(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
+            LobClients::GateDelivery(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
+            LobClients::GateFutures(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
+            LobClients::GateSpot(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
+            LobClients::GateUni(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
+            LobClients::Okx(c) => {
+                c.get_candles(inst, interval, limit, start_time_us, end_time_us)
+                    .await
+            },
         }
     }
 

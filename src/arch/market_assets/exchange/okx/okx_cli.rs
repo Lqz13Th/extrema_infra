@@ -30,7 +30,7 @@ use super::{
         asset_deposit_address::RestAssetDepositAddressOkx,
         asset_deposit_history::RestAssetDepositHistoryOkx, asset_transfer::RestAssetTransferOkx,
         asset_transfer_state::RestAssetTransferStateOkx, asset_withdrawal::RestAssetWithdrawalOkx,
-        asset_withdrawal_history::RestAssetWithdrawalHistoryOkx,
+        asset_withdrawal_history::RestAssetWithdrawalHistoryOkx, candle::RestCandleOkx,
         ct_current_lead_traders::RestLeadtraderOkx,
         ct_public_current_subpositions::RestSubPositionOkx,
         ct_public_lead_trader_stats::RestPubLeadTraderStatsOkx,
@@ -79,6 +79,18 @@ impl LobPublicRest for OkxCli {
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        self._get_candles(inst, interval, limit, start_time_us, end_time_us)
+            .await
     }
 
     async fn get_instrument_info(
@@ -866,6 +878,50 @@ impl OkxCli {
             })
             .map(TickerData::from)
             .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        let mut params = vec![
+            format!("instId={}", cli_perp_to_okx_inst(inst)),
+            format!("bar={}", okx_candle_interval(&interval)),
+        ];
+        if let Some(limit) = limit {
+            params.push(format!("limit={limit}"));
+        }
+        if let Some(start_time_us) = start_time_us {
+            params.push(format!("before={}", start_time_us / 1_000));
+        }
+        if let Some(end_time_us) = end_time_us {
+            params.push(format!("after={}", end_time_us / 1_000));
+        }
+
+        let url = format!(
+            "{}{}?{}",
+            OKX_BASE_URL,
+            OKX_MARKET_CANDLES,
+            params.join("&")
+        );
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestCandleOkx> = parse_json_response("Okx candles", response).await?;
+
+        let mut data: Vec<CandleData> = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| entry.into_candle_data(inst))
+            .filter(|entry| start_time_us.is_none_or(|start| entry.timestamp >= start))
+            .filter(|entry| end_time_us.is_none_or(|end| entry.timestamp <= end))
+            .collect();
+        data.sort_by_key(|candle| candle.timestamp);
 
         Ok(data)
     }

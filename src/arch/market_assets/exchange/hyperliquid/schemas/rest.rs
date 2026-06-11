@@ -1,5 +1,6 @@
 pub mod all_mids;
 pub mod asset_ctxs;
+pub mod candle;
 pub mod clearinghouse_state;
 pub mod funding_history;
 pub mod meta;
