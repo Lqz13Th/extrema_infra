@@ -26,6 +26,7 @@ use super::{
         account_balance::RestAccountBalBinanceUM,
         account_config::RestAccountConfigBinanceUM,
         account_position_risk::RestAccountPosRiskBinanceUM,
+        candle::RestCandleBinanceUM,
         exchange_info::RestExchangeInfoBinanceUM,
         funding_rate::RestFundingRateBinanceUM,
         funding_rate_info::RestFundingInfoBinanceUM,
@@ -61,6 +62,18 @@ impl LobPublicRest for BinanceUmCli {
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        self._get_candles(inst, interval, limit, start_time_us, end_time_us)
+            .await
     }
 
     async fn get_instrument_info(
@@ -376,6 +389,49 @@ impl BinanceUmCli {
             .collect();
 
         Ok(candles)
+    }
+
+    async fn _get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        let mut params = vec![
+            format!("symbol={}", cli_perp_to_pure_uppercase(inst)),
+            format!("interval={}", interval.as_str()),
+        ];
+        if let Some(limit) = limit {
+            params.push(format!("limit={limit}"));
+        }
+        if let Some(start_time_us) = start_time_us {
+            params.push(format!("startTime={}", start_time_us / 1_000));
+        }
+        if let Some(end_time_us) = end_time_us {
+            params.push(format!("endTime={}", end_time_us / 1_000));
+        }
+
+        let url = format!(
+            "{}{}?{}",
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_KLINES,
+            params.join("&")
+        );
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestCandleBinanceUM> =
+            parse_json_response("BinanceUmFutures candles", response).await?;
+
+        let mut data: Vec<CandleData> = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| entry.into_candle_data(inst))
+            .collect();
+        data.sort_by_key(|candle| candle.timestamp);
+
+        Ok(data)
     }
 
     pub async fn get_premium_index(

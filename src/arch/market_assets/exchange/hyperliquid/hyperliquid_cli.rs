@@ -7,13 +7,15 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{BalanceData, HistoOrderData, OrderAckData, PositionData},
-            price_data::TickerData,
+            price_data::{CandleData, TickerData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
-        api_general::{OrderParams, get_micros_timestamp, parse_json_response},
+        api_general::{
+            OrderParams, get_micros_timestamp, get_mills_timestamp, parse_json_response,
+        },
         base_data::{InstrumentType, MarginMode},
     },
-    task_execution::task_ws::{LobParam, TradesParam, WsChannel},
+    task_execution::task_ws::{CandleParam, LobParam, TradesParam, WsChannel},
     traits::{
         conversion::IntoInfraVec,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
@@ -28,7 +30,7 @@ use super::{
     hyperliquid_rest_msg::RestResHyperliquid,
     schemas::rest::{
         all_mids::RestAllMidsHyperliquid, asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
-        clearinghouse_state::RestClearinghouseStateHyperliquid,
+        candle::RestCandleHyperliquid, clearinghouse_state::RestClearinghouseStateHyperliquid,
         funding_history::RestFundingHistoryHyperliquid, meta::RestMetaHyperliquid,
         order_status::RestOrderStatusHyperliquid, perp_dexs::RestPerpDexHyperliquid,
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
@@ -58,6 +60,18 @@ impl LobPublicRest for HyperliquidCli {
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        self._get_candles(inst, interval, limit, start_time_us, end_time_us)
+            .await
     }
 
     async fn get_instrument_info(
@@ -128,6 +142,8 @@ impl LobWebsocket for HyperliquidCli {
 }
 
 impl HyperliquidCli {
+    const DEFAULT_CANDLE_LIMIT: u32 = 7;
+
     pub fn new(shared_client: Arc<Client>) -> Self {
         Self {
             client: shared_client,
@@ -282,6 +298,52 @@ impl HyperliquidCli {
             .into_iter()
             .map(|entry| entry.into_funding_rate_data(&quote))
             .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        self._ensure_perp_quote_matches(&normalized_inst)?;
+        let quote = hyperliquid_cli_perp_quote(&normalized_inst)?;
+        let coin = self._inst_to_raw_perp_coin(&normalized_inst)?;
+        let limit = limit.unwrap_or(Self::DEFAULT_CANDLE_LIMIT);
+        let interval_ms = candle_interval_millis(&interval)?;
+        let end_time = end_time_us
+            .map(|end| end / 1_000)
+            .unwrap_or_else(get_mills_timestamp);
+        let start_time = start_time_us
+            .map(|start| start / 1_000)
+            .unwrap_or_else(|| end_time.saturating_sub(limit as u64 * interval_ms));
+
+        let body = json!({
+            "type": "candleSnapshot",
+            "req": {
+                "coin": coin,
+                "interval": interval.as_str(),
+                "startTime": start_time,
+                "endTime": end_time,
+            },
+        });
+        let res: RestResHyperliquid<RestCandleHyperliquid> = self._post_info_raw(&body).await?;
+
+        let mut data: Vec<CandleData> = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| entry.into_candle_data(&quote))
+            .collect();
+        data.sort_by_key(|candle| candle.timestamp);
+
+        if data.len() > limit as usize {
+            data.drain(..data.len() - limit as usize);
+        }
 
         Ok(data)
     }
@@ -908,5 +970,22 @@ impl HyperliquidCli {
         } else {
             hyperliquid_index_to_asset_id(InstrumentType::Spot, index)
         }
+    }
+}
+
+fn candle_interval_millis(interval: &CandleParam) -> InfraResult<u64> {
+    match interval {
+        CandleParam::OneSecond => Ok(1_000),
+        CandleParam::OneMinute => Ok(60_000),
+        CandleParam::FiveMinutes => Ok(5 * 60_000),
+        CandleParam::FifteenMinutes => Ok(15 * 60_000),
+        CandleParam::OneHour => Ok(60 * 60_000),
+        CandleParam::FourHours => Ok(4 * 60 * 60_000),
+        CandleParam::OneDay => Ok(24 * 60 * 60_000),
+        CandleParam::OneWeek => Ok(7 * 24 * 60 * 60_000),
+        CandleParam::Custom(value) => Err(InfraError::ApiCliError(format!(
+            "Hyperliquid candle interval duration is unknown for custom interval: {}",
+            value
+        ))),
     }
 }

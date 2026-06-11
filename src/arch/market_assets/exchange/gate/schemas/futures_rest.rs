@@ -1,4 +1,5 @@
 pub mod account_position;
+pub mod candle;
 pub mod contract_futures;
 pub mod funding_rate;
 pub mod leverage;

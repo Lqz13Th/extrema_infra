@@ -7,7 +7,7 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{HistoOrderData, OrderAckData, PositionData},
-            price_data::TickerData,
+            price_data::{CandleData, TickerData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
@@ -29,9 +29,10 @@ use super::{
     config_assets::*,
     gate_rest_msg::RestResGate,
     schemas::futures_rest::{
-        account_position::RestAccountPosGateFutures, contract_futures::RestContractGateFutures,
-        funding_rate::RestFundingRateGateFutures, order::RestFuturesOrderGateFutures,
-        order_history::RestFuturesOrderHistoryGateFutures, ticker::RestTickerGateFutures,
+        account_position::RestAccountPosGateFutures, candle::RestCandleGateFutures,
+        contract_futures::RestContractGateFutures, funding_rate::RestFundingRateGateFutures,
+        order::RestFuturesOrderGateFutures, order_history::RestFuturesOrderHistoryGateFutures,
+        ticker::RestTickerGateFutures,
     },
 };
 
@@ -56,6 +57,18 @@ impl LobPublicRest for GateFuturesCli {
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        self._get_candles(inst, interval, limit, start_time_us, end_time_us)
+            .await
     }
 
     async fn get_instrument_info(
@@ -393,6 +406,56 @@ impl GateFuturesCli {
                     })
                     .map(TickerData::from),
             );
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        let settle = infer_settle_from_inst(inst);
+        let endpoint = GATE_FUTURES_CANDLESTICKS.replace("{settle}", &settle);
+        let mut params = vec![
+            format!("contract={}", cli_perp_to_gate_inst(inst)),
+            format!("interval={}", interval.as_str()),
+        ];
+        let has_time_window = start_time_us.is_some() || end_time_us.is_some();
+        if !has_time_window && let Some(limit) = limit {
+            params.push(format!("limit={limit}"));
+        }
+        if let Some(start_time_us) = start_time_us {
+            params.push(format!("from={}", start_time_us / 1_000_000));
+        }
+        if let Some(end_time_us) = end_time_us {
+            params.push(format!("to={}", end_time_us / 1_000_000));
+        }
+
+        let url = format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"));
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestCandleGateFutures> =
+            parse_json_response("GateFutures candles", response).await?;
+
+        let mut data: Vec<CandleData> = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| entry.into_candle_data(inst))
+            .filter(|entry| start_time_us.is_none_or(|start| entry.timestamp >= start))
+            .filter(|entry| end_time_us.is_none_or(|end| entry.timestamp <= end))
+            .collect();
+        data.sort_by_key(|candle| candle.timestamp);
+
+        if has_time_window
+            && let Some(limit) = limit
+            && data.len() > limit as usize
+        {
+            data.drain(..data.len() - limit as usize);
         }
 
         Ok(data)

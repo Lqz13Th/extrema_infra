@@ -11,6 +11,7 @@ pub mod asset_transfer;
 pub mod asset_transfer_state;
 pub mod asset_withdrawal;
 pub mod asset_withdrawal_history;
+pub mod candle;
 pub mod ct_current_lead_traders;
 pub mod ct_public_current_subpositions;
 pub mod ct_public_lead_trader_stats;

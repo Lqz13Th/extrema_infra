@@ -45,6 +45,9 @@ pub trait LobPublicRest: Send + Sync {
         &self,
         _inst: &str,
         _interval: CandleParam,
+        _limit: Option<u32>,
+        _start_time_us: Option<u64>,
+        _end_time_us: Option<u64>,
     ) -> impl Future<Output = InfraResult<Vec<CandleData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }

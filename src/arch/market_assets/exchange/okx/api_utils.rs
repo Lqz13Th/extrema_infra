@@ -5,6 +5,7 @@ use tracing::error;
 use crate::arch::market_assets::base_data::{
     InstrumentType, MarginMode, PositionSide, SUBSCRIBE_LOWER,
 };
+use crate::arch::task_execution::task_ws::CandleParam;
 
 pub fn ws_subscribe_msg_okx(channel: &str, insts: Option<&[String]>) -> String {
     let args: Vec<_> = match insts {
@@ -66,6 +67,20 @@ pub fn okx_inst_to_cli(symbol: &str) -> String {
             error!("Invalid okx symbol: {}", symbol);
             symbol.into()
         },
+    }
+}
+
+pub fn okx_candle_interval(interval: &CandleParam) -> &str {
+    match interval {
+        CandleParam::OneSecond => "1s",
+        CandleParam::OneMinute => "1m",
+        CandleParam::FiveMinutes => "5m",
+        CandleParam::FifteenMinutes => "15m",
+        CandleParam::OneHour => "1H",
+        CandleParam::FourHours => "4H",
+        CandleParam::OneDay => "1Dutc",
+        CandleParam::OneWeek => "1W",
+        CandleParam::Custom(value) => value.as_str(),
     }
 }
 
