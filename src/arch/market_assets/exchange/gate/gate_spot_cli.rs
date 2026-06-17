@@ -6,7 +6,9 @@ use tracing::error;
 use crate::arch::{
     market_assets::{
         api_data::{
-            account_data::OrderAckData, price_data::TickerData, utils_data::InstrumentInfo,
+            account_data::{BalanceData, OrderAckData},
+            price_data::TickerData,
+            utils_data::InstrumentInfo,
         },
         api_general::{OrderParams, RequestMethod, get_seconds_timestamp, parse_json_response},
         base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TimeInForce},
@@ -15,6 +17,7 @@ use crate::arch::{
             gate_rest_msg::RestResGate,
             schemas::{
                 spot_rest::{
+                    account_balance::RestAccountBalGateSpot,
                     currency_pair::RestCurrencyPairGateSpot, order::RestOrderGateSpot,
                     ticker::RestTickerGateSpot,
                 },
@@ -96,6 +99,10 @@ impl LobPrivateRest for GateSpotCli {
 
     async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         self._place_order(order_params).await
+    }
+
+    async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
+        self._get_balance(assets).await
     }
 }
 
@@ -465,6 +472,37 @@ impl GateSpotCli {
             .collect();
 
         Ok(data)
+    }
+
+    async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
+        let res: RestResGate<RestAccountBalGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                None,
+                GATE_BASE_URL,
+                GATE_SPOT_ACCOUNTS,
+            )
+            .await?;
+
+        let balances: Vec<BalanceData> =
+            res.into_vec()?.into_iter().map(BalanceData::from).collect();
+        let filtered = match assets {
+            Some(list) if !list.is_empty() => balances
+                .into_iter()
+                .filter(|b| {
+                    list.iter()
+                        .any(|asset| asset.eq_ignore_ascii_case(&b.asset))
+                })
+                .collect(),
+            _ => balances,
+        };
+
+        Ok(filtered)
     }
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
