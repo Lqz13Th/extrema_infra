@@ -78,11 +78,48 @@ impl IntoWsData for WsAccountOrderOkx {
                 "limit" => OrderType::Limit,
                 _ => OrderType::Unknown,
             },
-            cli_order_id: if self.clOrdId.is_empty() {
-                None
-            } else {
-                Some(self.clOrdId)
-            },
+            order_id: (!self.ordId.is_empty()).then_some(self.ordId),
+            cli_order_id: (!self.clOrdId.is_empty()).then_some(self.clOrdId),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use crate::arch::traits::conversion::IntoWsData;
+
+    use super::*;
+
+    #[test]
+    fn into_ws_preserves_exchange_and_client_order_ids() {
+        let raw: WsAccountOrderOkx = serde_json::from_value(json!({
+            "ordId": "2234567890",
+            "clOrdId": "okx-client-id",
+            "instId": "GUN-USDT-SWAP",
+            "instType": "SWAP",
+            "side": "buy",
+            "posSide": "net",
+            "tdMode": "cross",
+            "ordType": "market",
+            "state": "filled",
+            "px": null,
+            "sz": "4350",
+            "fillPx": "0.005857",
+            "fillSz": "4350",
+            "fillPnl": null,
+            "fillTime": "1781905826733",
+            "tradeId": "1",
+            "fee": "0",
+            "feeCcy": "USDT",
+            "uTime": "1781905826733"
+        }))
+        .unwrap();
+
+        let ws = raw.into_ws();
+
+        assert_eq!(ws.order_id.as_deref(), Some("2234567890"));
+        assert_eq!(ws.cli_order_id.as_deref(), Some("okx-client-id"));
     }
 }

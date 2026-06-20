@@ -96,7 +96,69 @@ impl IntoWsData for WsAccountOrderBinanceUM {
                 "LIMIT" => OrderType::Limit,
                 _ => OrderType::Unknown,
             },
+            order_id: Some(self.o.i.to_string()),
             cli_order_id: Some(self.o.c),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use crate::arch::traits::conversion::IntoWsData;
+
+    use super::*;
+
+    #[test]
+    fn into_ws_preserves_exchange_and_client_order_ids() {
+        let raw: WsAccountOrderBinanceUM = serde_json::from_value(json!({
+            "e": "ORDER_TRADE_UPDATE",
+            "E": 1781905826733_u64,
+            "T": 1781905826733_u64,
+            "o": {
+                "s": "GUNUSDT",
+                "c": "CYA3pfUhF2yFO3kbBgIDMP",
+                "S": "BUY",
+                "o": "MARKET",
+                "f": "GTC",
+                "q": "4350",
+                "p": "0",
+                "ap": "0.005857",
+                "sp": "0",
+                "x": "TRADE",
+                "X": "FILLED",
+                "i": 1272696572_u64,
+                "l": "4350",
+                "z": "4350",
+                "L": "0.005857",
+                "N": "USDT",
+                "n": "0",
+                "T": 1781905826733_u64,
+                "t": 1_u64,
+                "b": "0",
+                "a": "0",
+                "m": false,
+                "R": false,
+                "wt": "CONTRACT_PRICE",
+                "ot": "MARKET",
+                "ps": "BOTH",
+                "cp": false,
+                "AP": null,
+                "cr": null,
+                "pP": false,
+                "rp": "0",
+                "V": "NONE",
+                "pm": "NONE",
+                "gtd": 0_u64,
+                "er": "0"
+            }
+        }))
+        .unwrap();
+
+        let ws = raw.into_ws();
+
+        assert_eq!(ws.order_id.as_deref(), Some("1272696572"));
+        assert_eq!(ws.cli_order_id.as_deref(), Some("CYA3pfUhF2yFO3kbBgIDMP"));
     }
 }

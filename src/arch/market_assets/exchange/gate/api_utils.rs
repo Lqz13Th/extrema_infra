@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use tracing::{error, warn};
 
 use crate::arch::market_assets::{api_general::get_seconds_timestamp, base_data::SUBSCRIBE_LOWER};
@@ -10,6 +10,14 @@ use crate::errors::{InfraError, InfraResult};
 
 pub const GATE_CHANNEL_ID_EXTRA_KEY: &str = "gate_channel_id";
 pub const GATE_CHANNEL_ID_HEADER: &str = "X-Gate-Channel-Id";
+
+pub(crate) fn value_to_order_id(value: Option<&Value>) -> Option<String> {
+    match value {
+        Some(Value::String(id)) if !id.is_empty() && id != "-" => Some(id.clone()),
+        Some(Value::Number(id)) => Some(id.to_string()),
+        _ => None,
+    }
+}
 
 pub fn ws_subscribe_msg_gate_futures(channel: &str, payload: Vec<String>) -> String {
     let msg = json!({

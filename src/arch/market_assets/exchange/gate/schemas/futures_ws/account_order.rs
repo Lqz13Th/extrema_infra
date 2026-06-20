@@ -5,7 +5,7 @@ use crate::arch::{
     market_assets::{
         api_general::{ts_to_micros, value_to_f64},
         base_data::{InstrumentType, OrderSide, OrderStatus, OrderType},
-        exchange::gate::api_utils::gate_fut_inst_to_cli,
+        exchange::gate::api_utils::{gate_fut_inst_to_cli, value_to_order_id},
         market_core::Market,
     },
     strategy_base::handler::lob_events::WsAccOrder,
@@ -15,6 +15,8 @@ use crate::arch::{
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct WsAccountOrderGateFutures {
+    #[serde(default)]
+    id: Option<Value>,
     contract: String,
     size: Value,
     left: Value,
@@ -58,6 +60,7 @@ impl IntoWsData for WsAccountOrderGateFutures {
             order_price
         };
         let order_type = parse_order_type(order_price, self.tif.as_deref());
+        let order_id = value_to_order_id(self.id.as_ref());
 
         let timestamp = self
             .update_time
@@ -76,6 +79,7 @@ impl IntoWsData for WsAccountOrderGateFutures {
             side,
             status,
             order_type,
+            order_id,
             cli_order_id: self.text.as_ref().and_then(|t| {
                 if t.is_empty() || t == "-" {
                     None
@@ -136,5 +140,38 @@ fn parse_order_type(price: f64, tif: Option<&str>) -> OrderType {
         "ioc" => OrderType::Ioc,
         "fok" => OrderType::Fok,
         _ => OrderType::Limit,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use crate::arch::traits::conversion::IntoWsData;
+
+    use super::*;
+
+    #[test]
+    fn into_ws_preserves_exchange_and_client_order_ids() {
+        let raw: WsAccountOrderGateFutures = serde_json::from_value(json!({
+            "id": 123456789_u64,
+            "contract": "GUN_USDT",
+            "size": -435,
+            "left": 0,
+            "price": "0",
+            "fill_price": "0.005857",
+            "status": "finished",
+            "finish_as": "filled",
+            "update_time": 1781905826_u64,
+            "create_time_ms": 1781905826733_u64,
+            "tif": "ioc",
+            "text": "gate-futures-client-id"
+        }))
+        .unwrap();
+
+        let ws = raw.into_ws();
+
+        assert_eq!(ws.order_id.as_deref(), Some("123456789"));
+        assert_eq!(ws.cli_order_id.as_deref(), Some("gate-futures-client-id"));
     }
 }

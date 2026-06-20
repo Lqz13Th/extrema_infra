@@ -56,6 +56,7 @@ impl IntoWsData for WsAccountOrderHyperliquid {
             },
             status: parse_order_status(&self.status, filled_size),
             order_type: OrderType::Limit,
+            order_id: Some(self.order.oid.to_string()),
             cli_order_id: self.order.cloid.filter(|cloid| !cloid.is_empty()),
         }
     }
@@ -86,5 +87,38 @@ fn parse_order_status(status: &str, filled_size: f64) -> OrderStatus {
         OrderStatus::Canceled
     } else {
         OrderStatus::Unknown
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use crate::arch::traits::conversion::IntoWsData;
+
+    use super::*;
+
+    #[test]
+    fn into_ws_preserves_exchange_and_client_order_ids() {
+        let raw: WsAccountOrderHyperliquid = serde_json::from_value(json!({
+            "order": {
+                "coin": "GUN",
+                "side": "B",
+                "limitPx": "0.005857",
+                "sz": "0",
+                "oid": 987654321_u64,
+                "timestamp": 1781905826733_u64,
+                "origSz": "4350",
+                "cloid": "hl-client-id"
+            },
+            "status": "filled",
+            "statusTimestamp": 1781905826733_u64
+        }))
+        .unwrap();
+
+        let ws = raw.into_ws();
+
+        assert_eq!(ws.order_id.as_deref(), Some("987654321"));
+        assert_eq!(ws.cli_order_id.as_deref(), Some("hl-client-id"));
     }
 }
