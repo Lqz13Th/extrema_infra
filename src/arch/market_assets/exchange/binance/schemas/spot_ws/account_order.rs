@@ -23,6 +23,8 @@ pub(crate) struct WsAccountOrderBinanceSpot {
     E: u64,    // Event time
     s: String, // Symbol
     c: String, // Client order id
+    #[serde(default)]
+    i: Option<u64>, // Order id
     S: String, // Side
     o: String, // Order type
     q: String, // Original quantity
@@ -66,7 +68,43 @@ impl IntoWsData for WsAccountOrderEnvelopeBinanceSpot {
                 "LIMIT" | "LIMIT_MAKER" => OrderType::Limit,
                 _ => OrderType::Unknown,
             },
+            order_id: event.i.map(|id| id.to_string()),
             cli_order_id: Some(event.c),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use crate::arch::traits::conversion::IntoWsData;
+
+    use super::*;
+
+    #[test]
+    fn into_ws_preserves_exchange_and_client_order_ids() {
+        let raw: WsAccountOrderEnvelopeBinanceSpot = serde_json::from_value(json!({
+            "subscriptionId": 1_u64,
+            "event": {
+                "E": 1781905826733_u64,
+                "s": "REUSDT",
+                "c": "spot-client-id",
+                "i": 370702544401581041_u64,
+                "S": "BUY",
+                "o": "MARKET",
+                "q": "16",
+                "p": "0",
+                "L": "0.87295",
+                "z": "16",
+                "X": "FILLED"
+            }
+        }))
+        .unwrap();
+
+        let ws = raw.into_ws();
+
+        assert_eq!(ws.order_id.as_deref(), Some("370702544401581041"));
+        assert_eq!(ws.cli_order_id.as_deref(), Some("spot-client-id"));
     }
 }

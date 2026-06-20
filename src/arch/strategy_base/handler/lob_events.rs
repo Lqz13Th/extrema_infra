@@ -112,6 +112,7 @@ pub struct WsAccOrder {
     pub side: OrderSide,
     pub status: OrderStatus,
     pub order_type: OrderType,
+    pub order_id: Option<String>,
     pub cli_order_id: Option<String>,
 }
 

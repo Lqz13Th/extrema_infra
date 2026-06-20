@@ -5,6 +5,7 @@ use crate::arch::{
     market_assets::{
         api_general::ts_to_micros,
         base_data::{InstrumentType, OrderSide, OrderStatus, OrderType},
+        exchange::gate::api_utils::value_to_order_id,
         market_core::Market,
     },
     strategy_base::handler::lob_events::WsAccOrder,
@@ -14,6 +15,8 @@ use crate::arch::{
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct WsAccountOrderGateSpot {
+    #[serde(default)]
+    id: Option<Value>,
     currency_pair: String,
     side: String,
     r#type: String,
@@ -68,6 +71,7 @@ impl IntoWsData for WsAccountOrderGateSpot {
             .and_then(value_to_u64_ms)
             .or_else(|| self.create_time_ms.as_ref().and_then(value_to_u64_ms))
             .unwrap_or_default();
+        let order_id = value_to_order_id(self.id.as_ref());
 
         WsAccOrder {
             timestamp: ts_to_micros(timestamp_ms),
@@ -88,6 +92,7 @@ impl IntoWsData for WsAccountOrderGateSpot {
             } else {
                 OrderType::Limit
             },
+            order_id,
             cli_order_id: self.text.and_then(|t| {
                 if t.is_empty() || t == "-" {
                     None
@@ -168,4 +173,40 @@ fn value_to_u64_ms(v: &Value) -> Option<u64> {
             .and_then(|s| s.split('.').next())
             .and_then(|s| s.parse::<u64>().ok())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use crate::arch::traits::conversion::IntoWsData;
+
+    use super::*;
+
+    #[test]
+    fn into_ws_preserves_exchange_and_client_order_ids() {
+        let raw: WsAccountOrderGateSpot = serde_json::from_value(json!({
+            "id": "370702544401581041",
+            "currency_pair": "RE_USDT",
+            "side": "buy",
+            "type": "market",
+            "amount": "16",
+            "price": "0",
+            "left": "0",
+            "filled_amount": "16",
+            "avg_deal_price": "0.87295",
+            "status": "closed",
+            "finish_as": "filled",
+            "event": "finish",
+            "update_time_ms": 1781905826733_u64,
+            "create_time_ms": 1781905826733_u64,
+            "text": "gate-spot-client-id"
+        }))
+        .unwrap();
+
+        let ws = raw.into_ws();
+
+        assert_eq!(ws.order_id.as_deref(), Some("370702544401581041"));
+        assert_eq!(ws.cli_order_id.as_deref(), Some("gate-spot-client-id"));
+    }
 }
