@@ -131,7 +131,7 @@ impl From<InstrumentInfoBinanceUM> for InstrumentInfo {
             inst: binance_fut_inst_to_cli(&d.symbol),
             inst_code: None,
             inst_type: match d.contractType.as_str() {
-                "PERPETUAL" => InstrumentType::Perpetual,
+                "PERPETUAL" | "TRADIFI_PERPETUAL" => InstrumentType::Perpetual,
                 "CURRENT_QUARTER" | "NEXT_QUARTER" | "CURRENT_MONTH" | "NEXT_MONTH" => {
                     InstrumentType::Futures
                 },
@@ -177,5 +177,55 @@ fn binance_status_to_instrument_status(
         "DELIVERING" | "PRE_SETTLE" => InstrumentStatus::Delisting,
         "CLOSE" => InstrumentStatus::Closed,
         _ => InstrumentStatus::Suspend,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn size_filter(min_qty: &str, max_qty: &str, step_size: &str) -> SizeFilter {
+        SizeFilter {
+            minQty: min_qty.to_string(),
+            maxQty: max_qty.to_string(),
+            stepSize: step_size.to_string(),
+        }
+    }
+
+    fn qcom_tradifi_perpetual() -> InstrumentInfoBinanceUM {
+        InstrumentInfoBinanceUM {
+            symbol: "QCOMUSDT".to_string(),
+            contractType: "TRADIFI_PERPETUAL".to_string(),
+            status: "TRADING".to_string(),
+            deliveryDate: 4_133_404_800_000,
+            pricePrecision: 5,
+            quantityPrecision: 2,
+            filters: vec![
+                Filter::PRICE_FILTER(PriceFilter {
+                    minPrice: "0.01000".to_string(),
+                    maxPrice: "20000".to_string(),
+                    tickSize: "0.01000".to_string(),
+                }),
+                Filter::LOT_SIZE(size_filter("0.01", "20000", "0.01")),
+                Filter::MARKET_LOT_SIZE(size_filter("0.01", "2000", "0.01")),
+                Filter::MIN_NOTIONAL(MinNotionalFilter {
+                    minNotional: None,
+                    notional: Some("5".to_string()),
+                }),
+            ],
+        }
+    }
+
+    #[test]
+    fn tradifi_perpetual_maps_to_perpetual_instrument() {
+        let info = InstrumentInfo::from(qcom_tradifi_perpetual());
+
+        assert_eq!(info.inst, "QCOM_USDT_PERP");
+        assert_eq!(info.inst_type, InstrumentType::Perpetual);
+        assert_eq!(info.state, InstrumentStatus::Live);
+        assert_eq!(info.lot_size, 0.01);
+        assert_eq!(info.min_mkt_size, 0.01);
+        assert_eq!(info.max_mkt_size, 2000.0);
+        assert_eq!(info.min_notional, Some(5.0));
     }
 }
