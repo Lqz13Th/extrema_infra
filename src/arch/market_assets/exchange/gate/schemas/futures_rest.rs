@@ -5,4 +5,5 @@ pub mod funding_rate;
 pub mod leverage;
 pub mod order;
 pub mod order_history;
+pub mod orderbook;
 pub mod ticker;

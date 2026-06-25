@@ -33,6 +33,7 @@ use super::{
         leverage::RestLeverageBinanceUM,
         open_interest_statistics::RestOpenInterestBinanceUM,
         order_history::RestOrderHistoryBinanceUM,
+        orderbook::RestOrderBookBinanceUM,
         position_mode::{RestPositionModeBinanceUM, RestPositionModeChangeBinanceUM},
         premium_index::RestPremiumIndexBinanceUM,
         symbol_config::RestSymbolConfigBinanceUM,
@@ -67,6 +68,7 @@ impl LobPublicRest for BinanceUmCli {
     async fn get_candles(
         &self,
         inst: &str,
+        _inst_type: InstrumentType,
         interval: CandleParam,
         limit: Option<u32>,
         start_time_us: Option<u64>,
@@ -74,6 +76,15 @@ impl LobPublicRest for BinanceUmCli {
     ) -> InfraResult<Vec<CandleData>> {
         self._get_candles(inst, interval, limit, start_time_us, end_time_us)
             .await
+    }
+
+    async fn get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        self._get_orderbook(inst, inst_type, depth).await
     }
 
     async fn get_instrument_info(
@@ -432,6 +443,41 @@ impl BinanceUmCli {
         data.sort_by_key(|candle| candle.timestamp);
 
         Ok(data)
+    }
+
+    async fn _get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        if inst_type != InstrumentType::Perpetual {
+            return Err(InfraError::ApiCliError(format!(
+                "Binance UM orderbook supports perpetual instruments only, got {:?}",
+                inst_type
+            )));
+        }
+
+        let mut params = vec![format!("symbol={}", cli_perp_to_pure_uppercase(inst))];
+        if depth > 0 {
+            params.push(format!("limit={}", binance_um_orderbook_limit(depth)?));
+        }
+
+        let url = format!(
+            "{}{}?{}",
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_DEPTH,
+            params.join("&")
+        );
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestOrderBookBinanceUM> =
+            parse_json_response("BinanceUmFutures orderbook", response).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .map(|entry| entry.into_orderbook_data(inst))
+            .ok_or_else(|| InfraError::ApiCliError("No Binance UM orderbook data returned".into()))
     }
 
     pub async fn get_premium_index(

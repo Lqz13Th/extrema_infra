@@ -8,6 +8,7 @@ pub mod funding_rate_info;
 pub mod leverage;
 pub mod open_interest_statistics;
 pub mod order_history;
+pub mod orderbook;
 pub mod position_mode;
 pub mod premium_index;
 pub mod symbol_config;
