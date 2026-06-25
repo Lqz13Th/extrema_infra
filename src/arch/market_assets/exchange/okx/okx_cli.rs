@@ -38,8 +38,8 @@ use super::{
         ct_public_subpositions_history::RestSubPositionHistoryOkx,
         funding_rate::RestFundingRateOkx, funding_rate_history::RestFundingRateHistoryOkx,
         market_ticker::RestMarketTickerOkx, order_history::RestOrderHistoryOkx,
-        price_limit::RestPriceLimitOkx, public_instruments::RestInstrumentsOkx,
-        trade_order::RestOrderAckOkx,
+        orderbook::RestOrderBookOkx, price_limit::RestPriceLimitOkx,
+        public_instruments::RestInstrumentsOkx, trade_order::RestOrderAckOkx,
     },
 };
 
@@ -84,13 +84,23 @@ impl LobPublicRest for OkxCli {
     async fn get_candles(
         &self,
         inst: &str,
+        inst_type: InstrumentType,
         interval: CandleParam,
         limit: Option<u32>,
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
     ) -> InfraResult<Vec<CandleData>> {
-        self._get_candles(inst, interval, limit, start_time_us, end_time_us)
+        self._get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
             .await
+    }
+
+    async fn get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        self._get_orderbook(inst, inst_type, depth).await
     }
 
     async fn get_instrument_info(
@@ -885,13 +895,14 @@ impl OkxCli {
     async fn _get_candles(
         &self,
         inst: &str,
+        inst_type: InstrumentType,
         interval: CandleParam,
         limit: Option<u32>,
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
     ) -> InfraResult<Vec<CandleData>> {
         let mut params = vec![
-            format!("instId={}", cli_perp_to_okx_inst(inst)),
+            format!("instId={}", cli_inst_to_okx_inst(inst, &inst_type)?),
             format!("bar={}", okx_candle_interval(&interval)),
         ];
         if let Some(limit) = limit {
@@ -924,6 +935,38 @@ impl OkxCli {
         data.sort_by_key(|candle| candle.timestamp);
 
         Ok(data)
+    }
+
+    async fn _get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        let mut params = vec![format!(
+            "instId={}",
+            cli_inst_to_okx_inst(inst, &inst_type)?
+        )];
+        if depth > 0 {
+            if depth > 400 {
+                return Err(InfraError::ApiCliError(format!(
+                    "OKX orderbook supports at most 400 levels: {}",
+                    depth
+                )));
+            }
+            params.push(format!("sz={depth}"));
+        }
+
+        let url = format!("{}{}?{}", OKX_BASE_URL, OKX_MARKET_BOOKS, params.join("&"));
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestOrderBookOkx> =
+            parse_json_response("Okx orderbook", response).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .map(|entry| entry.into_orderbook_data(inst))
+            .ok_or_else(|| InfraError::ApiCliError("No OKX orderbook data returned".into()))
     }
 
     async fn _get_instrument_info(

@@ -526,6 +526,17 @@ pub fn binance_lob_stream(lob_param: &Option<LobParam>) -> InfraResult<String> {
     }
 }
 
+pub(crate) fn binance_um_orderbook_limit(depth: usize) -> InfraResult<usize> {
+    match depth {
+        0 => Ok(500),
+        depth @ (5 | 10 | 20 | 50 | 100 | 500 | 1000) => Ok(depth),
+        depth => Err(InfraError::ApiCliError(format!(
+            "Binance UM orderbook supports only 5, 10, 20, 50, 100, 500, or 1000 levels: {}",
+            depth
+        ))),
+    }
+}
+
 fn binance_lob_frequency_suffix(frequency: &Option<LobFrequency>) -> InfraResult<&'static str> {
     match frequency {
         None | Some(LobFrequency::Ms250) => Ok(""),
@@ -730,6 +741,13 @@ mod tests {
             }))
             .is_err()
         );
+    }
+
+    #[test]
+    fn validates_binance_um_orderbook_limit() {
+        assert_eq!(binance_um_orderbook_limit(0).unwrap(), 500);
+        assert_eq!(binance_um_orderbook_limit(20).unwrap(), 20);
+        assert!(binance_um_orderbook_limit(7).is_err());
     }
 
     #[test]

@@ -99,6 +99,16 @@ pub(crate) fn gate_lob_depth(depth: &Option<u16>) -> InfraResult<u16> {
     }
 }
 
+pub(crate) fn nonzero_depth_u16(depth: usize) -> InfraResult<Option<u16>> {
+    if depth == 0 {
+        return Ok(None);
+    }
+
+    u16::try_from(depth)
+        .map(Some)
+        .map_err(|_| InfraError::ApiCliError(format!("Depth exceeds u16 range: {}", depth)))
+}
+
 pub(crate) fn gate_lob_bbo_frequency(frequency: &Option<LobFrequency>) -> InfraResult<()> {
     match frequency {
         None | Some(LobFrequency::Realtime) => Ok(()),

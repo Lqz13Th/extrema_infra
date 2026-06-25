@@ -21,6 +21,7 @@ pub mod funding_rate;
 pub mod funding_rate_history;
 pub mod market_ticker;
 pub mod order_history;
+pub mod orderbook;
 pub mod price_limit;
 pub mod public_instruments;
 pub mod trade_order;

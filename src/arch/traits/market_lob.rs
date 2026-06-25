@@ -35,6 +35,7 @@ pub trait LobPublicRest: Send + Sync {
     fn get_orderbook(
         &self,
         _inst: &str,
+        _inst_type: InstrumentType,
         _depth: usize,
     ) -> impl Future<Output = InfraResult<OrderBookData>> + Send {
         ready(Err(InfraError::Unimplemented))
@@ -44,6 +45,7 @@ pub trait LobPublicRest: Send + Sync {
     fn get_candles(
         &self,
         _inst: &str,
+        _inst_type: InstrumentType,
         _interval: CandleParam,
         _limit: Option<u32>,
         _start_time_us: Option<u64>,

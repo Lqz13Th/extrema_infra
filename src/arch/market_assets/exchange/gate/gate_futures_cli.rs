@@ -7,7 +7,7 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{HistoOrderData, OrderAckData, PositionData},
-            price_data::{CandleData, TickerData},
+            price_data::{CandleData, OrderBookData, TickerData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
@@ -32,7 +32,7 @@ use super::{
         account_position::RestAccountPosGateFutures, candle::RestCandleGateFutures,
         contract_futures::RestContractGateFutures, funding_rate::RestFundingRateGateFutures,
         order::RestFuturesOrderGateFutures, order_history::RestFuturesOrderHistoryGateFutures,
-        ticker::RestTickerGateFutures,
+        orderbook::RestOrderBookGateFutures, ticker::RestTickerGateFutures,
     },
 };
 
@@ -62,6 +62,7 @@ impl LobPublicRest for GateFuturesCli {
     async fn get_candles(
         &self,
         inst: &str,
+        _inst_type: InstrumentType,
         interval: CandleParam,
         limit: Option<u32>,
         start_time_us: Option<u64>,
@@ -69,6 +70,15 @@ impl LobPublicRest for GateFuturesCli {
     ) -> InfraResult<Vec<CandleData>> {
         self._get_candles(inst, interval, limit, start_time_us, end_time_us)
             .await
+    }
+
+    async fn get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        self._get_orderbook(inst, inst_type, depth).await
     }
 
     async fn get_instrument_info(
@@ -459,6 +469,44 @@ impl GateFuturesCli {
         }
 
         Ok(data)
+    }
+
+    async fn _get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        if !matches!(
+            inst_type,
+            InstrumentType::Perpetual | InstrumentType::Futures
+        ) {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate futures orderbook supports futures/perpetual instruments only, got {:?}",
+                inst_type
+            )));
+        }
+
+        let settle = infer_settle_from_inst(inst);
+        let endpoint = GATE_FUTURES_ORDER_BOOK.replace("{settle}", &settle);
+        let depth = gate_lob_depth(&nonzero_depth_u16(depth)?)?;
+        let params = [
+            format!("contract={}", cli_perp_to_gate_inst(inst)),
+            format!("limit={depth}"),
+        ];
+        let url = format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"));
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestOrderBookGateFutures> =
+            parse_json_response("GateFutures orderbook", response).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .map(|entry| entry.into_orderbook_data(inst))
+            .ok_or_else(|| {
+                InfraError::ApiCliError("No Gate futures orderbook data returned".into())
+            })
     }
 
     async fn _get_instrument_info(

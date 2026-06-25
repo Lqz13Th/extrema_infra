@@ -2,10 +2,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::error;
 
-use crate::arch::market_assets::base_data::{
-    InstrumentType, MarginMode, PositionSide, SUBSCRIBE_LOWER,
+use crate::arch::{
+    market_assets::base_data::{InstrumentType, MarginMode, PositionSide, SUBSCRIBE_LOWER},
+    task_execution::task_ws::CandleParam,
 };
-use crate::arch::task_execution::task_ws::CandleParam;
+use crate::errors::InfraResult;
 
 pub fn ws_subscribe_msg_okx(channel: &str, insts: Option<&[String]>) -> String {
     let args: Vec<_> = match insts {
@@ -51,6 +52,27 @@ pub fn cli_perp_to_okx_inst(symbol: &str) -> String {
     }
 
     upper.replace('_', "-")
+}
+
+pub fn cli_inst_to_okx_inst(symbol: &str, inst_type: &InstrumentType) -> InfraResult<String> {
+    let upper = symbol.to_uppercase();
+    match inst_type {
+        InstrumentType::Spot => Ok(upper.replace('_', "-")),
+        InstrumentType::Perpetual => {
+            if upper.ends_with("-SWAP") {
+                Ok(upper)
+            } else if let Some(pair) = upper.strip_suffix("_PERP") {
+                Ok(format!("{}-SWAP", pair.replace('_', "-")))
+            } else {
+                Ok(format!("{}-SWAP", upper.replace('_', "-")))
+            }
+        },
+        InstrumentType::Futures => Ok(cli_perp_to_okx_inst(&upper)),
+        InstrumentType::Options => Ok(upper.replace('_', "-")),
+        InstrumentType::Unknown => Err(crate::errors::InfraError::ApiCliError(
+            "Unknown instrument type for OKX instId conversion".into(),
+        )),
+    }
 }
 
 pub fn okx_inst_to_cli(symbol: &str) -> String {
@@ -389,5 +411,17 @@ mod tests {
         assert_eq!(cli_perp_to_okx_inst("BTC_USDT_PERP"), "BTC-USDT-SWAP");
         assert_eq!(okx_inst_to_cli("BTC-USD-240329"), "BTC_USD_FUT_240329");
         assert_eq!(cli_perp_to_okx_inst("BTC_USD_FUT_240329"), "BTC-USD-240329");
+        assert_eq!(
+            cli_inst_to_okx_inst("BTC_USDT", &InstrumentType::Spot).unwrap(),
+            "BTC-USDT"
+        );
+        assert_eq!(
+            cli_inst_to_okx_inst("BTC_USDT", &InstrumentType::Perpetual).unwrap(),
+            "BTC-USDT-SWAP"
+        );
+        assert_eq!(
+            cli_inst_to_okx_inst("BTC_USD_FUT_240329", &InstrumentType::Futures).unwrap(),
+            "BTC-USD-240329"
+        );
     }
 }

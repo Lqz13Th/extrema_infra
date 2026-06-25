@@ -7,7 +7,7 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{BalanceData, HistoOrderData, OrderAckData, PositionData},
-            price_data::{CandleData, TickerData},
+            price_data::{CandleData, OrderBookData, TickerData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
@@ -32,7 +32,8 @@ use super::{
         all_mids::RestAllMidsHyperliquid, asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
         candle::RestCandleHyperliquid, clearinghouse_state::RestClearinghouseStateHyperliquid,
         funding_history::RestFundingHistoryHyperliquid, meta::RestMetaHyperliquid,
-        order_status::RestOrderStatusHyperliquid, perp_dexs::RestPerpDexHyperliquid,
+        order_status::RestOrderStatusHyperliquid, orderbook::RestOrderBookHyperliquid,
+        perp_dexs::RestPerpDexHyperliquid,
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
         spot_meta::RestSpotMetaHyperliquid, trade_order::RestOrderAckHyperliquid,
     },
@@ -65,13 +66,23 @@ impl LobPublicRest for HyperliquidCli {
     async fn get_candles(
         &self,
         inst: &str,
+        inst_type: InstrumentType,
         interval: CandleParam,
         limit: Option<u32>,
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
     ) -> InfraResult<Vec<CandleData>> {
-        self._get_candles(inst, interval, limit, start_time_us, end_time_us)
+        self._get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
             .await
+    }
+
+    async fn get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        self._get_orderbook(inst, inst_type, depth).await
     }
 
     async fn get_instrument_info(
@@ -305,15 +316,13 @@ impl HyperliquidCli {
     async fn _get_candles(
         &self,
         inst: &str,
+        inst_type: InstrumentType,
         interval: CandleParam,
         limit: Option<u32>,
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
     ) -> InfraResult<Vec<CandleData>> {
-        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
-        self._ensure_perp_quote_matches(&normalized_inst)?;
-        let quote = hyperliquid_cli_perp_quote(&normalized_inst)?;
-        let coin = self._inst_to_raw_perp_coin(&normalized_inst)?;
+        let coin = self._inst_to_trade_coin_for_type(inst, inst_type)?;
         let limit = limit.unwrap_or(Self::DEFAULT_CANDLE_LIMIT);
         let interval_ms = candle_interval_millis(&interval)?;
         let end_time = end_time_us
@@ -337,7 +346,7 @@ impl HyperliquidCli {
         let mut data: Vec<CandleData> = res
             .into_vec()?
             .into_iter()
-            .map(|entry| entry.into_candle_data(&quote))
+            .map(|entry| entry.into_candle_data(inst))
             .collect();
         data.sort_by_key(|candle| candle.timestamp);
 
@@ -346,6 +355,29 @@ impl HyperliquidCli {
         }
 
         Ok(data)
+    }
+
+    async fn _get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        let coin = self._inst_to_trade_coin_for_type(inst, inst_type)?;
+        let body = json!({
+            "type": "l2Book",
+            "coin": coin,
+        });
+        let res: RestResHyperliquid<RestOrderBookHyperliquid> = self._post_info_raw(&body).await?;
+        let book = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid l2Book data returned".into(),
+            ))?;
+
+        Ok(book.into_orderbook_data(inst, depth))
     }
 
     pub async fn get_perps_at_open_interest_cap(&self) -> InfraResult<Vec<String>> {
@@ -822,6 +854,70 @@ impl HyperliquidCli {
                     InfraError::ApiCliError(format!(
                         "Hyperliquid inst not found in inst_index_map: {}",
                         inst
+                    ))
+                }
+            })?;
+
+        Ok(format!("@{}", index))
+    }
+
+    fn _inst_to_trade_coin_for_type(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+    ) -> InfraResult<String> {
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        match inst_type {
+            InstrumentType::Perpetual => {
+                if !is_hyperliquid_cli_perp_inst(&normalized_inst) {
+                    return Err(InfraError::ApiCliError(format!(
+                        "Hyperliquid perpetual instrument expected, got {}",
+                        inst
+                    )));
+                }
+                self._ensure_perp_quote_matches(&normalized_inst)?;
+                self._inst_to_raw_perp_coin(&normalized_inst)
+            },
+            InstrumentType::Spot => {
+                if is_hyperliquid_cli_perp_inst(&normalized_inst) {
+                    return Err(InfraError::ApiCliError(format!(
+                        "Hyperliquid spot instrument expected, got {}",
+                        inst
+                    )));
+                }
+                self._inst_to_spot_coin(&normalized_inst, inst)
+            },
+            _ => Err(InfraError::ApiCliError(format!(
+                "Hyperliquid market data supports Spot and Perpetual only, got {:?}",
+                inst_type
+            ))),
+        }
+    }
+
+    fn _inst_to_spot_coin(
+        &self,
+        normalized_inst: &str,
+        original_inst: &str,
+    ) -> InfraResult<String> {
+        if let Some(coin) = hyperliquid_cli_inst_to_raw_trade_coin(original_inst) {
+            return Ok(coin);
+        }
+
+        let index = self
+            .market_cache
+            .inst_index_map
+            .get(normalized_inst)
+            .copied()
+            .ok_or_else(|| {
+                if self.market_cache.inst_index_map.is_empty() {
+                    InfraError::ApiCliError(
+                        "Hyperliquid inst_index_map is empty, call init_inst_index_map() first"
+                            .into(),
+                    )
+                } else {
+                    InfraError::ApiCliError(format!(
+                        "Hyperliquid spot inst not found in inst_index_map: {}",
+                        original_inst
                     ))
                 }
             })?;
