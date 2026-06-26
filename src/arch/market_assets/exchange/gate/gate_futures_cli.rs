@@ -549,13 +549,17 @@ impl GateFuturesCli {
             .unwrap_or_else(|| infer_settle_from_inst(&order_params.inst));
 
         let contract = cli_perp_to_gate_inst(&order_params.inst);
-        let size_val: i64 = order_params
-            .size
-            .parse()
-            .map_err(|_| InfraError::ApiCliError("Invalid order size".into()))?;
+        let size_raw = order_params.size.trim();
+        if size_raw.is_empty() {
+            return Err(InfraError::ApiCliError("Invalid order size".into()));
+        }
+        let unsigned_size = size_raw.trim_start_matches(['+', '-']);
+        if unsigned_size.is_empty() {
+            return Err(InfraError::ApiCliError("Invalid order size".into()));
+        }
         let signed_size = match order_params.side {
-            OrderSide::SELL => -size_val.abs(),
-            _ => size_val.abs(),
+            OrderSide::SELL => format!("-{unsigned_size}"),
+            _ => unsigned_size.to_string(),
         };
 
         let mut body = json!({

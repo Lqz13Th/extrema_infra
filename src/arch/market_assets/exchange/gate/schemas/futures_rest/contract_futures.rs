@@ -22,6 +22,8 @@ pub struct RestContractGateFutures {
     pub order_size_max: String,
     #[serde(deserialize_with = "de_string_from_any")]
     pub quanto_multiplier: String,
+    #[serde(default)]
+    pub enable_decimal: bool,
     #[serde(deserialize_with = "de_string_from_any")]
     pub status: String,
     #[serde(default)]
@@ -74,7 +76,12 @@ impl RestContractGateFutures {
 
 impl From<RestContractGateFutures> for InstrumentInfo {
     fn from(d: RestContractGateFutures) -> Self {
-        let lot_size = d.order_size_min.parse().unwrap_or_default();
+        let lot_size = if d.enable_decimal {
+            0.0
+        } else {
+            d.order_size_min.parse().unwrap_or_default()
+        };
+        let min_size = if d.enable_decimal { 0.1 } else { lot_size };
         let max_size = d.order_size_max.parse().unwrap_or_default();
         let tick_size = d.order_price_round.parse().unwrap_or_default();
         let state = d.instrument_status(get_seconds_timestamp());
@@ -85,9 +92,9 @@ impl From<RestContractGateFutures> for InstrumentInfo {
             inst_type: InstrumentType::Perpetual,
             lot_size,
             tick_size,
-            min_lmt_size: lot_size,
+            min_lmt_size: min_size,
             max_lmt_size: max_size,
-            min_mkt_size: lot_size,
+            min_mkt_size: min_size,
             max_mkt_size: max_size,
             min_notional: None,
             contract_value: d.quanto_multiplier.parse().ok(),
@@ -129,6 +136,7 @@ mod tests {
             order_size_min: "1".to_string(),
             order_size_max: "680000".to_string(),
             quanto_multiplier: "0.1".to_string(),
+            enable_decimal: false,
             status: status.to_string(),
             in_delisting: false,
             delisting_time: None,
@@ -167,5 +175,30 @@ mod tests {
 
         assert_eq!(c.instrument_status(1_780_481_685), InstrumentStatus::Live);
         assert!(c.is_live(1_780_481_685));
+    }
+
+    #[test]
+    fn non_decimal_contract_uses_order_size_min_as_lot_and_min_size() {
+        let info = InstrumentInfo::from(contract("trading"));
+
+        assert_eq!(info.lot_size, 1.0);
+        assert_eq!(info.min_lmt_size, 1.0);
+        assert_eq!(info.min_mkt_size, 1.0);
+        assert_eq!(info.contract_value, Some(0.1));
+    }
+
+    #[test]
+    fn decimal_contract_uses_hidden_min_without_fake_lot_step() {
+        let mut c = contract("trading");
+        c.order_size_min = "0".to_string();
+        c.quanto_multiplier = "100".to_string();
+        c.enable_decimal = true;
+
+        let info = InstrumentInfo::from(c);
+
+        assert_eq!(info.lot_size, 0.0);
+        assert_eq!(info.min_lmt_size, 0.1);
+        assert_eq!(info.min_mkt_size, 0.1);
+        assert_eq!(info.contract_value, Some(100.0));
     }
 }
