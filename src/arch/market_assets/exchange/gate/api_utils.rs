@@ -10,6 +10,8 @@ use crate::errors::{InfraError, InfraResult};
 
 pub const GATE_CHANNEL_ID_EXTRA_KEY: &str = "gate_channel_id";
 pub const GATE_CHANNEL_ID_HEADER: &str = "X-Gate-Channel-Id";
+pub const GATE_SIZE_DECIMAL_HEADER: &str = "X-Gate-Size-Decimal";
+pub const GATE_SIZE_DECIMAL_HEADER_VALUE: &str = "1";
 
 pub(crate) fn value_to_order_id(value: Option<&Value>) -> Option<String> {
     match value {

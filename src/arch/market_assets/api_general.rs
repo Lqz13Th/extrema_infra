@@ -10,6 +10,7 @@ use std::{
 use crate::arch::market_assets::base_data::{
     MarginMode, OrderSide, OrderType, PositionSide, TimeInForce,
 };
+use crate::arch::task_execution::task_ws::CandleParam;
 use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -106,6 +107,23 @@ pub fn ts_to_micros(ts: u64) -> u64 {
         0..=9_999_999_999 => ts * 1_000_000,
         10_000_000_000..=9_999_999_999_999 => ts * 1_000,
         _ => ts,
+    }
+}
+
+pub fn candle_interval_millis(interval: &CandleParam) -> InfraResult<u64> {
+    match interval {
+        CandleParam::OneSecond => Ok(1_000),
+        CandleParam::OneMinute => Ok(60_000),
+        CandleParam::FiveMinutes => Ok(5 * 60_000),
+        CandleParam::FifteenMinutes => Ok(15 * 60_000),
+        CandleParam::OneHour => Ok(60 * 60_000),
+        CandleParam::FourHours => Ok(4 * 60 * 60_000),
+        CandleParam::OneDay => Ok(24 * 60 * 60_000),
+        CandleParam::OneWeek => Ok(7 * 24 * 60 * 60_000),
+        CandleParam::Custom(value) => Err(InfraError::ApiCliError(format!(
+            "Candle interval duration is unknown for custom interval: {}",
+            value
+        ))),
     }
 }
 
@@ -253,4 +271,30 @@ pub struct OrderParams {
     pub time_in_force: Option<TimeInForce>, // GTC, IOC, FOK, GTD
     pub client_order_id: Option<String>,
     pub extra: HashMap<String, String>, // general
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_supported_candle_intervals_to_millis() {
+        assert_eq!(
+            candle_interval_millis(&CandleParam::OneSecond).unwrap(),
+            1_000
+        );
+        assert_eq!(
+            candle_interval_millis(&CandleParam::OneMinute).unwrap(),
+            60_000
+        );
+        assert_eq!(
+            candle_interval_millis(&CandleParam::OneWeek).unwrap(),
+            7 * 24 * 60 * 60_000
+        );
+    }
+
+    #[test]
+    fn rejects_custom_candle_interval_without_known_duration() {
+        assert!(candle_interval_millis(&CandleParam::Custom("2m".into())).is_err());
+    }
 }

@@ -118,3 +118,39 @@ fn parse_time_in_force(tif: Option<&str>) -> Option<TimeInForce> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn converts_decimal_contract_order_history_size() {
+        let raw: RestFuturesOrderHistoryGateFutures = serde_json::from_value(json!({
+            "id": 281193504063418585_i64,
+            "contract": "LAB_USDT",
+            "size": "-0.1",
+            "left": "0",
+            "price": "0",
+            "fill_price": "14.64758",
+            "status": "finished",
+            "finish_as": "filled",
+            "create_time": 1782726621.0,
+            "update_time": 1782726621.0,
+            "finish_time": 1782726621.0,
+            "text": "api",
+            "tif": "ioc"
+        }))
+        .unwrap();
+
+        let order = HistoOrderData::from(raw);
+
+        assert_eq!(order.inst, "LAB_USDT_PERP");
+        assert_eq!(order.side, OrderSide::SELL);
+        assert_eq!(order.order_status, OrderStatus::Filled);
+        assert_eq!(order.size, 0.1);
+        assert_eq!(order.executed_size, 0.1);
+        assert_eq!(order.avg_price, 14.64758);
+    }
+}

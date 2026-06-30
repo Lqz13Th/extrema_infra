@@ -11,7 +11,8 @@ use crate::arch::{
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
-            OrderParams, get_micros_timestamp, get_mills_timestamp, parse_json_response,
+            OrderParams, candle_interval_millis, get_micros_timestamp, get_mills_timestamp,
+            parse_json_response,
         },
         base_data::{InstrumentType, MarginMode},
     },
@@ -29,13 +30,21 @@ use super::{
     config_assets::*,
     hyperliquid_rest_msg::RestResHyperliquid,
     schemas::rest::{
-        all_mids::RestAllMidsHyperliquid, asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
-        candle::RestCandleHyperliquid, clearinghouse_state::RestClearinghouseStateHyperliquid,
-        funding_history::RestFundingHistoryHyperliquid, meta::RestMetaHyperliquid,
-        order_status::RestOrderStatusHyperliquid, orderbook::RestOrderBookHyperliquid,
+        all_mids::RestAllMidsHyperliquid,
+        asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
+        candle::RestCandleHyperliquid,
+        clearinghouse_state::RestClearinghouseStateHyperliquid,
+        funding_history::RestFundingHistoryHyperliquid,
+        meta::RestMetaHyperliquid,
+        order_status::{
+            RestOrderStatusHyperliquid, finalize_hyperliquid_order_history,
+            validate_hyperliquid_order_history_range,
+        },
+        orderbook::RestOrderBookHyperliquid,
         perp_dexs::RestPerpDexHyperliquid,
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
-        spot_meta::RestSpotMetaHyperliquid, trade_order::RestOrderAckHyperliquid,
+        spot_meta::RestSpotMetaHyperliquid,
+        trade_order::RestOrderAckHyperliquid,
     },
 };
 
@@ -657,11 +666,13 @@ impl HyperliquidCli {
     async fn _get_order_history(
         &self,
         inst: &str,
-        _start_time: Option<u64>,
-        _end_time: Option<u64>,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<HistoOrderData>> {
+        validate_hyperliquid_order_history_range(start_time, end_time)?;
+
         let user = self._owner_address()?;
         let body = match order_id {
             Some(order_id) => json!({
@@ -690,19 +701,20 @@ impl HyperliquidCli {
         let res: RestResHyperliquid<RestOrderStatusHyperliquid> =
             self._post_info_raw(&body).await?;
 
-        let mut data: Vec<HistoOrderData> = res
+        let data: Vec<HistoOrderData> = res
             .into_vec()?
             .into_iter()
             .map(|order| order.into_histo_order_data(perp_quote.as_deref()))
-            .filter(|order| order.inst == normalized_inst)
             .collect();
 
-        data.sort_by_key(|b| std::cmp::Reverse(b.update_time));
-        if let Some(limit) = limit {
-            data.truncate(limit as usize);
-        }
-
-        Ok(data)
+        finalize_hyperliquid_order_history(
+            data,
+            &normalized_inst,
+            start_time,
+            end_time,
+            limit,
+            order_id.is_none(),
+        )
     }
 
     fn _get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
@@ -1066,22 +1078,5 @@ impl HyperliquidCli {
         } else {
             hyperliquid_index_to_asset_id(InstrumentType::Spot, index)
         }
-    }
-}
-
-fn candle_interval_millis(interval: &CandleParam) -> InfraResult<u64> {
-    match interval {
-        CandleParam::OneSecond => Ok(1_000),
-        CandleParam::OneMinute => Ok(60_000),
-        CandleParam::FiveMinutes => Ok(5 * 60_000),
-        CandleParam::FifteenMinutes => Ok(15 * 60_000),
-        CandleParam::OneHour => Ok(60 * 60_000),
-        CandleParam::FourHours => Ok(4 * 60 * 60_000),
-        CandleParam::OneDay => Ok(24 * 60 * 60_000),
-        CandleParam::OneWeek => Ok(7 * 24 * 60 * 60_000),
-        CandleParam::Custom(value) => Err(InfraError::ApiCliError(format!(
-            "Hyperliquid candle interval duration is unknown for custom interval: {}",
-            value
-        ))),
     }
 }

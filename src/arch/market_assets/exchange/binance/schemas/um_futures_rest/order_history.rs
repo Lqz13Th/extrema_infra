@@ -18,7 +18,8 @@ pub struct RestOrderHistoryBinanceUM {
     pub avgPrice: Option<String>,
     pub origQty: String,
     pub executedQty: String,
-    pub cumQuote: String,
+    #[serde(default)]
+    pub cumQuote: Option<String>,
     pub status: String,
     pub timeInForce: String,
     pub r#type: String,
@@ -104,5 +105,37 @@ impl From<RestOrderHistoryBinanceUM> for HistoOrderData {
             update_time: ts_to_micros(d.updateTime),
             fee_currency: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn parses_order_history_without_cum_quote() {
+        let order: RestOrderHistoryBinanceUM = serde_json::from_value(json!({
+            "symbol": "LABUSDT",
+            "orderId": 4639403608_u64,
+            "clientOrderId": "dpYARrVywce855tPrX9P8s",
+            "price": "0",
+            "avgPrice": "14.7157407",
+            "origQty": "27",
+            "executedQty": "27",
+            "status": "FILLED",
+            "timeInForce": "GTC",
+            "type": "MARKET",
+            "side": "SELL",
+            "positionSide": "BOTH",
+            "reduceOnly": false,
+            "time": 1782726621000_u64,
+            "updateTime": 1782726621000_u64
+        }))
+        .unwrap();
+
+        assert_eq!(order.cumQuote, None);
+        assert_eq!(order.executedQty, "27");
     }
 }

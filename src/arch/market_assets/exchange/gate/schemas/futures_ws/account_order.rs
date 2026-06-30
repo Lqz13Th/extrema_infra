@@ -174,4 +174,30 @@ mod tests {
         assert_eq!(ws.order_id.as_deref(), Some("123456789"));
         assert_eq!(ws.cli_order_id.as_deref(), Some("gate-futures-client-id"));
     }
+
+    #[test]
+    fn into_ws_converts_decimal_contract_size() {
+        let raw: WsAccountOrderGateFutures = serde_json::from_value(json!({
+            "id": "281193504063418585",
+            "contract": "LAB_USDT",
+            "size": "0.1",
+            "left": "0",
+            "price": "0",
+            "fill_price": "14.64758",
+            "status": "finished",
+            "finish_as": "filled",
+            "update_time": 1782726621_u64,
+            "create_time_ms": 1782726621776_u64,
+            "tif": "ioc",
+            "text": "api"
+        }))
+        .unwrap();
+
+        let ws = raw.into_ws();
+
+        assert_eq!(ws.inst, "LAB_USDT_PERP");
+        assert_eq!(ws.size, 0.1);
+        assert_eq!(ws.filled_size, 0.1);
+        assert_eq!(ws.status, OrderStatus::Filled);
+    }
 }
