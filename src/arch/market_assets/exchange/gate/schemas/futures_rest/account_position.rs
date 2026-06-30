@@ -49,3 +49,34 @@ impl From<RestAccountPosGateFutures> for PositionData {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use crate::arch::market_assets::base_data::PositionSide;
+
+    use super::*;
+
+    #[test]
+    fn converts_decimal_contract_position_size() {
+        let raw: RestAccountPosGateFutures = serde_json::from_value(json!({
+            "contract": "LAB_USDT",
+            "size": "0.1",
+            "entry_price": "14.64758",
+            "mark_price": "13.8101",
+            "initial_margin": "27.72377575",
+            "lever": "5",
+            "update_time": 1782726621
+        }))
+        .unwrap();
+
+        let position = PositionData::from(raw);
+
+        assert_eq!(position.inst, "LAB_USDT_PERP");
+        assert_eq!(position.position_side, PositionSide::Long);
+        assert_eq!(position.size, 0.1);
+        assert_eq!(position.avg_price, 14.64758);
+        assert_eq!(position.mark_price, 13.8101);
+    }
+}

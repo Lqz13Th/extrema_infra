@@ -12,7 +12,9 @@ use crate::arch::market_assets::{
 };
 use crate::errors::{InfraError, InfraResult};
 
-use super::api_utils::GATE_CHANNEL_ID_HEADER;
+use super::api_utils::{
+    GATE_CHANNEL_ID_HEADER, GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE,
+};
 
 #[allow(dead_code)]
 pub fn read_gate_env_key() -> InfraResult<GateKey> {
@@ -115,6 +117,7 @@ impl GateKey {
             .header("KEY", &self.api_key)
             .header("SIGN", &signature.signature)
             .header("Timestamp", signature.timestamp.to_string())
+            .header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
             .send()
             .await?;
 
@@ -145,6 +148,7 @@ impl GateKey {
             .header("KEY", &self.api_key)
             .header("SIGN", &signature.signature)
             .header("Timestamp", signature.timestamp.to_string())
+            .header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
             .header("Content-Type", "application/json");
 
         if let Some(channel_id) = channel_id {
@@ -168,6 +172,7 @@ impl GateKey {
             .header("KEY", &self.api_key)
             .header("SIGN", &signature.signature)
             .header("Timestamp", signature.timestamp.to_string())
+            .header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
             .header("Content-Type", "application/json")
             .body(body.to_string())
             .send()
@@ -188,6 +193,7 @@ impl GateKey {
             .header("KEY", &self.api_key)
             .header("SIGN", &signature.signature)
             .header("Timestamp", signature.timestamp.to_string())
+            .header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
             .header("Content-Type", "application/json")
             .body(body.to_string())
             .send()
