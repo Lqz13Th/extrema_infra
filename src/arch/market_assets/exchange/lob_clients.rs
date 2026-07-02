@@ -7,6 +7,7 @@ use crate::arch::{
         api_general::OrderParams,
         base_data::InstrumentType,
     },
+    strategy_base::command::command_core::WsConnectTarget,
     task_execution::task_ws::{CandleParam, WsChannel},
     traits::market_lob::*,
 };
@@ -297,6 +298,20 @@ impl LobWebsocket for LobClients {
         }
     }
 
+    async fn get_public_connect_target(&self, channel: &WsChannel) -> InfraResult<WsConnectTarget> {
+        match self {
+            LobClients::Hyperliquid(c) => c.get_public_connect_target(channel).await,
+            LobClients::BinanceCm(c) => c.get_public_connect_target(channel).await,
+            LobClients::BinanceSpot(c) => c.get_public_connect_target(channel).await,
+            LobClients::BinanceUm(c) => c.get_public_connect_target(channel).await,
+            LobClients::GateDelivery(c) => c.get_public_connect_target(channel).await,
+            LobClients::GateFutures(c) => c.get_public_connect_target(channel).await,
+            LobClients::GateSpot(c) => c.get_public_connect_target(channel).await,
+            LobClients::GateUni(c) => c.get_public_connect_target(channel).await,
+            LobClients::Okx(c) => c.get_public_connect_target(channel).await,
+        }
+    }
+
     async fn get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         match self {
             LobClients::Hyperliquid(c) => c.get_private_connect_msg(channel).await,
@@ -308,6 +323,23 @@ impl LobWebsocket for LobClients {
             LobClients::GateSpot(c) => c.get_private_connect_msg(channel).await,
             LobClients::GateUni(c) => c.get_private_connect_msg(channel).await,
             LobClients::Okx(c) => c.get_private_connect_msg(channel).await,
+        }
+    }
+
+    async fn get_private_connect_target(
+        &self,
+        channel: &WsChannel,
+    ) -> InfraResult<WsConnectTarget> {
+        match self {
+            LobClients::Hyperliquid(c) => c.get_private_connect_target(channel).await,
+            LobClients::BinanceCm(c) => c.get_private_connect_target(channel).await,
+            LobClients::BinanceSpot(c) => c.get_private_connect_target(channel).await,
+            LobClients::BinanceUm(c) => c.get_private_connect_target(channel).await,
+            LobClients::GateDelivery(c) => c.get_private_connect_target(channel).await,
+            LobClients::GateFutures(c) => c.get_private_connect_target(channel).await,
+            LobClients::GateSpot(c) => c.get_private_connect_target(channel).await,
+            LobClients::GateUni(c) => c.get_private_connect_target(channel).await,
+            LobClients::Okx(c) => c.get_private_connect_target(channel).await,
         }
     }
 }

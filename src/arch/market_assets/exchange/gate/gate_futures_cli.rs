@@ -15,6 +15,7 @@ use crate::arch::{
         },
         base_data::{InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER},
     },
+    strategy_base::command::command_core::WsConnectTarget,
     task_execution::task_ws::{CandleParam, LobParam, WsChannel},
     traits::{
         conversion::IntoInfraVec,
@@ -146,6 +147,25 @@ impl LobWebsocket for GateFuturesCli {
     async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
         Ok(GATE_FUTURES_WS_USDT.into())
     }
+
+    async fn get_public_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> InfraResult<WsConnectTarget> {
+        Ok(gate_futures_connect_target())
+    }
+
+    async fn get_private_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> InfraResult<WsConnectTarget> {
+        Ok(gate_futures_connect_target())
+    }
+}
+
+fn gate_futures_connect_target() -> WsConnectTarget {
+    WsConnectTarget::new(GATE_FUTURES_WS_USDT)
+        .with_header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
 }
 
 impl GateFuturesCli {
@@ -831,10 +851,33 @@ impl GateFuturesCli {
 #[cfg(test)]
 mod tests {
     use crate::arch::{
-        market_assets::exchange::gate::gate_futures_cli::GateFuturesCli,
+        market_assets::exchange::gate::{
+            api_utils::{GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE},
+            gate_futures_cli::GateFuturesCli,
+        },
         task_execution::task_ws::{LobFrequency, LobParam, WsChannel},
         traits::market_lob::LobWebsocket,
     };
+
+    #[tokio::test]
+    async fn gate_futures_connect_target_requests_decimal_sizes() {
+        let cli = GateFuturesCli::default();
+
+        let public = cli
+            .get_public_connect_target(&WsChannel::Lob(Some(LobParam::Bbo { frequency: None })))
+            .await
+            .unwrap();
+        let private = cli
+            .get_private_connect_target(&WsChannel::AccountPositions)
+            .await
+            .unwrap();
+
+        for target in [public, private] {
+            assert!(target.headers.iter().any(|(name, value)| {
+                name == GATE_SIZE_DECIMAL_HEADER && value == GATE_SIZE_DECIMAL_HEADER_VALUE
+            }));
+        }
+    }
 
     #[tokio::test]
     async fn builds_gate_lob_subscription_messages() {

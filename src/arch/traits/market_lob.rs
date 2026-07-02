@@ -6,6 +6,7 @@ use crate::arch::{
         api_general::OrderParams,
         base_data::InstrumentType,
     },
+    strategy_base::command::command_core::WsConnectTarget,
     task_execution::task_ws::{CandleParam, WsChannel},
 };
 use crate::errors::{InfraError, InfraResult};
@@ -160,11 +161,27 @@ pub trait LobWebsocket: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
+    /// Builds or returns a public websocket connection target.
+    fn get_public_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<WsConnectTarget>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
     /// Builds or returns a private websocket connection target.
     fn get_private_connect_msg(
         &self,
         _channel: &WsChannel,
     ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Builds or returns a private websocket connection target.
+    fn get_private_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<WsConnectTarget>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 }
