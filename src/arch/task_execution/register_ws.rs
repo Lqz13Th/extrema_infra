@@ -20,7 +20,12 @@ use tokio::{
     time::{Duration, error::Elapsed, sleep, timeout},
 };
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
-use tungstenite::{Bytes, Error, protocol::Message};
+use tungstenite::{
+    Bytes, Error,
+    client::IntoClientRequest,
+    http::{HeaderName, HeaderValue},
+    protocol::Message,
+};
 
 use tracing::{error, info, warn};
 
@@ -29,7 +34,7 @@ use crate::arch::{
     strategy_base::{
         command::{
             ack_handle::{AckHandle, AckStatus},
-            command_core::TaskCommand,
+            command_core::{TaskCommand, WsConnectTarget},
         },
         handler::handler_core::*,
     },
@@ -54,8 +59,23 @@ pub(crate) struct WsTaskBuilder {
 
 #[allow(dead_code)]
 impl WsTaskBuilder {
-    async fn connect_websocket(&self, url: &str) -> InfraResult<WsStream> {
-        let (ws_stream, _) = connect_async(url).await.map_err(|e| {
+    async fn connect_websocket(&self, target: WsConnectTarget) -> InfraResult<WsStream> {
+        let mut request = target.url.into_client_request().map_err(|e| {
+            error!("WebSocket request build failed: {:?}", e);
+            InfraError::WebSocket(Box::new(e))
+        })?;
+
+        for (key, value) in target.headers {
+            let header_name = HeaderName::from_bytes(key.as_bytes()).map_err(|e| {
+                InfraError::Msg(format!("Invalid websocket header name {}: {}", key, e))
+            })?;
+            let header_value = HeaderValue::from_str(&value).map_err(|e| {
+                InfraError::Msg(format!("Invalid websocket header value for {}: {}", key, e))
+            })?;
+            request.headers_mut().insert(header_name, header_value);
+        }
+
+        let (ws_stream, _) = connect_async(request).await.map_err(|e| {
             error!("WebSocket connection failed: {:?}", e);
             InfraError::WebSocket(Box::new(e))
         })?;
@@ -276,8 +296,9 @@ impl WsTaskBuilder {
             self.log(LogLevel::Info, "Initiated");
 
             let initial_command = self.cmd_rx.recv().await;
-            let (url, ack) = match initial_command {
-                Some(TaskCommand::WsConnect { msg, ack }) => (msg, ack),
+            let (target, ack) = match initial_command {
+                Some(TaskCommand::WsConnect { msg, ack }) => (WsConnectTarget::new(msg), ack),
+                Some(TaskCommand::WsConnectWithTarget { target, ack }) => (target, ack),
                 Some(cmd) => {
                     self.log(
                         LogLevel::Warn,
@@ -291,7 +312,7 @@ impl WsTaskBuilder {
                 },
             };
 
-            let mut ws_stream = match self.connect_websocket(&url).await {
+            let mut ws_stream = match self.connect_websocket(target).await {
                 Ok(ws) => ws,
                 Err(e) => {
                     self.log(LogLevel::Error, &format!("Failed to connect ws: {:?}", e));

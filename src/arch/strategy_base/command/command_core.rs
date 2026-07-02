@@ -225,6 +225,14 @@ pub enum TaskCommand {
         ack: AckHandle,
     },
 
+    /// Opens a websocket connection with explicit connect metadata.
+    WsConnectWithTarget {
+        /// Websocket URL plus optional HTTP upgrade headers.
+        target: WsConnectTarget,
+        /// Acknowledgement handle, usually expected as `AckStatus::WsConnect`.
+        ack: AckHandle,
+    },
+
     /// Sends an arbitrary websocket text message through an open relay.
     ///
     /// Use this for login, authentication, subscription, unsubscription, ping,
@@ -282,5 +290,28 @@ impl TaskCommand {
             TaskCommand::WsMessage { ack, .. } | TaskCommand::WsShutdown { ack, .. } => Some(ack),
             _ => None,
         }
+    }
+}
+
+/// Websocket connection target used by websocket relay commands.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WsConnectTarget {
+    /// Websocket URL.
+    pub url: String,
+    /// Additional HTTP headers to include in the websocket upgrade request.
+    pub headers: Vec<(String, String)>,
+}
+
+impl WsConnectTarget {
+    pub fn new(url: impl Into<String>) -> Self {
+        Self {
+            url: url.into(),
+            headers: Vec::new(),
+        }
+    }
+
+    pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.headers.push((key.into(), value.into()));
+        self
     }
 }
