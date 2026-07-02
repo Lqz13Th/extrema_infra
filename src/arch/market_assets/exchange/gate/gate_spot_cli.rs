@@ -37,6 +37,7 @@ use crate::arch::{
             },
         },
     },
+    strategy_base::command::command_core::WsConnectTarget,
     task_execution::task_ws::WsChannel,
     traits::{
         conversion::IntoInfraVec,
@@ -113,6 +114,13 @@ impl LobWebsocket for GateSpotCli {
 
     async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
         Ok(GATE_WS_BASE_URL.into())
+    }
+
+    async fn get_private_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> InfraResult<WsConnectTarget> {
+        Ok(WsConnectTarget::new(GATE_WS_BASE_URL))
     }
 }
 
@@ -604,5 +612,29 @@ impl GateSpotCli {
             _ => return Err(InfraError::Unimplemented),
         };
         self.ws_subscribe_private(topic)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::arch::{
+        market_assets::exchange::gate::{
+            config_assets::GATE_WS_BASE_URL, gate_spot_cli::GateSpotCli,
+        },
+        task_execution::task_ws::WsChannel,
+        traits::market_lob::LobWebsocket,
+    };
+
+    #[tokio::test]
+    async fn gate_spot_private_connect_target_uses_plain_ws_url() {
+        let cli = GateSpotCli::default();
+
+        let target = cli
+            .get_private_connect_target(&WsChannel::AccountOrders)
+            .await
+            .unwrap();
+
+        assert_eq!(target.url, GATE_WS_BASE_URL);
+        assert!(target.headers.is_empty());
     }
 }
