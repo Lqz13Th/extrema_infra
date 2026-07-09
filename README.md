@@ -332,11 +332,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-extrema_infra = { version = "0.1", features = ["all"] }
+extrema_infra = { version = "0.2", features = ["all"] }
 
 # Enable exchange clients explicitly when needed.
-# extrema_infra = { version = "0.1", features = ["hyperliquid", "okx"] }
-# extrema_infra = { version = "0.1", features = ["lob_clients"] }
+# extrema_infra = { version = "0.2", features = ["hyperliquid", "okx"] }
+# extrema_infra = { version = "0.2", features = ["lob_clients"] }
 
 # For local development.
 # extrema_infra = { path = "../extrema_infra", features = ["all"] }

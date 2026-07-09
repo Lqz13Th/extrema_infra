@@ -89,8 +89,8 @@ see [TLS Setup](#tls-setup).
 # Local workspace development:
 extrema_infra = { path = "../extrema_infra" }
 # Published crate usage:
-# extrema_infra = "0.1"
-tokio = { version = "1.52.3", features = ["full"] }
+# extrema_infra = "0.2"
+tokio = { version = "1.52", features = ["full"] }
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"

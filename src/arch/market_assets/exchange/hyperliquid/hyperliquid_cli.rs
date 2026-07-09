@@ -322,6 +322,14 @@ impl HyperliquidCli {
         Ok(data)
     }
 
+    pub async fn withdraw3(&self, destination: &str, amount: &str) -> InfraResult<Value> {
+        self.auth
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_withdraw3_raw(&self.client, destination, amount)
+            .await
+    }
+
     async fn _get_candles(
         &self,
         inst: &str,
