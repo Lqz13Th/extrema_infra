@@ -403,6 +403,19 @@ pub struct HyperliquidUpdateLeverageAction {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct HyperliquidWithdraw3Action {
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    pub destination: String,
+    pub amount: String,
+    pub time: u64,
+    #[serde(rename = "signatureChainId")]
+    pub signature_chain_id: String,
+    #[serde(rename = "hyperliquidChain")]
+    pub hyperliquid_chain: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct HyperliquidOrderRequest {
     #[serde(rename = "a")]
     asset: u32,

@@ -76,6 +76,7 @@ async fn main() -> InfraResult<()> {
         cli.auth = Some(HyperliquidAuth {
             owner_address: owner_address.to_ascii_lowercase(),
             agent_private_key: String::new(),
+            owner_private_key: None,
             vault_address: env::var("HYPERLIQUID_VAULT_ADDRESS")
                 .ok()
                 .map(|address| address.to_ascii_lowercase()),
