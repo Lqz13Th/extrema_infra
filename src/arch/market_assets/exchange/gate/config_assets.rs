@@ -11,6 +11,7 @@ pub const GATE_WS_SPOT_BALANCES: &str = "spot.balances";
 pub const GATE_WS_SPOT_CROSS_BALANCES: &str = "spot.cross_balances";
 pub const GATE_SPOT_CURRENCY_PAIRS: &str = "/api/v4/spot/currency_pairs";
 pub const GATE_SPOT_ORDERS: &str = "/api/v4/spot/orders";
+pub const GATE_SPOT_ORDER: &str = "/api/v4/spot/orders/{order_id}";
 pub const GATE_SPOT_TICKERS: &str = "/api/v4/spot/tickers";
 pub const GATE_SPOT_ACCOUNTS: &str = "/api/v4/spot/accounts";
 

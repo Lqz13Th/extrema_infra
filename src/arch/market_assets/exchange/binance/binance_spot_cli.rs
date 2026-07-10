@@ -25,8 +25,8 @@ use super::{
     schemas::{
         spot_rest::{
             account_balance::RestAccountInfoBinanceSpot,
-            exchange_info::RestExchangeInfoBinanceSpot, ticker::RestTickerBinanceSpot,
-            trade_order::RestOrderAckBinanceSpot,
+            exchange_info::RestExchangeInfoBinanceSpot, order_history::RestOrderHistoryBinanceSpot,
+            ticker::RestTickerBinanceSpot, trade_order::RestOrderAckBinanceSpot,
         },
         wallet_rest::{
             all_coins_info::RestCapitalConfigCoinBinance,
@@ -101,6 +101,18 @@ impl LobPrivateRest for BinanceSpotCli {
 
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<&str>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        self._get_order_history(inst, start_time, end_time, limit, order_id)
+            .await
     }
 }
 
@@ -644,6 +656,53 @@ impl BinanceSpotCli {
                 _ => true,
             })
             .map(BalanceData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<&str>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        let mut query_string = format!("symbol={}", cli_spot_to_binance_spot(inst));
+        let endpoint = if let Some(order_id) = order_id {
+            query_string.push_str(&format!("&orderId={order_id}"));
+            BINANCE_SPOT_PLACE_ORDER
+        } else {
+            if let Some(start_time) = start_time {
+                query_string.push_str(&format!("&startTime={start_time}"));
+            }
+            if let Some(end_time) = end_time {
+                query_string.push_str(&format!("&endTime={end_time}"));
+            }
+            if let Some(limit) = limit {
+                query_string.push_str(&format!("&limit={limit}"));
+            }
+            BINANCE_SPOT_ALL_ORDERS
+        };
+
+        let res: RestResBinance<RestOrderHistoryBinanceSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                BINANCE_SPOT_BASE_URL,
+                endpoint,
+            )
+            .await?;
+
+        let data: Vec<HistoOrderData> = res
+            .into_vec()?
+            .into_iter()
+            .map(HistoOrderData::from)
             .collect();
 
         Ok(data)
