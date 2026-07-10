@@ -5,6 +5,7 @@ pub const BINANCE_SPOT_EXCHANGE_INFO: &str = "/api/v3/exchangeInfo";
 pub const BINANCE_SPOT_TICKERS: &str = "/api/v3/ticker/price";
 pub const BINANCE_SPOT_PLACE_ORDER: &str = "/api/v3/order";
 pub const BINANCE_SPOT_CANCEL_ORDER: &str = "/api/v3/order";
+pub const BINANCE_SPOT_ALL_ORDERS: &str = "/api/v3/allOrders";
 pub const BINANCE_SPOT_ACCOUNT_INFO: &str = "/api/v3/account";
 pub const BINANCE_SPOT_MY_TRADES: &str = "/api/v3/myTrades";
 pub const SPOT_USER_DATA_STREAM: &str = "/api/v3/userDataStream";

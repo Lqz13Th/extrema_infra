@@ -6,7 +6,7 @@ use tracing::error;
 use crate::arch::{
     market_assets::{
         api_data::{
-            account_data::{BalanceData, OrderAckData},
+            account_data::{BalanceData, HistoOrderData, OrderAckData},
             price_data::TickerData,
             utils_data::InstrumentInfo,
         },
@@ -19,7 +19,7 @@ use crate::arch::{
                 spot_rest::{
                     account_balance::RestAccountBalGateSpot,
                     currency_pair::RestCurrencyPairGateSpot, order::RestOrderGateSpot,
-                    ticker::RestTickerGateSpot,
+                    order_history::RestOrderHistoryGateSpot, ticker::RestTickerGateSpot,
                 },
                 wallet_rest::{
                     currency_chains::RestCurrencyChainGate,
@@ -104,6 +104,18 @@ impl LobPrivateRest for GateSpotCli {
 
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<&str>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        self._get_order_history(inst, start_time, end_time, limit, order_id)
+            .await
     }
 }
 
@@ -513,6 +525,58 @@ impl GateSpotCli {
         Ok(filtered)
     }
 
+    async fn _get_order_history(
+        &self,
+        inst: &str,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+        limit: Option<u32>,
+        order_id: Option<&str>,
+    ) -> InfraResult<Vec<HistoOrderData>> {
+        let currency_pair = inst.to_uppercase();
+        let (endpoint, query_string) = if let Some(order_id) = order_id {
+            (
+                GATE_SPOT_ORDER.replace("{order_id}", order_id),
+                format!("currency_pair={currency_pair}"),
+            )
+        } else {
+            let mut query = format!("currency_pair={currency_pair}&status=finished");
+            if let Some(start_time) = start_time {
+                query.push_str(&format!("&from={}", timestamp_to_seconds(start_time)));
+            }
+            if let Some(end_time) = end_time {
+                query.push_str(&format!("&to={}", timestamp_to_seconds(end_time)));
+            }
+            if let Some(limit) = limit {
+                query.push_str(&format!("&limit={limit}"));
+            }
+            (GATE_SPOT_ORDERS.into(), query)
+        };
+
+        let res: RestResGate<RestOrderHistoryGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data: Vec<HistoOrderData> = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.currency_pair.eq_ignore_ascii_case(&currency_pair))
+            .map(HistoOrderData::from)
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         let mut body = json!({
             "currency_pair": order_params.inst,
@@ -615,8 +679,17 @@ impl GateSpotCli {
     }
 }
 
+fn timestamp_to_seconds(timestamp: u64) -> u64 {
+    match timestamp {
+        0..=9_999_999_999 => timestamp,
+        10_000_000_000..=9_999_999_999_999 => timestamp / 1_000,
+        _ => timestamp / 1_000_000,
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::timestamp_to_seconds;
     use crate::arch::{
         market_assets::exchange::gate::{
             config_assets::GATE_WS_BASE_URL, gate_spot_cli::GateSpotCli,
@@ -636,5 +709,12 @@ mod tests {
 
         assert_eq!(target.url, GATE_WS_BASE_URL);
         assert!(target.headers.is_empty());
+    }
+
+    #[test]
+    fn gate_spot_history_converts_millisecond_and_microsecond_ranges_to_seconds() {
+        assert_eq!(timestamp_to_seconds(1_783_580_000), 1_783_580_000);
+        assert_eq!(timestamp_to_seconds(1_783_580_000_123), 1_783_580_000);
+        assert_eq!(timestamp_to_seconds(1_783_580_000_123_456), 1_783_580_000);
     }
 }
