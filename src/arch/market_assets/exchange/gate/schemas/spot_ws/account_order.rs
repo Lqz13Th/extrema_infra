@@ -93,13 +93,7 @@ impl IntoWsData for WsAccountOrderGateSpot {
                 OrderType::Limit
             },
             order_id,
-            cli_order_id: self.text.and_then(|t| {
-                if t.is_empty() || t == "-" {
-                    None
-                } else {
-                    Some(t)
-                }
-            }),
+            cli_order_id: self.text.filter(|t| !t.is_empty() && t != "-"),
         }
     }
 }
