@@ -92,6 +92,21 @@ pub fn okx_inst_to_cli(symbol: &str) -> String {
     }
 }
 
+pub fn okx_preopen_inst(symbol: &str) -> Option<(InstrumentType, String)> {
+    let (inst_type, inst) = symbol.strip_prefix("LISTING-")?.split_once('-')?;
+    if !inst.contains('-') {
+        return None;
+    }
+
+    match inst_type {
+        "SPOT" => Some((InstrumentType::Spot, inst.to_string())),
+        "SWAP" => Some((InstrumentType::Perpetual, format!("{inst}-SWAP"))),
+        "FUTURES" => Some((InstrumentType::Futures, inst.to_string())),
+        "OPTION" => Some((InstrumentType::Options, inst.to_string())),
+        _ => None,
+    }
+}
+
 pub fn okx_candle_interval(interval: &CandleParam) -> &str {
     match interval {
         CandleParam::OneSecond => "1s",
@@ -423,5 +438,18 @@ mod tests {
             cli_inst_to_okx_inst("BTC_USD_FUT_240329", &InstrumentType::Futures).unwrap(),
             "BTC-USD-240329"
         );
+    }
+
+    #[test]
+    fn parses_okx_preopen_listing_symbol() {
+        assert_eq!(
+            okx_preopen_inst("LISTING-SPOT-SLX-USDT"),
+            Some((InstrumentType::Spot, "SLX-USDT".into()))
+        );
+        assert_eq!(
+            okx_preopen_inst("LISTING-SWAP-SLX-USDT"),
+            Some((InstrumentType::Perpetual, "SLX-USDT-SWAP".into()))
+        );
+        assert_eq!(okx_preopen_inst("SLX-USDT"), None);
     }
 }
