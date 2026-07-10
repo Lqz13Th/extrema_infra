@@ -233,11 +233,19 @@ impl LobPrivateRest for LobClients {
                 c.get_order_history(inst, start_time, end_time, limit, order_id)
                     .await
             },
+            LobClients::BinanceSpot(c) => {
+                c.get_order_history(inst, start_time, end_time, limit, order_id)
+                    .await
+            },
             LobClients::BinanceUm(c) => {
                 c.get_order_history(inst, start_time, end_time, limit, order_id)
                     .await
             },
             LobClients::GateFutures(c) => {
+                c.get_order_history(inst, start_time, end_time, limit, order_id)
+                    .await
+            },
+            LobClients::GateSpot(c) => {
                 c.get_order_history(inst, start_time, end_time, limit, order_id)
                     .await
             },
