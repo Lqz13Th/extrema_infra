@@ -405,7 +405,12 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let response = self.client.get(url).send().await?;
+        let response = self
+            .client
+            .get(url)
+            .header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
+            .send()
+            .await?;
         let res: RestResGate<RestContractGateFutures> =
             parse_json_response("GateFutures futures_contracts", response).await?;
 
