@@ -144,8 +144,10 @@ pub fn normalize_to_string(value: f64, step: f64) -> String {
         .nth(1)
         .map(|s| s.len())
         .unwrap_or(0);
+    let units = value / step;
+    let tolerance = f64::EPSILON * units.abs().max(1.0) * 8.0;
 
-    format!("{:.*}", precision, (value / step).floor() * step)
+    format!("{:.*}", precision, (units + tolerance).floor() * step)
 }
 
 pub fn normalize_to_string_reduce_only(value: f64, step: f64) -> String {
@@ -159,8 +161,10 @@ pub fn normalize_to_string_reduce_only(value: f64, step: f64) -> String {
         .nth(1)
         .map(|s| s.len())
         .unwrap_or(0);
+    let units = value / step;
+    let tolerance = f64::EPSILON * units.abs().max(1.0) * 8.0;
 
-    format!("{:.*}", precision, (value / step).ceil() * step)
+    format!("{:.*}", precision, (units - tolerance).ceil() * step)
 }
 
 pub fn de_string_from_any<'de, D>(deserializer: D) -> Result<String, D::Error>
@@ -296,5 +300,37 @@ mod tests {
     #[test]
     fn rejects_custom_candle_interval_without_known_duration() {
         assert!(candle_interval_millis(&CandleParam::Custom("2m".into())).is_err());
+    }
+
+    #[test]
+    fn normalizes_values_already_on_decimal_steps() {
+        for (value, step, expected) in [
+            (0.3, 0.1, "0.3"),
+            (0.6, 0.1, "0.6"),
+            (5.1, 0.1, "5.1"),
+            (0.15, 0.05, "0.15"),
+            (1.23, 0.01, "1.23"),
+            (1.234, 0.001, "1.234"),
+        ] {
+            assert_eq!(normalize_to_string(value, step), expected);
+        }
+    }
+
+    #[test]
+    fn normalizes_real_off_step_values_down() {
+        assert_eq!(normalize_to_string(0.299_999, 0.1), "0.2");
+        assert_eq!(normalize_to_string(0.35, 0.1), "0.3");
+    }
+
+    #[test]
+    fn normalizes_reduce_only_values_already_on_decimal_steps() {
+        assert_eq!(normalize_to_string_reduce_only(0.1 + 0.2, 0.1), "0.3");
+        assert_eq!(normalize_to_string_reduce_only(0.15, 0.05), "0.15");
+    }
+
+    #[test]
+    fn normalizes_real_off_step_reduce_only_values_up() {
+        assert_eq!(normalize_to_string_reduce_only(0.300_001, 0.1), "0.4");
+        assert_eq!(normalize_to_string_reduce_only(0.35, 0.1), "0.4");
     }
 }
