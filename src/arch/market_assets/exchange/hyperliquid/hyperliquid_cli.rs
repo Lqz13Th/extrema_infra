@@ -32,6 +32,7 @@ use super::{
     schemas::rest::{
         all_mids::RestAllMidsHyperliquid,
         asset_ctxs::RestMetaAndAssetCtxsHyperliquid,
+        cancel_order::RestCancelAckHyperliquid,
         candle::RestCandleHyperliquid,
         clearinghouse_state::RestClearinghouseStateHyperliquid,
         funding_history::RestFundingHistoryHyperliquid,
@@ -116,6 +117,15 @@ impl LobPrivateRest for HyperliquidCli {
 
     async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         self._place_order(order_params).await
+    }
+
+    async fn cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        self._cancel_order(inst, order_id, cli_order_id).await
     }
 
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
@@ -603,6 +613,73 @@ impl HyperliquidCli {
             .ok_or(InfraError::ApiCliError(
                 "No Hyperliquid order ack data returned".into(),
             ))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        if order_id.is_none() && cli_order_id.is_none() {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid cancel_order requires order_id or cli_order_id".into(),
+            ));
+        }
+
+        let asset = self._inst_to_asset_id(inst)?;
+        let (action, returned_order_id, returned_cli_order_id) = match order_id {
+            Some(order_id) => {
+                let oid = order_id.parse::<u64>().map_err(|_| {
+                    InfraError::ApiCliError(format!(
+                        "Invalid Hyperliquid order_id, expected u64 string: {order_id}"
+                    ))
+                })?;
+                (
+                    HyperliquidCancelAction::ByOid {
+                        cancels: vec![HyperliquidCancelByOidRequest {
+                            asset,
+                            order_id: oid,
+                        }],
+                    },
+                    Some(order_id.to_string()),
+                    cli_order_id.map(str::to_string),
+                )
+            },
+            None => {
+                let cloid =
+                    normalize_hyperliquid_cloid(cli_order_id.ok_or(InfraError::ApiCliError(
+                        "Hyperliquid cancel_order requires order_id or cli_order_id".into(),
+                    ))?)?;
+                (
+                    HyperliquidCancelAction::ByCloid {
+                        cancels: vec![HyperliquidCancelByCloidRequest {
+                            asset,
+                            cloid: cloid.clone(),
+                        }],
+                    },
+                    None,
+                    Some(cloid),
+                )
+            },
+        };
+        let res: RestResHyperliquid<RestCancelAckHyperliquid> = self
+            .auth
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_exchange_action_raw(&self.client, &action)
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid cancel ack data returned".into(),
+            ))?
+            .into_cancel_ack(returned_order_id, returned_cli_order_id)?;
 
         Ok(data)
     }

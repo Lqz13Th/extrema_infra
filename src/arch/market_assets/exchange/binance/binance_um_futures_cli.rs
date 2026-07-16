@@ -115,6 +115,15 @@ impl LobPrivateRest for BinanceUmCli {
         self._place_order(order_params).await
     }
 
+    async fn cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
@@ -761,6 +770,51 @@ impl BinanceUmCli {
             .map(OrderAckData::from)
             .next()
             .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        if order_id.is_none() && cli_order_id.is_none() {
+            return Err(InfraError::ApiCliError(
+                "Binance UM cancel_order requires order_id or cli_order_id".into(),
+            ));
+        }
+
+        let mut query_string = format!("symbol={}", cli_perp_to_pure_uppercase(inst));
+        if let Some(order_id) = order_id {
+            query_string.push_str(&format!("&orderId={order_id}"));
+        }
+        if let Some(cli_order_id) = cli_order_id {
+            query_string.push_str(&format!("&origClientOrderId={cli_order_id}"));
+        }
+
+        let res: RestResBinance<RestOrderAckBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Delete,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_CANCEL_ORDER,
+            )
+            .await?;
+
+        let data: OrderAckData = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Binance UM cancel ack data returned".into(),
+            ))?;
 
         Ok(data)
     }

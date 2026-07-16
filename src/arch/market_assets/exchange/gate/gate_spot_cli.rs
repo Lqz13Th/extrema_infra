@@ -102,6 +102,15 @@ impl LobPrivateRest for GateSpotCli {
         self._place_order(order_params).await
     }
 
+    async fn cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
@@ -666,6 +675,51 @@ impl GateSpotCli {
             .map(OrderAckData::from)
             .next()
             .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        let order_id = match (order_id, cli_order_id) {
+            (Some(order_id), _) => order_id.to_string(),
+            (None, Some(cli_order_id)) => normalize_gate_text(cli_order_id),
+            (None, None) => {
+                return Err(InfraError::ApiCliError(
+                    "Gate Spot cancel_order requires order_id or cli_order_id".into(),
+                ));
+            },
+        };
+        let currency_pair = inst.to_uppercase();
+        let endpoint = GATE_SPOT_ORDER.replace("{order_id}", &order_id);
+        let query_string = format!("currency_pair={currency_pair}");
+
+        let res: RestResGate<RestOrderGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Delete,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Gate Spot cancel ack data returned".into(),
+            ))?;
 
         Ok(data)
     }

@@ -19,6 +19,7 @@ pub const OKX_ASSET_TRANSFER_STATE: &str = "/api/v5/asset/transfer-state";
 pub const OKX_ASSET_WITHDRAWAL: &str = "/api/v5/asset/withdrawal";
 pub const OKX_ASSET_WITHDRAWAL_HISTORY: &str = "/api/v5/asset/withdrawal-history";
 pub const OKX_TRADE_ORDER: &str = "/api/v5/trade/order";
+pub const OKX_TRADE_CANCEL_ORDER: &str = "/api/v5/trade/cancel-order";
 pub const OKX_TRADE_ORDERS_HISTORY: &str = "/api/v5/trade/orders-history";
 pub const OKX_PUBLIC_INSTRUMENTS: &str = "/api/v5/public/instruments";
 pub const OKX_PUBLIC_FUNDING_RATE: &str = "/api/v5/public/funding-rate";

@@ -387,6 +387,33 @@ pub struct HyperliquidOrderAction {
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(tag = "type")]
+pub enum HyperliquidCancelAction {
+    #[serde(rename = "cancel")]
+    ByOid {
+        cancels: Vec<HyperliquidCancelByOidRequest>,
+    },
+    #[serde(rename = "cancelByCloid")]
+    ByCloid {
+        cancels: Vec<HyperliquidCancelByCloidRequest>,
+    },
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct HyperliquidCancelByOidRequest {
+    #[serde(rename = "a")]
+    pub asset: u32,
+    #[serde(rename = "o")]
+    pub order_id: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct HyperliquidCancelByCloidRequest {
+    pub asset: u32,
+    pub cloid: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct HyperliquidBuilderFee {
     pub b: String,
     pub f: u32,
@@ -569,6 +596,26 @@ pub fn normalize_hyperliquid_num_str(input: &str) -> String {
     }
 }
 
+pub fn normalize_hyperliquid_cloid(cloid: &str) -> InfraResult<String> {
+    let cloid = cloid.trim();
+    let Some(hex) = cloid
+        .strip_prefix("0x")
+        .or_else(|| cloid.strip_prefix("0X"))
+    else {
+        return Err(InfraError::ApiCliError(format!(
+            "Invalid Hyperliquid cloid, expected 0x-prefixed 128-bit hex: {cloid}"
+        )));
+    };
+
+    if hex.len() != 32 || !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return Err(InfraError::ApiCliError(format!(
+            "Invalid Hyperliquid cloid, expected 0x-prefixed 128-bit hex: {cloid}"
+        )));
+    }
+
+    Ok(format!("0x{}", hex.to_ascii_lowercase()))
+}
+
 fn is_hyperliquid_kilo_symbol(symbol: &str) -> bool {
     !symbol.is_empty()
         && symbol
@@ -579,6 +626,7 @@ fn is_hyperliquid_kilo_symbol(symbol: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn normalizes_perp_names_with_explicit_quote() {
@@ -630,6 +678,40 @@ mod tests {
         assert_eq!(
             hyperliquid_perp_asset_id_for_dex(7, Some(2)).unwrap(),
             120007
+        );
+    }
+
+    #[test]
+    fn serializes_cancel_actions_and_normalizes_cloid() {
+        let by_oid = serde_json::to_value(HyperliquidCancelAction::ByOid {
+            cancels: vec![HyperliquidCancelByOidRequest {
+                asset: 120_007,
+                order_id: 42,
+            }],
+        })
+        .unwrap();
+        assert_eq!(
+            by_oid,
+            json!({"type":"cancel","cancels":[{"a":120007,"o":42}]})
+        );
+
+        let cloid = normalize_hyperliquid_cloid("0xABCDEF0123456789ABCDEF0123456789").unwrap();
+        let by_cloid = serde_json::to_value(HyperliquidCancelAction::ByCloid {
+            cancels: vec![HyperliquidCancelByCloidRequest {
+                asset: 10_000,
+                cloid,
+            }],
+        })
+        .unwrap();
+        assert_eq!(
+            by_cloid,
+            json!({
+                "type":"cancelByCloid",
+                "cancels":[{
+                    "asset":10000,
+                    "cloid":"0xabcdef0123456789abcdef0123456789"
+                }]
+            })
         );
     }
 }
