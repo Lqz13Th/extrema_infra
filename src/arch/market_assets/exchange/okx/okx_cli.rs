@@ -127,6 +127,15 @@ impl LobPrivateRest for OkxCli {
         self._place_order(order_params).await
     }
 
+    async fn cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
@@ -1072,6 +1081,51 @@ impl OkxCli {
             .map(OrderAckData::from)
             .next()
             .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        if order_id.is_none() && cli_order_id.is_none() {
+            return Err(InfraError::ApiCliError(
+                "OKX cancel_order requires order_id or cli_order_id".into(),
+            ));
+        }
+
+        let mut body = json!({ "instId": cli_perp_to_okx_inst(inst) });
+        if let Some(order_id) = order_id {
+            body["ordId"] = json!(order_id);
+        }
+        if let Some(cli_order_id) = cli_order_id {
+            body["clOrdId"] = json!(cli_order_id);
+        }
+
+        let res: RestResOkx<RestOrderAckOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                body.to_string(),
+                OKX_BASE_URL,
+                OKX_TRADE_CANCEL_ORDER,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(RestOrderAckOkx::into_cancel_ack)
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No OKX cancel ack data returned".into(),
+            ))?;
 
         Ok(data)
     }

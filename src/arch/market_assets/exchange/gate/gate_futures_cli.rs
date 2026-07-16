@@ -110,6 +110,15 @@ impl LobPrivateRest for GateFuturesCli {
         self._place_order(order_params).await
     }
 
+    async fn cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
     }
@@ -645,6 +654,52 @@ impl GateFuturesCli {
             .map(OrderAckData::from)
             .next()
             .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        let order_id = match (order_id, cli_order_id) {
+            (Some(order_id), _) => order_id.to_string(),
+            (None, Some(cli_order_id)) => normalize_gate_text(cli_order_id),
+            (None, None) => {
+                return Err(InfraError::ApiCliError(
+                    "Gate Futures cancel_order requires order_id or cli_order_id".into(),
+                ));
+            },
+        };
+        let settle = infer_settle_from_inst(inst);
+        let endpoint = GATE_FUTURES_ORDER
+            .replace("{settle}", &settle)
+            .replace("{order_id}", &order_id);
+
+        let res: RestResGate<RestFuturesOrderGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Delete,
+                None,
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Gate Futures cancel ack data returned".into(),
+            ))?;
 
         Ok(data)
     }

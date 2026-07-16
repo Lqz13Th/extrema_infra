@@ -523,7 +523,7 @@ impl BinanceSpotCli {
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
         let mut query_string = format!(
-            "symbol={}&side={}&type={}&quantity={}",
+            "symbol={}&side={}&type={}&quantity={}&newOrderRespType=RESULT",
             order_params.inst.to_uppercase(),
             match order_params.side {
                 OrderSide::BUY => "BUY",
@@ -593,7 +593,13 @@ impl BinanceSpotCli {
         order_id: Option<&str>,
         cli_order_id: Option<&str>,
     ) -> InfraResult<OrderAckData> {
-        let mut query_string = format!("symbol={}", inst.to_uppercase());
+        if order_id.is_none() && cli_order_id.is_none() {
+            return Err(InfraError::ApiCliError(
+                "Binance Spot cancel_order requires order_id or cli_order_id".into(),
+            ));
+        }
+
+        let mut query_string = format!("symbol={}", cli_spot_to_binance_spot(inst));
 
         if let Some(oid) = order_id {
             query_string.push_str(&format!("&orderId={}", oid));
