@@ -161,7 +161,9 @@ pub trait LobWebsocket: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
-    /// Builds or returns a public websocket connection target.
+    /// Builds a structured public websocket connection target.
+    ///
+    /// The target can include connection metadata such as HTTP headers.
     fn get_public_connect_target(
         &self,
         _channel: &WsChannel,
@@ -169,7 +171,7 @@ pub trait LobWebsocket: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
-    /// Builds or returns a private websocket connection target.
+    /// Returns the private websocket endpoint using the legacy string form.
     fn get_private_connect_msg(
         &self,
         _channel: &WsChannel,
@@ -177,7 +179,9 @@ pub trait LobWebsocket: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
-    /// Builds or returns a private websocket connection target.
+    /// Builds a structured private websocket connection target.
+    ///
+    /// The target can include connection metadata such as HTTP headers.
     fn get_private_connect_target(
         &self,
         _channel: &WsChannel,

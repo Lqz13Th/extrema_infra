@@ -6,7 +6,7 @@ A quantitative trading environment built in Rust.
 
 - Maximizes runtime efficiency through **static dispatch** and promotes scalability with **Heterogeneous Lists (HList)** for strategy registration.
 
-At its core: **One unified framework for multiple exchanges, multiple strategies, zero runtime boxing.**
+At its core: **One unified framework for multiple exchanges and strategies, with static dispatch at the strategy-registration boundary.**
 
 ---
 
@@ -176,7 +176,7 @@ With **HList**:
 |---------------------------|-----------------------------------|-------------------------------|
 | **Dispatch**              | Dynamic (runtime `vtable`)        | Static (compile-time inlined) |
 | **Type Safety**           | Runtime only                      | Compile-time enforced         |
-| **Performance**           | Extra indirection, heap alloc     | Zero overhead, no heap alloc  |
+| **Strategy registration** | Trait-object indirection          | Concrete types, static dispatch |
 | **Compile-time Checking** | Limited                           | Full (trait bounds enforced)  |
 
 ---
@@ -276,9 +276,11 @@ shape = list(tensor.shape)
 
 ## LOB Exchange API Traits
 
-These traits apply only to LOB-based exchanges (Binance, OKX, Hyperliquid, etc.)
+These traits apply to LOB-based exchanges such as Binance, OKX, Gate, and Hyperliquid.
 
-For connecting to exchanges, you need to implement these traits for each exchange client:
+Client implementors use these traits to expose exchange capabilities. Applications can
+use the built-in clients directly or dispatch through `LobClients`. Operations that a
+selected client does not support return `InfraError::Unimplemented`.
 
 - **LobWebsocket**  
   Defines how to build subscription/connect messages for websocket streams.
@@ -345,7 +347,7 @@ extrema_infra = { version = "0.2", features = ["all"] }
 # extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["all"] }
 
 # Tokio async runtime
-tokio = { version = "1.52", features = ["full"] }
+tokio = { version = "1.53.0", features = ["full"] }
 
 # TLS / Cryptography
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
