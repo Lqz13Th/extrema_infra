@@ -90,7 +90,7 @@ see [TLS Setup](#tls-setup).
 extrema_infra = { path = "../extrema_infra" }
 # Published crate usage:
 # extrema_infra = "0.2"
-tokio = { version = "1.52", features = ["full"] }
+tokio = { version = "1.53.0", features = ["full"] }
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
