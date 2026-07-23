@@ -522,8 +522,14 @@ impl BinanceSpotCli {
     }
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        let (quantity_param, quantity) =
+            if let Some(quote_order_qty) = order_params.extra.get("quoteOrderQty") {
+                ("quoteOrderQty", quote_order_qty)
+            } else {
+                ("quantity", &order_params.size)
+            };
         let mut query_string = format!(
-            "symbol={}&side={}&type={}&quantity={}&newOrderRespType=RESULT",
+            "symbol={}&side={}&type={}&{}={}&newOrderRespType=RESULT",
             order_params.inst.to_uppercase(),
             match order_params.side {
                 OrderSide::BUY => "BUY",
@@ -538,7 +544,8 @@ impl BinanceSpotCli {
                 OrderType::Ioc => "IOC",
                 OrderType::Unknown => "MARKET",
             },
-            order_params.size,
+            quantity_param,
+            quantity,
         );
 
         if let Some(price) = &order_params.price {
@@ -561,6 +568,9 @@ impl BinanceSpotCli {
         }
 
         for (k, v) in &order_params.extra {
+            if k == "quoteOrderQty" {
+                continue;
+            }
             query_string.push_str(&format!("&{}={}", k, v));
         }
 
