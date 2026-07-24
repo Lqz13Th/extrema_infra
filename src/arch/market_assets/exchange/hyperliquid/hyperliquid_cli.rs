@@ -6,7 +6,7 @@ use tracing::{error, warn};
 use crate::arch::{
     market_assets::{
         api_data::{
-            account_data::{BalanceData, HistoOrderData, OrderAckData, PositionData},
+            account_data::{BalanceData, OrderAckData, OrderDetailData, PositionData},
             price_data::{CandleData, OrderBookData, TickerData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
@@ -37,6 +37,7 @@ use super::{
         clearinghouse_state::RestClearinghouseStateHyperliquid,
         funding_history::RestFundingHistoryHyperliquid,
         meta::RestMetaHyperliquid,
+        open_order::RestOpenOrderHyperliquid,
         order_status::{
             RestOrderStatusHyperliquid, finalize_hyperliquid_order_history,
             validate_hyperliquid_order_history_range,
@@ -128,6 +129,14 @@ impl LobPrivateRest for HyperliquidCli {
         self._cancel_order(inst, order_id, cli_order_id).await
     }
 
+    async fn get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_open_orders(inst, limit).await
+    }
+
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
@@ -143,7 +152,7 @@ impl LobPrivateRest for HyperliquidCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
     }
@@ -684,6 +693,39 @@ impl HyperliquidCli {
         Ok(data)
     }
 
+    async fn _get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        if limit == Some(0) {
+            return Ok(Vec::new());
+        }
+
+        let user = self._owner_address()?;
+        let raw_coin = self._inst_to_trade_coin(inst)?;
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        let res: RestResHyperliquid<RestOpenOrderHyperliquid> = self
+            ._post_info_raw(&json!({
+                "type": "frontendOpenOrders",
+                "user": user,
+                "dex": self._perp_dex(),
+            }))
+            .await?;
+
+        let mut data: Vec<OrderDetailData> = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.coin == raw_coin)
+            .map(|order| order.into_order_detail_data(&normalized_inst))
+            .collect();
+        if let Some(limit) = limit {
+            data.truncate(limit as usize);
+        }
+
+        Ok(data)
+    }
+
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         let user = self._owner_address()?;
         let res: RestResHyperliquid<RestSpotClearinghouseStateHyperliquid> = self
@@ -755,7 +797,7 @@ impl HyperliquidCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         validate_hyperliquid_order_history_range(start_time, end_time)?;
 
         let user = self._owner_address()?;
@@ -786,10 +828,10 @@ impl HyperliquidCli {
         let res: RestResHyperliquid<RestOrderStatusHyperliquid> =
             self._post_info_raw(&body).await?;
 
-        let data: Vec<HistoOrderData> = res
+        let data: Vec<OrderDetailData> = res
             .into_vec()?
             .into_iter()
-            .map(|order| order.into_histo_order_data(perp_quote.as_deref()))
+            .map(|order| order.into_order_detail_data(perp_quote.as_deref()))
             .collect();
 
         finalize_hyperliquid_order_history(

@@ -124,6 +124,14 @@ impl LobPrivateRest for BinanceUmCli {
         self._cancel_order(inst, order_id, cli_order_id).await
     }
 
+    async fn get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_open_orders(inst, limit).await
+    }
+
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
@@ -139,7 +147,7 @@ impl LobPrivateRest for BinanceUmCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
     }
@@ -819,6 +827,41 @@ impl BinanceUmCli {
         Ok(data)
     }
 
+    async fn _get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        if limit == Some(0) {
+            return Ok(Vec::new());
+        }
+
+        let query_string = format!("symbol={}", cli_perp_to_pure_uppercase(inst));
+        let res: RestResBinance<RestOrderHistoryBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_OPEN_ORDERS,
+            )
+            .await?;
+
+        let mut data: Vec<OrderDetailData> = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderDetailData::from)
+            .collect();
+        if let Some(limit) = limit {
+            data.truncate(limit as usize);
+        }
+
+        Ok(data)
+    }
+
     async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         let res: RestResBinance<RestAccountBalBinanceUM> = self
             .api_key
@@ -880,7 +923,7 @@ impl BinanceUmCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         let mut query_string = format!("symbol={}", cli_perp_to_pure_uppercase(inst));
 
         if let Some(oid) = order_id {
@@ -915,7 +958,7 @@ impl BinanceUmCli {
         let data = res
             .into_vec()?
             .into_iter()
-            .map(HistoOrderData::from)
+            .map(OrderDetailData::from)
             .collect();
 
         Ok(data)

@@ -6,7 +6,7 @@ use tracing::error;
 use crate::arch::{
     market_assets::{
         api_data::{
-            account_data::{HistoOrderData, OrderAckData, PositionData},
+            account_data::{OrderAckData, OrderDetailData, PositionData},
             price_data::{CandleData, OrderBookData, TickerData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
@@ -36,6 +36,8 @@ use super::{
         orderbook::RestOrderBookGateFutures, ticker::RestTickerGateFutures,
     },
 };
+
+const OPEN_ORDERS_PAGE_LIMIT: u32 = 100;
 
 #[derive(Clone, Debug)]
 pub struct GateFuturesCli {
@@ -119,6 +121,14 @@ impl LobPrivateRest for GateFuturesCli {
         self._cancel_order(inst, order_id, cli_order_id).await
     }
 
+    async fn get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_open_orders(inst, limit).await
+    }
+
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
     }
@@ -130,7 +140,7 @@ impl LobPrivateRest for GateFuturesCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
     }
@@ -762,6 +772,88 @@ impl GateFuturesCli {
         Ok(data)
     }
 
+    async fn _get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        if limit == Some(0) {
+            return Ok(Vec::new());
+        }
+
+        let page_limit = limit
+            .unwrap_or(OPEN_ORDERS_PAGE_LIMIT)
+            .min(OPEN_ORDERS_PAGE_LIMIT);
+        let mut data = Vec::new();
+        let mut last_id = None;
+
+        loop {
+            let page_data = self
+                ._get_open_orders_page(inst, page_limit, last_id.as_deref())
+                .await?;
+            let page_len = page_data.len();
+            let next_last_id = page_data.last().map(|order| order.order_id.clone());
+            data.extend(page_data);
+
+            if let Some(limit) = limit
+                && data.len() >= limit as usize
+            {
+                data.truncate(limit as usize);
+                break;
+            }
+            if page_len < page_limit as usize {
+                break;
+            }
+            if next_last_id == last_id {
+                return Err(InfraError::ApiCliError(
+                    "Gate Futures open-order cursor did not advance".into(),
+                ));
+            }
+
+            last_id = next_last_id;
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_open_orders_page(
+        &self,
+        inst: &str,
+        limit: u32,
+        last_id: Option<&str>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        let settle = infer_settle_from_inst(inst);
+        let contract = cli_perp_to_gate_inst(inst);
+        let endpoint = GATE_FUTURES_ORDERS.replace("{settle}", &settle);
+        let mut query_string = format!("status=open&contract={contract}&limit={limit}");
+        if let Some(last_id) = last_id {
+            query_string.push_str(&format!("&last_id={last_id}"));
+        }
+
+        let res: RestResGate<RestFuturesOrderHistoryGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.contract == contract)
+            .map(OrderDetailData::from)
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _get_order_history(
         &self,
         inst: &str,
@@ -769,7 +861,7 @@ impl GateFuturesCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         let settle = infer_settle_from_inst(inst);
         let contract = cli_perp_to_gate_inst(inst);
 
@@ -811,11 +903,11 @@ impl GateFuturesCli {
             )
             .await?;
 
-        let data: Vec<HistoOrderData> = res
+        let data: Vec<OrderDetailData> = res
             .into_vec()?
             .into_iter()
             .filter(|order| order.contract == contract)
-            .map(HistoOrderData::from)
+            .map(OrderDetailData::from)
             .collect();
 
         Ok(data)

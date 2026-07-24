@@ -2,7 +2,7 @@ use serde::Deserialize;
 use tracing::warn;
 
 use crate::arch::market_assets::{
-    api_data::account_data::HistoOrderData,
+    api_data::account_data::OrderDetailData,
     api_general::ts_to_micros,
     base_data::{OrderSide, OrderStatus, OrderType, TimeInForce},
 };
@@ -33,7 +33,7 @@ pub struct RestOrderHistoryGateSpot {
     pub finish_as: Option<String>,
 }
 
-impl From<RestOrderHistoryGateSpot> for HistoOrderData {
+impl From<RestOrderHistoryGateSpot> for OrderDetailData {
     fn from(d: RestOrderHistoryGateSpot) -> Self {
         let amount = d.amount.parse::<f64>().unwrap_or_default().abs();
         let left = d.left.parse::<f64>().unwrap_or_default().abs();
@@ -91,7 +91,7 @@ impl From<RestOrderHistoryGateSpot> for HistoOrderData {
                 .unwrap_or_default()
         };
 
-        HistoOrderData {
+        OrderDetailData {
             timestamp: ts_to_micros(timestamp),
             inst: d.currency_pair,
             order_id: d.id,
@@ -202,7 +202,7 @@ mod tests {
         }))
         .unwrap();
 
-        let order = HistoOrderData::from(raw);
+        let order = OrderDetailData::from(raw);
 
         assert_eq!(order.order_status, OrderStatus::Filled);
         assert_eq!(order.order_type, OrderType::Market);
@@ -236,7 +236,7 @@ mod tests {
         }))
         .unwrap();
 
-        let order = HistoOrderData::from(raw);
+        let order = OrderDetailData::from(raw);
 
         assert_eq!(order.order_status, OrderStatus::Canceled);
         assert_eq!(order.order_type, OrderType::Ioc);

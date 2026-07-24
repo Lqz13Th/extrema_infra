@@ -3,7 +3,7 @@ use serde_json::Value;
 use tracing::warn;
 
 use crate::arch::market_assets::{
-    api_data::account_data::HistoOrderData,
+    api_data::account_data::OrderDetailData,
     api_general::ts_to_micros,
     base_data::{OrderSide, OrderStatus, OrderType, PositionSide, TimeInForce},
     exchange::okx::api_utils::okx_inst_to_cli,
@@ -32,7 +32,7 @@ pub struct RestOrderHistoryOkx {
     pub fillTime: Option<String>,
 }
 
-impl From<RestOrderHistoryOkx> for HistoOrderData {
+impl From<RestOrderHistoryOkx> for OrderDetailData {
     fn from(d: RestOrderHistoryOkx) -> Self {
         let (order_type, time_in_force) = parse_order_kind(&d.ordType);
         let executed_size = d
@@ -43,7 +43,7 @@ impl From<RestOrderHistoryOkx> for HistoOrderData {
             .unwrap_or_default()
             .abs();
 
-        HistoOrderData {
+        OrderDetailData {
             timestamp: ts_to_micros(parse_ts(d.cTime.as_deref())),
             inst: okx_inst_to_cli(&d.instId),
             order_id: d.ordId,

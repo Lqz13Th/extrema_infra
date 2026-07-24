@@ -43,6 +43,8 @@ use super::{
     },
 };
 
+const OPEN_ORDERS_PAGE_LIMIT: u32 = 100;
+
 fn create_okx_cli_with_key(
     keys: HashMap<String, OkxKey>,
     shared_client: Arc<Client>,
@@ -136,6 +138,14 @@ impl LobPrivateRest for OkxCli {
         self._cancel_order(inst, order_id, cli_order_id).await
     }
 
+    async fn get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_open_orders(inst, limit).await
+    }
+
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
@@ -151,7 +161,7 @@ impl LobPrivateRest for OkxCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
     }
@@ -1193,6 +1203,83 @@ impl OkxCli {
         Ok(data)
     }
 
+    async fn _get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        if limit == Some(0) {
+            return Ok(Vec::new());
+        }
+
+        let page_limit = limit
+            .unwrap_or(OPEN_ORDERS_PAGE_LIMIT)
+            .min(OPEN_ORDERS_PAGE_LIMIT);
+        let mut data = Vec::new();
+        let mut after = None;
+
+        loop {
+            let page_data = self
+                ._get_open_orders_page(inst, page_limit, after.as_deref())
+                .await?;
+            let page_len = page_data.len();
+            let next_after = page_data.last().map(|order| order.order_id.clone());
+            data.extend(page_data);
+
+            if let Some(limit) = limit
+                && data.len() >= limit as usize
+            {
+                data.truncate(limit as usize);
+                break;
+            }
+            if page_len < page_limit as usize {
+                break;
+            }
+            if next_after == after {
+                return Err(InfraError::ApiCliError(
+                    "OKX open-order cursor did not advance".into(),
+                ));
+            }
+
+            after = next_after;
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_open_orders_page(
+        &self,
+        inst: &str,
+        limit: u32,
+        after: Option<&str>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        let mut query = format!("instId={}&limit={limit}", cli_perp_to_okx_inst(inst));
+        if let Some(after) = after {
+            query.push_str(&format!("&after={after}"));
+        }
+
+        let res: RestResOkx<RestOrderHistoryOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query,
+                OKX_BASE_URL,
+                OKX_TRADE_ORDERS_PENDING,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderDetailData::from)
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _get_order_history(
         &self,
         inst: &str,
@@ -1200,7 +1287,7 @@ impl OkxCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         let okx_inst = cli_perp_to_okx_inst(inst);
         let mut query = format!("instId={}", okx_inst);
         let endpoint = if let Some(order_id) = order_id {
@@ -1233,10 +1320,10 @@ impl OkxCli {
             )
             .await?;
 
-        let data: Vec<HistoOrderData> = res
+        let data: Vec<OrderDetailData> = res
             .into_vec()?
             .into_iter()
-            .map(HistoOrderData::from)
+            .map(OrderDetailData::from)
             .collect();
 
         Ok(data)

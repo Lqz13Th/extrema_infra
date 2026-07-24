@@ -2,7 +2,7 @@ use serde::Deserialize;
 use tracing::warn;
 
 use crate::arch::market_assets::{
-    api_data::account_data::HistoOrderData,
+    api_data::account_data::OrderDetailData,
     api_general::ts_to_micros,
     base_data::{OrderSide, OrderStatus, OrderType, PositionSide, TimeInForce},
     exchange::binance::api_utils::binance_fut_inst_to_cli,
@@ -30,7 +30,7 @@ pub struct RestOrderHistoryBinanceUM {
     pub updateTime: u64,
 }
 
-impl From<RestOrderHistoryBinanceUM> for HistoOrderData {
+impl From<RestOrderHistoryBinanceUM> for OrderDetailData {
     fn from(d: RestOrderHistoryBinanceUM) -> Self {
         let side = match d.side.as_str() {
             "BUY" => OrderSide::BUY,
@@ -86,7 +86,7 @@ impl From<RestOrderHistoryBinanceUM> for HistoOrderData {
             },
         });
 
-        HistoOrderData {
+        OrderDetailData {
             timestamp: ts_to_micros(d.time),
             inst: binance_fut_inst_to_cli(&d.symbol),
             order_id: d.orderId.to_string(),
