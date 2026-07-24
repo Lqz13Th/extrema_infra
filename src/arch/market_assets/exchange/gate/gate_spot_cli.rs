@@ -6,7 +6,7 @@ use tracing::error;
 use crate::arch::{
     market_assets::{
         api_data::{
-            account_data::{BalanceData, HistoOrderData, OrderAckData},
+            account_data::{BalanceData, OrderAckData, OrderDetailData},
             price_data::TickerData,
             utils_data::InstrumentInfo,
         },
@@ -50,6 +50,8 @@ use super::{
     api_key::{GateKey, read_gate_env_key},
     api_utils::*,
 };
+
+const OPEN_ORDERS_PAGE_LIMIT: u32 = 100;
 
 #[derive(Clone, Debug)]
 pub struct GateSpotCli {
@@ -111,6 +113,14 @@ impl LobPrivateRest for GateSpotCli {
         self._cancel_order(inst, order_id, cli_order_id).await
     }
 
+    async fn get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_open_orders(inst, limit).await
+    }
+
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
     }
@@ -122,7 +132,7 @@ impl LobPrivateRest for GateSpotCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         self._get_order_history(inst, start_time, end_time, limit, order_id)
             .await
     }
@@ -534,6 +544,75 @@ impl GateSpotCli {
         Ok(filtered)
     }
 
+    async fn _get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        if limit == Some(0) {
+            return Ok(Vec::new());
+        }
+
+        let page_limit = limit
+            .unwrap_or(OPEN_ORDERS_PAGE_LIMIT)
+            .min(OPEN_ORDERS_PAGE_LIMIT);
+        let mut data = Vec::new();
+        let mut page = 1;
+
+        loop {
+            let page_data = self._get_open_orders_page(inst, page, page_limit).await?;
+            let page_len = page_data.len();
+            data.extend(page_data);
+
+            if let Some(limit) = limit
+                && data.len() >= limit as usize
+            {
+                data.truncate(limit as usize);
+                break;
+            }
+            if page_len < page_limit as usize {
+                break;
+            }
+
+            page += 1;
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_open_orders_page(
+        &self,
+        inst: &str,
+        page: u32,
+        limit: u32,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        let currency_pair = inst.to_uppercase();
+        let query_string =
+            format!("currency_pair={currency_pair}&status=open&page={page}&limit={limit}");
+        let res: RestResGate<RestOrderHistoryGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                GATE_SPOT_ORDERS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.currency_pair.eq_ignore_ascii_case(&currency_pair))
+            .map(OrderDetailData::from)
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _get_order_history(
         &self,
         inst: &str,
@@ -541,7 +620,7 @@ impl GateSpotCli {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         let currency_pair = inst.to_uppercase();
         let (endpoint, query_string) = if let Some(order_id) = order_id {
             (
@@ -576,11 +655,11 @@ impl GateSpotCli {
             )
             .await?;
 
-        let data: Vec<HistoOrderData> = res
+        let data: Vec<OrderDetailData> = res
             .into_vec()?
             .into_iter()
             .filter(|order| order.currency_pair.eq_ignore_ascii_case(&currency_pair))
-            .map(HistoOrderData::from)
+            .map(OrderDetailData::from)
             .collect();
 
         Ok(data)

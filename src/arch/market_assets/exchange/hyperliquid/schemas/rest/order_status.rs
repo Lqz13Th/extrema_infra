@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::arch::market_assets::{
-    api_data::account_data::HistoOrderData,
+    api_data::account_data::OrderDetailData,
     api_general::{ts_to_micros, value_to_f64},
     base_data::{OrderSide, OrderStatus, OrderType},
     exchange::hyperliquid::api_utils::{hyperliquid_inst_to_cli, hyperliquid_perp_to_cli},
@@ -33,14 +33,14 @@ pub struct RestBasicOrderHyperliquid {
     pub cloid: Option<String>,
 }
 
-impl From<RestOrderStatusHyperliquid> for HistoOrderData {
+impl From<RestOrderStatusHyperliquid> for OrderDetailData {
     fn from(d: RestOrderStatusHyperliquid) -> Self {
-        d.into_histo_order_data(None)
+        d.into_order_detail_data(None)
     }
 }
 
 impl RestOrderStatusHyperliquid {
-    pub fn into_histo_order_data(self, perp_quote: Option<&str>) -> HistoOrderData {
+    pub fn into_order_detail_data(self, perp_quote: Option<&str>) -> OrderDetailData {
         let d = self;
         let remaining_size = value_to_f64(&d.order.sz).abs();
         let orig_size = value_to_f64(&d.order.origSz).abs();
@@ -52,7 +52,7 @@ impl RestOrderStatusHyperliquid {
             _ => hyperliquid_inst_to_cli(&d.order.coin),
         };
 
-        HistoOrderData {
+        OrderDetailData {
             timestamp: ts_to_micros(d.order.timestamp),
             inst,
             order_id: d.order.oid.to_string(),
@@ -116,13 +116,13 @@ pub fn validate_hyperliquid_order_history_range(
 }
 
 pub fn finalize_hyperliquid_order_history(
-    data: Vec<HistoOrderData>,
+    data: Vec<OrderDetailData>,
     normalized_inst: &str,
     start_time_ms: Option<u64>,
     end_time_ms: Option<u64>,
     limit: Option<u32>,
     require_recent_window_coverage: bool,
-) -> InfraResult<Vec<HistoOrderData>> {
+) -> InfraResult<Vec<OrderDetailData>> {
     if require_recent_window_coverage {
         ensure_recent_orders_cover_start(&data, start_time_ms)?;
     }
@@ -136,7 +136,7 @@ pub fn finalize_hyperliquid_order_history(
     ))
 }
 
-fn order_history_time(order: &HistoOrderData) -> u64 {
+fn order_history_time(order: &OrderDetailData) -> u64 {
     order.update_time.max(order.timestamp)
 }
 
@@ -145,12 +145,12 @@ fn millis_to_micros(timestamp_ms: u64) -> u64 {
 }
 
 fn filter_order_history(
-    mut data: Vec<HistoOrderData>,
+    mut data: Vec<OrderDetailData>,
     normalized_inst: &str,
     start_time_ms: Option<u64>,
     end_time_ms: Option<u64>,
     limit: Option<u32>,
-) -> Vec<HistoOrderData> {
+) -> Vec<OrderDetailData> {
     let start_time_us = start_time_ms.map(millis_to_micros);
     let end_time_us = end_time_ms.map(millis_to_micros);
 
@@ -173,7 +173,7 @@ fn filter_order_history(
 }
 
 fn ensure_recent_orders_cover_start(
-    data: &[HistoOrderData],
+    data: &[OrderDetailData],
     start_time_ms: Option<u64>,
 ) -> InfraResult<()> {
     let Some(start_time_ms) = start_time_ms else {
@@ -205,8 +205,8 @@ fn ensure_recent_orders_cover_start(
 mod tests {
     use super::*;
 
-    fn histo_order(inst: &str, order_id: &str, update_time: u64) -> HistoOrderData {
-        HistoOrderData {
+    fn order_detail(inst: &str, order_id: &str, update_time: u64) -> OrderDetailData {
+        OrderDetailData {
             timestamp: update_time.saturating_sub(1_000),
             inst: inst.to_string(),
             order_id: order_id.to_string(),
@@ -230,10 +230,10 @@ mod tests {
     #[test]
     fn filters_hyperliquid_order_history_by_inst_time_and_limit() {
         let data = vec![
-            histo_order("BTC_USDC_PERP", "old", 1_000_000),
-            histo_order("BTC_USDC_PERP", "middle", 2_000_000),
-            histo_order("BTC_USDC_PERP", "new", 3_000_000),
-            histo_order("ETH_USDC_PERP", "other", 3_500_000),
+            order_detail("BTC_USDC_PERP", "old", 1_000_000),
+            order_detail("BTC_USDC_PERP", "middle", 2_000_000),
+            order_detail("BTC_USDC_PERP", "new", 3_000_000),
+            order_detail("ETH_USDC_PERP", "other", 3_500_000),
         ];
 
         let filtered = finalize_hyperliquid_order_history(
@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn rejects_time_range_older_than_full_recent_historical_orders_window() {
         let data = (0..HYPERLIQUID_HISTORICAL_ORDERS_RECENT_LIMIT)
-            .map(|idx| histo_order("BTC_USDC_PERP", &idx.to_string(), 2_000_000 + idx as u64))
+            .map(|idx| order_detail("BTC_USDC_PERP", &idx.to_string(), 2_000_000 + idx as u64))
             .collect::<Vec<_>>();
 
         let err = finalize_hyperliquid_order_history(

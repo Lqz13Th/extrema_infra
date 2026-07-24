@@ -2,7 +2,7 @@ use serde::Deserialize;
 use tracing::warn;
 
 use crate::arch::market_assets::{
-    api_data::account_data::HistoOrderData,
+    api_data::account_data::OrderDetailData,
     api_general::ts_to_micros,
     base_data::{OrderSide, OrderStatus, OrderType, TimeInForce},
     exchange::binance::api_utils::binance_spot_inst_to_cli,
@@ -26,7 +26,7 @@ pub struct RestOrderHistoryBinanceSpot {
     pub updateTime: u64,
 }
 
-impl From<RestOrderHistoryBinanceSpot> for HistoOrderData {
+impl From<RestOrderHistoryBinanceSpot> for OrderDetailData {
     fn from(d: RestOrderHistoryBinanceSpot) -> Self {
         let executed_size = d.executedQty.parse::<f64>().unwrap_or_default().abs();
         let cumulative_quote = d
@@ -36,7 +36,7 @@ impl From<RestOrderHistoryBinanceSpot> for HistoOrderData {
             .unwrap_or_default()
             .abs();
 
-        HistoOrderData {
+        OrderDetailData {
             timestamp: ts_to_micros(d.time),
             inst: binance_spot_inst_to_cli(&d.symbol),
             order_id: d.orderId.to_string(),
@@ -122,7 +122,7 @@ mod tests {
         }))
         .unwrap();
 
-        let order = HistoOrderData::from(raw);
+        let order = OrderDetailData::from(raw);
 
         assert_eq!(order.inst, "USDC_USDT");
         assert_eq!(order.order_status, OrderStatus::Filled);
@@ -150,7 +150,7 @@ mod tests {
         }))
         .unwrap();
 
-        let order = HistoOrderData::from(raw);
+        let order = OrderDetailData::from(raw);
 
         assert_eq!(order.order_type, OrderType::PostOnly);
         assert_eq!(order.order_status, OrderStatus::PartiallyFilled);

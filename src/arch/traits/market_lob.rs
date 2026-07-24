@@ -100,6 +100,18 @@ pub trait LobPrivateRest: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
+    /// Fetches open orders for one instrument.
+    ///
+    /// `limit` caps the total number of returned orders. `None` requests all
+    /// available pages.
+    fn get_open_orders(
+        &self,
+        _inst: &str,
+        _limit: Option<u32>,
+    ) -> impl Future<Output = InfraResult<Vec<OrderDetailData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
     /// Fetches account balances.
     fn get_balance(
         &self,
@@ -124,7 +136,7 @@ pub trait LobPrivateRest: Send + Sync {
         _end_time: Option<u64>,
         _limit: Option<u32>,
         _order_id: Option<&str>,
-    ) -> impl Future<Output = InfraResult<Vec<HistoOrderData>>> + Send {
+    ) -> impl Future<Output = InfraResult<Vec<OrderDetailData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 }

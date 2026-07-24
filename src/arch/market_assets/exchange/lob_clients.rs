@@ -197,6 +197,22 @@ impl LobPrivateRest for LobClients {
         }
     }
 
+    async fn get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        match self {
+            LobClients::Hyperliquid(c) => c.get_open_orders(inst, limit).await,
+            LobClients::BinanceSpot(c) => c.get_open_orders(inst, limit).await,
+            LobClients::BinanceUm(c) => c.get_open_orders(inst, limit).await,
+            LobClients::GateFutures(c) => c.get_open_orders(inst, limit).await,
+            LobClients::GateSpot(c) => c.get_open_orders(inst, limit).await,
+            LobClients::Okx(c) => c.get_open_orders(inst, limit).await,
+            _ => Err(InfraError::Unimplemented),
+        }
+    }
+
     async fn get_balance(&self, insts: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         match self {
             LobClients::Hyperliquid(c) => c.get_balance(insts).await,
@@ -232,7 +248,7 @@ impl LobPrivateRest for LobClients {
         end_time: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
-    ) -> InfraResult<Vec<HistoOrderData>> {
+    ) -> InfraResult<Vec<OrderDetailData>> {
         match self {
             LobClients::Hyperliquid(c) => {
                 c.get_order_history(inst, start_time, end_time, limit, order_id)

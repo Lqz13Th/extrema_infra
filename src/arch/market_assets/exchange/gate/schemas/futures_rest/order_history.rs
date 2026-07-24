@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::arch::market_assets::{
-    api_data::account_data::HistoOrderData,
+    api_data::account_data::OrderDetailData,
     api_general::{ts_to_micros, value_to_f64},
     base_data::{OrderSide, OrderStatus, OrderType, TimeInForce},
     exchange::gate::api_utils::gate_fut_inst_to_cli,
@@ -25,7 +25,7 @@ pub struct RestFuturesOrderHistoryGateFutures {
     pub tif: Option<String>,
 }
 
-impl From<RestFuturesOrderHistoryGateFutures> for HistoOrderData {
+impl From<RestFuturesOrderHistoryGateFutures> for OrderDetailData {
     fn from(d: RestFuturesOrderHistoryGateFutures) -> Self {
         let size = value_to_f64(&d.size);
         let left = value_to_f64(&d.left);
@@ -34,7 +34,7 @@ impl From<RestFuturesOrderHistoryGateFutures> for HistoOrderData {
         let size_abs = size.abs();
         let left_abs = left.abs();
 
-        HistoOrderData {
+        OrderDetailData {
             timestamp: ts_to_micros(d.create_time as u64),
             inst: gate_fut_inst_to_cli(&d.contract),
             order_id: d.id.to_string(),
@@ -144,7 +144,7 @@ mod tests {
         }))
         .unwrap();
 
-        let order = HistoOrderData::from(raw);
+        let order = OrderDetailData::from(raw);
 
         assert_eq!(order.inst, "LAB_USDT_PERP");
         assert_eq!(order.side, OrderSide::SELL);
