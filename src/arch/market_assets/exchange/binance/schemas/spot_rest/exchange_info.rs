@@ -129,6 +129,7 @@ impl From<InstrumentInfoBinanceSpot> for InstrumentInfo {
             max_lmt_size,
             min_mkt_size,
             max_mkt_size,
+            max_leverage: None,
             min_notional: (min_notional > 0.0).then_some(min_notional),
             contract_value: None,
             contract_multiplier: None,

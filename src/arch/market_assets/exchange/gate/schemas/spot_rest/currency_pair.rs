@@ -45,6 +45,7 @@ impl From<RestCurrencyPairGateSpot> for InstrumentInfo {
             max_lmt_size: max_base_amount,
             min_mkt_size: min_base_amount.max(lot_size),
             max_mkt_size: market_order_max_stock,
+            max_leverage: None,
             min_notional: d.min_quote_amount.parse::<f64>().ok().filter(|v| *v > 0.0),
             contract_value: None,
             contract_multiplier: None,

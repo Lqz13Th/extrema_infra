@@ -117,6 +117,7 @@ impl RestSpotUniverseHyperliquid {
             max_lmt_size: 0.0,
             min_mkt_size: lot_size,
             max_mkt_size: 0.0,
+            max_leverage: None,
             min_notional: None,
             contract_value: None,
             contract_multiplier: None,
