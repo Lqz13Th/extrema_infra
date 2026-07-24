@@ -92,6 +92,7 @@ impl From<RestContractGateFutures> for InstrumentInfo {
             max_lmt_size: max_size,
             min_mkt_size: min_size,
             max_mkt_size: max_size,
+            max_leverage: None,
             min_notional: None,
             contract_value: d.quanto_multiplier.parse().ok(),
             contract_multiplier: None,

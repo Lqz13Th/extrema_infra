@@ -52,6 +52,7 @@ impl RestMetaUniverseHyperliquid {
             max_lmt_size: f64::MAX,
             min_mkt_size: lot_size,
             max_mkt_size: f64::MAX,
+            max_leverage: self.maxLeverage,
             min_notional: None,
             contract_value: None,
             contract_multiplier: None,
