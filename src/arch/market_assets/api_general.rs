@@ -277,6 +277,24 @@ pub struct OrderParams {
     pub extra: HashMap<String, String>, // general
 }
 
+impl OrderParams {
+    pub fn validate_side_and_type(&self) -> InfraResult<()> {
+        if matches!(&self.side, OrderSide::Unknown) {
+            return Err(InfraError::ApiCliError(
+                "Order side must be explicitly set".into(),
+            ));
+        }
+
+        if matches!(&self.order_type, OrderType::Unknown) {
+            return Err(InfraError::ApiCliError(
+                "Order type must be explicitly set".into(),
+            ));
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,6 +318,32 @@ mod tests {
     #[test]
     fn rejects_custom_candle_interval_without_known_duration() {
         assert!(candle_interval_millis(&CandleParam::Custom("2m".into())).is_err());
+    }
+
+    #[test]
+    fn rejects_order_without_explicit_side_or_type() {
+        let missing_side = OrderParams {
+            order_type: OrderType::Market,
+            ..Default::default()
+        };
+        assert!(missing_side.validate_side_and_type().is_err());
+
+        let missing_type = OrderParams {
+            side: OrderSide::BUY,
+            ..Default::default()
+        };
+        assert!(missing_type.validate_side_and_type().is_err());
+    }
+
+    #[test]
+    fn accepts_order_with_explicit_side_and_type() {
+        let order = OrderParams {
+            side: OrderSide::SELL,
+            order_type: OrderType::Limit,
+            ..Default::default()
+        };
+
+        assert!(order.validate_side_and_type().is_ok());
     }
 
     #[test]
