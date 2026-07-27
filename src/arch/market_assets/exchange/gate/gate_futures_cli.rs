@@ -586,6 +586,8 @@ impl GateFuturesCli {
     }
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        order_params.validate_side_and_type()?;
+
         let mut extra = order_params.extra;
         let gate_channel_id = take_gate_channel_id(&mut extra)?;
         let settle = extra

@@ -666,6 +666,8 @@ impl GateSpotCli {
     }
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        order_params.validate_side_and_type()?;
+
         let mut body = json!({
             "currency_pair": order_params.inst,
             "side": match order_params.side {

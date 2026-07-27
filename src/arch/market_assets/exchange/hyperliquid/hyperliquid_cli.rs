@@ -595,6 +595,8 @@ impl HyperliquidCli {
     }
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        order_params.validate_side_and_type()?;
+
         let mut order_params = order_params;
         let asset_id = self._inst_to_asset_id(&order_params.inst)?;
         order_params.inst = asset_id.to_string();

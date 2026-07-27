@@ -703,6 +703,8 @@ impl BinanceUmCli {
     }
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        order_params.validate_side_and_type()?;
+
         let mut query_string = format!(
             "symbol={}&side={}&type={}&quantity={}",
             cli_perp_to_pure_uppercase(&order_params.inst),

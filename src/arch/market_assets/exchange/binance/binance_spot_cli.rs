@@ -530,6 +530,8 @@ impl BinanceSpotCli {
     }
 
     async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        order_params.validate_side_and_type()?;
+
         let (quantity_param, quantity) =
             if let Some(quote_order_qty) = order_params.extra.get("quoteOrderQty") {
                 ("quoteOrderQty", quote_order_qty)
