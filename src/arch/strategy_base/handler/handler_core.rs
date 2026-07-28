@@ -292,42 +292,16 @@ pub(crate) async fn strategy_handler_loop<S>(
         tokio::select! {
             biased;
 
-            msg = recv_or_pending(&mut rx_trade) => {
+            // `biased` polls top-to-bottom. Keep websocket control and private
+            // account truth ahead of order generation and public market data.
+            msg = recv_or_pending(&mut rx_ws_event) => {
                 match msg {
-                    Ok(msg) => strategies.on_trade(msg).await,
+                    Ok(msg) => strategies.on_ws_event(msg).await,
                     Err(e) => {
-                        error!("rx_trade err: {:?}, reconnecting...", e);
-                        rx_trade =
-                            subscribe_if(event_mask, EventMask::TRADE, || find_trade(channels));
-                    },
-                };
-            },
-            msg = recv_or_pending(&mut rx_lob) => {
-                match msg {
-                    Ok(msg) => strategies.on_lob(msg).await,
-                    Err(e) => {
-                        error!("rx_lob err: {:?}, reconnecting...", e);
-                        rx_lob = subscribe_if(event_mask, EventMask::LOB, || find_lob(channels));
-                    },
-                };
-            },
-            msg = recv_or_pending(&mut rx_lob_mbo) => {
-                match msg {
-                    Ok(msg) => strategies.on_lob_mbo(msg).await,
-                    Err(e) => {
-                        error!("rx_lob_mbo err: {:?}, reconnecting...", e);
-                        rx_lob_mbo =
-                            subscribe_if(event_mask, EventMask::LOB_MBO, || find_lob_mbo(channels));
-                    },
-                };
-            },
-            msg = recv_or_pending(&mut rx_candle) => {
-                match msg {
-                    Ok(msg) => strategies.on_candle(msg).await,
-                    Err(e) => {
-                        error!("rx_candle err: {:?}, reconnecting...", e);
-                        rx_candle =
-                            subscribe_if(event_mask, EventMask::CANDLE, || find_candle(channels));
+                        error!("rx_ws_event err: {:?}, reconnecting...", e);
+                        rx_ws_event = subscribe_if(event_mask, EventMask::WS_EVENT, || {
+                            find_ws_event(channels)
+                        });
                     },
                 };
             },
@@ -375,28 +349,6 @@ pub(crate) async fn strategy_handler_loop<S>(
                     },
                 };
             },
-            msg = recv_or_pending(&mut rx_inst_intent) => {
-                match msg {
-                    Ok(msg) => strategies.on_inst_intent(msg).await,
-                    Err(e) => {
-                        error!("rx_inst_intent err: {:?}, reconnecting...", e);
-                        rx_inst_intent = subscribe_if(event_mask, EventMask::INST_INTENT, || {
-                            find_inst_intent(channels)
-                        });
-                    },
-                };
-            },
-             msg = recv_or_pending(&mut rx_preds) => {
-                match msg {
-                    Ok(msg) => strategies.on_preds(msg).await,
-                    Err(e) => {
-                        error!("rx_preds err: {:?}, reconnecting...", e);
-                        rx_preds = subscribe_if(event_mask, EventMask::MODEL_PREDS, || {
-                            find_model_preds(channels)
-                        });
-                    },
-                };
-            },
             msg = recv_or_pending(&mut rx_schedule) => {
                 match msg {
                     Ok(msg) => strategies.on_schedule(msg).await,
@@ -419,14 +371,64 @@ pub(crate) async fn strategy_handler_loop<S>(
                     },
                 };
             },
-            msg = recv_or_pending(&mut rx_ws_event) => {
+            msg = recv_or_pending(&mut rx_inst_intent) => {
                 match msg {
-                    Ok(msg) => strategies.on_ws_event(msg).await,
+                    Ok(msg) => strategies.on_inst_intent(msg).await,
                     Err(e) => {
-                        error!("rx_ws_event err: {:?}, reconnecting...", e);
-                        rx_ws_event = subscribe_if(event_mask, EventMask::WS_EVENT, || {
-                            find_ws_event(channels)
+                        error!("rx_inst_intent err: {:?}, reconnecting...", e);
+                        rx_inst_intent = subscribe_if(event_mask, EventMask::INST_INTENT, || {
+                            find_inst_intent(channels)
                         });
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_preds) => {
+                match msg {
+                    Ok(msg) => strategies.on_preds(msg).await,
+                    Err(e) => {
+                        error!("rx_preds err: {:?}, reconnecting...", e);
+                        rx_preds = subscribe_if(event_mask, EventMask::MODEL_PREDS, || {
+                            find_model_preds(channels)
+                        });
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_trade) => {
+                match msg {
+                    Ok(msg) => strategies.on_trade(msg).await,
+                    Err(e) => {
+                        error!("rx_trade err: {:?}, reconnecting...", e);
+                        rx_trade =
+                            subscribe_if(event_mask, EventMask::TRADE, || find_trade(channels));
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_lob) => {
+                match msg {
+                    Ok(msg) => strategies.on_lob(msg).await,
+                    Err(e) => {
+                        error!("rx_lob err: {:?}, reconnecting...", e);
+                        rx_lob = subscribe_if(event_mask, EventMask::LOB, || find_lob(channels));
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_lob_mbo) => {
+                match msg {
+                    Ok(msg) => strategies.on_lob_mbo(msg).await,
+                    Err(e) => {
+                        error!("rx_lob_mbo err: {:?}, reconnecting...", e);
+                        rx_lob_mbo =
+                            subscribe_if(event_mask, EventMask::LOB_MBO, || find_lob_mbo(channels));
+                    },
+                };
+            },
+            msg = recv_or_pending(&mut rx_candle) => {
+                match msg {
+                    Ok(msg) => strategies.on_candle(msg).await,
+                    Err(e) => {
+                        error!("rx_candle err: {:?}, reconnecting...", e);
+                        rx_candle =
+                            subscribe_if(event_mask, EventMask::CANDLE, || find_candle(channels));
                     },
                 };
             },
