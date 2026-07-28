@@ -181,10 +181,6 @@ async fn main() {
     };
 
     let env = EnvBuilder::new()
-        .with_board_cast_channel(BoardCastChannel::default_alt_event())
-        .with_board_cast_channel(BoardCastChannel::default_ws_event())
-        .with_board_cast_channel(BoardCastChannel::default_scheduler())
-        .with_board_cast_channel(BoardCastChannel::default_account_bal_pos())
         .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
         .with_task(TaskInfo::WsTask(Arc::new(binance_um_acc_bal_pos_task)))
         .with_task(TaskInfo::WsTask(Arc::new(okx_acc_bal_pos_task)))

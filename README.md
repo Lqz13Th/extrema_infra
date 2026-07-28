@@ -413,8 +413,6 @@ async fn main() {
   };
 
   let env = EnvBuilder::new()
-          .with_board_cast_channel(BoardCastChannel::default_alt_event())
-          .with_board_cast_channel(BoardCastChannel::default_scheduler())
           .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
           .with_strategy_module(EmptyStrategy::new())
           .build();
@@ -422,6 +420,9 @@ async fn main() {
   env.execute().await;
 }
 ```
+
+`EnvBuilder` infers each task's default lifecycle and primary event channels
+from `TaskInfo`; no channel registration is needed for the normal path.
 
 ---
 

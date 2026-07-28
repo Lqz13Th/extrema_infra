@@ -1,8 +1,7 @@
 //! Minimal scheduler strategy example.
 //!
 //! This example shows the smallest useful `EnvBuilder` setup: one strategy
-//! module, one time scheduler task, and the broadcast channels required for
-//! scheduler events.
+//! module and one time scheduler task.
 //!
 //! Run it with:
 //!
@@ -53,8 +52,6 @@ async fn main() {
     };
 
     let env = EnvBuilder::new()
-        .with_board_cast_channel(BoardCastChannel::default_alt_event())
-        .with_board_cast_channel(BoardCastChannel::default_scheduler())
         .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
         .with_strategy_module(EmptyStrategy)
         .build();

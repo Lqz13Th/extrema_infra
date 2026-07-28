@@ -4,8 +4,9 @@
 //! need to combine timers, model workers, order execution, public market data,
 //! and private account streams in one process. The framework is intentionally
 //! small at the strategy boundary: implement [`Strategy`], register the tasks
-//! your process needs, add the broadcast channels that should publish task
-//! output, then start the environment with [`EnvBuilder`].
+//! your process needs, and start the environment with [`EnvBuilder`]. The
+//! builder derives each task's default lifecycle and applicable primary event
+//! channels.
 //!
 //! The crate is organized around a few concepts:
 //!
@@ -21,8 +22,9 @@
 //! - [`TaskInfo`] declares work that the runtime owns, such as [`AltTaskInfo`]
 //!   for scheduler/model/order-intent work or [`WsTaskInfo`] for websocket
 //!   relays.
-//! - [`BoardCastChannel`] declares which event streams are available to
-//!   strategies. Add only the channels your process needs to consume or publish.
+//! - [`BoardCastChannel`] is an optional capacity override for an event stream.
+//!   Normal lifecycle and applicable primary channels are inferred from
+//!   [`TaskInfo`].
 //! - [`prelude`] re-exports the common types used by strategy binaries.
 //!
 //! # Event Model
@@ -68,8 +70,9 @@
 //!
 //! ```text
 //! EnvBuilder
-//!   -> registers BoardCastChannel values
 //!   -> registers TaskInfo values
+//!   -> derives default lifecycle and applicable primary event channels
+//!   -> applies optional BoardCastChannel capacity overrides
 //!   -> registers Strategy modules
 //!   -> EnvMediator::execute()
 //!       -> Strategy::initialize()
@@ -137,8 +140,6 @@
 //!     };
 //!
 //!     let env = EnvBuilder::new()
-//!         .with_board_cast_channel(BoardCastChannel::default_alt_event())
-//!         .with_board_cast_channel(BoardCastChannel::default_scheduler())
 //!         .with_task(TaskInfo::AltTask(Arc::new(schedule)))
 //!         .with_strategy_module(Heartbeat::new())
 //!         .build();
@@ -150,12 +151,13 @@
 //! # Downstream usage shape
 //!
 //! Real strategy binaries usually follow the same shape as the minimal example:
-//! build `AltTaskInfo` and `WsTaskInfo` values from config, add the matching
-//! broadcast channels, register one or more strategy modules, and call
-//! [`EnvMediator::execute`]. A simple signal process may only need scheduler and
-//! intent channels; an execution orchestrator typically adds private account
-//! websocket channels, order execution tasks, risk/evaluation modules, and
-//! several independent strategy modules.
+//! build `AltTaskInfo` and `WsTaskInfo` values from config, register one or more
+//! strategy modules, and call [`EnvMediator::execute`]. `EnvBuilder` infers the
+//! matching lifecycle and applicable primary channels; use
+//! [`BoardCastChannel`] only to override a default capacity. A simple signal
+//! process may only need scheduler and intent tasks; an execution orchestrator
+//! typically adds private account websocket tasks, order execution tasks,
+//! risk/evaluation modules, and several independent strategy modules.
 //!
 //! [`Strategy`]: crate::arch::traits::strategy::Strategy
 //! [`EventHandler`]: crate::arch::traits::strategy::EventHandler

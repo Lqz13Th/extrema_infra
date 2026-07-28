@@ -181,7 +181,7 @@ pub trait CommandEmitter: Clone + Send + Sync + 'static {
 ///
 /// Common callback/channel pairs:
 ///
-/// | Callback | Typical source | Required channel | Event mask |
+/// | Callback | Typical source | Inferred channel | Event mask |
 /// | --- | --- | --- | --- |
 /// | [`EventHandler::on_schedule`] | `AltTaskType::TimeScheduler` | `BoardCastChannel::default_scheduler()` | `EventMask::SCHEDULE` |
 /// | [`EventHandler::on_inst_intent`] | `TaskCommand::InstIntent` | `BoardCastChannel::default_inst_intent()` | `EventMask::INST_INTENT` |
@@ -259,8 +259,8 @@ pub trait EventHandler {
     /// Receives model prediction tensors from a model task.
     ///
     /// Model tasks emit this after receiving `TaskCommand::FeatInput` and
-    /// finishing inference. Add `BoardCastChannel::default_model_preds()` when
-    /// registering model tasks.
+    /// finishing inference. Registering the model task makes `EnvBuilder`
+    /// provide its default prediction channel.
     fn on_preds(&mut self, _msg: InfraMsg<AltTensor>) -> impl Future<Output = ()> + Send {
         ready(())
     }
@@ -284,8 +284,9 @@ pub trait EventHandler {
 
     /// Receives normalized public trade batches.
     ///
-    /// Emitted by websocket relays configured with [`WsChannel::Trades`] and a
-    /// `BoardCastChannel::default_trade()` broadcast channel.
+    /// Emitted by websocket relays configured with [`WsChannel::Trades`].
+    /// Registering the task makes `EnvBuilder` provide its default trade
+    /// channel.
     fn on_trade(&mut self, _msg: InfraMsg<Vec<WsTrade>>) -> impl Future<Output = ()> + Send {
         ready(())
     }
@@ -293,7 +294,7 @@ pub trait EventHandler {
     /// Receives normalized order book updates.
     ///
     /// Emitted by exchange relays that implement [`WsChannel::Lob`] routing and
-    /// publish into `BoardCastChannel::default_lob()`.
+    /// publish into the inferred default LOB channel.
     fn on_lob(&mut self, _msg: InfraMsg<Vec<WsLob>>) -> impl Future<Output = ()> + Send {
         ready(())
     }
@@ -301,15 +302,16 @@ pub trait EventHandler {
     /// Receives normalized market-by-order order book updates.
     ///
     /// Emitted by exchange relays that implement [`WsChannel::LobMbo`] routing
-    /// and publish into `BoardCastChannel::default_lob_mbo()`.
+    /// and publish into the inferred default MBO channel.
     fn on_lob_mbo(&mut self, _msg: InfraMsg<Vec<WsLobMbo>>) -> impl Future<Output = ()> + Send {
         ready(())
     }
 
     /// Receives normalized candle batches.
     ///
-    /// Emitted by websocket relays configured with [`WsChannel::Candles`] and a
-    /// `BoardCastChannel::default_candle()` broadcast channel.
+    /// Emitted by websocket relays configured with [`WsChannel::Candles`].
+    /// Registering the task makes `EnvBuilder` provide its default candle
+    /// channel.
     fn on_candle(&mut self, _msg: InfraMsg<Vec<WsCandle>>) -> impl Future<Output = ()> + Send {
         ready(())
     }

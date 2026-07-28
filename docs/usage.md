@@ -1,7 +1,7 @@
 # Extrema Infra Usage Guide
 
-This guide covers common runtime wiring for strategy modules, tasks, broadcast
-channels, and command handles.
+This guide covers common runtime wiring for strategy modules, tasks, inferred
+broadcast channels, and command handles.
 
 ## Runtime Model
 
@@ -10,9 +10,9 @@ An application usually has four layers:
 1. **Strategy modules** implement business logic.
 2. **Tasks** own long-running work such as timers, model workers,
    order-execution relays, and websocket relays.
-3. **Broadcast channels** make task output streams available to strategy
-   modules. A module can override `EventHandler::event_mask()` to subscribe
-   only to the streams it consumes.
+3. **Broadcast channels** are inferred from each task's lifecycle and applicable
+   primary output. A module can override `EventHandler::event_mask()` to
+   subscribe only to the streams it consumes.
 4. **Command handles** let strategies send commands back to tasks after the
    runtime has spawned them.
 
@@ -67,8 +67,6 @@ async fn main() {
     };
 
     let env = EnvBuilder::new()
-        .with_board_cast_channel(BoardCastChannel::default_alt_event())
-        .with_board_cast_channel(BoardCastChannel::default_scheduler())
         .with_task(TaskInfo::AltTask(Arc::new(schedule_task)))
         .with_strategy_module(StrategyModule::new())
         .build();
@@ -76,6 +74,10 @@ async fn main() {
     env.execute().await;
 }
 ```
+
+`EnvBuilder` derives the default lifecycle and applicable primary event channels
+from `TaskInfo`. Call `with_board_cast_channel` only when a stream needs a
+non-default capacity.
 
 ## Prerequisites
 
@@ -186,9 +188,6 @@ let order_execution_task = AltTaskInfo {
 };
 
 let env = EnvBuilder::new()
-    .with_board_cast_channel(BoardCastChannel::default_alt_event())
-    .with_board_cast_channel(BoardCastChannel::default_scheduler())
-    .with_board_cast_channel(BoardCastChannel::default_order_execution())
     .with_task(TaskInfo::AltTask(Arc::new(schedule_task)))
     .with_task(TaskInfo::AltTask(Arc::new(order_execution_task)));
 ```
@@ -204,11 +203,10 @@ Common `AltTaskType` values:
 - `ModelPreds(ModelRunner::Onnx(..))`: in-process ONNX inference. Enable
   `model_onnx`, `model_runner`, or `all`, to make this variant available.
 
-Each alt task needs its matching channel and callback: scheduler tasks use
-`BoardCastChannel::default_scheduler()` and `on_schedule`, intent tasks use
-`default_inst_intent()` and `on_inst_intent`, order-execution relay tasks use
-`default_order_execution()` and `on_order_execution`, and model prediction tasks
-use `default_model_preds()` and `on_preds`.
+Each alt task automatically adds the default `Alt` lifecycle channel and its
+primary channel. Scheduler tasks publish to `on_schedule`, intent tasks to
+`on_inst_intent`, order-execution relay tasks to `on_order_execution`, and
+model prediction tasks to `on_preds`.
 
 ## Public Websocket Task
 
@@ -233,8 +231,6 @@ let trades_task = WsTaskInfo {
 };
 
 let env = EnvBuilder::new()
-    .with_board_cast_channel(BoardCastChannel::default_ws_event())
-    .with_board_cast_channel(BoardCastChannel::default_trade())
     .with_task(TaskInfo::WsTask(Arc::new(trades_task)));
 ```
 
@@ -263,10 +259,11 @@ impl EventHandler for MyPublicWsModule {
 }
 ```
 
-Registering a `WsTaskInfo` only creates the relay task. The strategy still owns
-the connect and subscribe sequence. In practice, the `on_ws_event` handler
-finds the websocket handle, sends `TaskCommand::WsConnect`, then sends exchange
-login/subscription messages as needed:
+Registering a `WsTaskInfo` creates the relay task and its default `Ws` lifecycle
+and primary event channels. The strategy still owns the connect and subscribe
+sequence. In practice, the `on_ws_event` handler finds the websocket handle,
+sends `TaskCommand::WsConnect`, then sends exchange login/subscription messages
+as needed:
 
 ```rust,ignore
 async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
@@ -338,8 +335,6 @@ let positions_task = WsTaskInfo {
 };
 
 let env = EnvBuilder::new()
-    .with_board_cast_channel(BoardCastChannel::default_ws_event())
-    .with_board_cast_channel(BoardCastChannel::default_account_pos())
     .with_task(TaskInfo::WsTask(Arc::new(positions_task)));
 ```
 
@@ -381,14 +376,10 @@ let signal_module = build_signal_module();
 let allocator_module = build_allocator_module();
 let account_state_module = build_account_state_module();
 let order_executor_module = build_order_executor_module();
+let runtime_tasks = build_runtime_tasks();
 
 let env = EnvBuilder::new()
-    .with_board_cast_channel(BoardCastChannel::default_alt_event())
-    .with_board_cast_channel(BoardCastChannel::default_ws_event())
-    .with_board_cast_channel(BoardCastChannel::default_inst_intent())
-    .with_board_cast_channel(BoardCastChannel::default_order_execution())
-    .with_board_cast_channel(BoardCastChannel::default_account_order())
-    .with_board_cast_channel(BoardCastChannel::default_account_pos())
+    .with_tasks(runtime_tasks)
     .with_strategy_module(signal_module)
     .with_strategy_module(allocator_module)
     .with_strategy_module(account_state_module)
@@ -421,17 +412,23 @@ tasks. If two tasks share the same `AltTaskType` or `WsChannel`, give them
 distinct `task_base_id` values even when they target different markets or
 accounts.
 
-## Channels
+## Channels and Capacity Overrides
 
-Only add channels that the process needs. `EnvBuilder` skips duplicate channel
-variants, so adding `BoardCastChannel::default_trade()` twice still results in
-one trade broadcast channel. `BoardCastChannel` controls which streams exist in
-the runtime; `EventMask` controls which of those streams a particular strategy
-module subscribes to.
+`EnvBuilder` infers the default lifecycle channel for every registered
+`TaskInfo`, plus the primary channel implied by a built-in task kind or
+websocket channel. `EventMask` controls which inferred streams a particular
+strategy module subscribes to. Use `with_board_cast_channel` only to replace an
+inferred channel with a custom-capacity variant:
+
+```rust,ignore
+let env = EnvBuilder::new()
+    .with_board_cast_channel(BoardCastChannel::trade_with_capacity(16_384))
+    .with_task(TaskInfo::WsTask(Arc::new(trades_task)));
+```
 
 Common channel pairs:
 
-| Task output | Required channel | Callback |
+| Task output | Inferred primary channel | Callback |
 | --- | --- | --- |
 | Schedule tick | `default_scheduler()` | `on_schedule` |
 | Instrument intent | `default_inst_intent()` | `on_inst_intent` |
@@ -444,9 +441,9 @@ Common channel pairs:
 | Account balance/position | `default_account_bal_pos()` | `on_acc_bal_pos` |
 | Account positions | `default_account_pos()` | `on_acc_pos` |
 
-`default_alt_event()` and `default_ws_event()` publish task startup/control
-events. Strategy modules often use these events to find command handles and
-connect websocket relays.
+Alt tasks also infer `default_alt_event()`, and websocket tasks infer
+`default_ws_event()`, for startup/control events. Strategy modules often use
+these lifecycle events to find command handles and connect websocket relays.
 
 ## TLS Setup
 

@@ -172,11 +172,6 @@ async fn main() {
     };
 
     let env = EnvBuilder::new()
-        .with_board_cast_channel(BoardCastChannel::default_alt_event())
-        .with_board_cast_channel(BoardCastChannel::default_ws_event())
-        // Use *_with_capacity when a stream needs a larger broadcast buffer.
-        .with_board_cast_channel(BoardCastChannel::candle_with_capacity(4_096))
-        .with_board_cast_channel(BoardCastChannel::default_scheduler())
         .with_task(TaskInfo::WsTask(Arc::new(binance_ws_candle)))
         .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
         .with_strategy_module(EmptyStrategy)

@@ -51,14 +51,17 @@ pub struct InfraMsg<T> {
 
 /// Broadcast event streams available inside an environment.
 ///
-/// Add the variants a process needs with
-/// [`EnvBuilder::with_board_cast_channel`]. Each variant maps to one callback
-/// on [`EventHandler`]. Strategy modules can narrow which registered channels
-/// they subscribe to by overriding
+/// [`EnvBuilder`] infers the default lifecycle and primary stream from every
+/// registered [`TaskInfo`]. Use [`EnvBuilder::with_board_cast_channel`] only
+/// for an additional stream or a custom-capacity override. Each variant maps
+/// to one callback on [`EventHandler`]. Strategy modules can narrow which
+/// registered channels they subscribe to by overriding
 /// [`EventHandler::event_mask`](crate::arch::traits::strategy::EventHandler::event_mask).
 ///
+/// [`EnvBuilder`]: crate::arch::infra_core::env_builder::EnvBuilder
 /// [`EnvBuilder::with_board_cast_channel`]: crate::arch::infra_core::env_builder::EnvBuilder::with_board_cast_channel
 /// [`EventHandler`]: crate::arch::traits::strategy::EventHandler
+/// [`TaskInfo`]: crate::arch::task_execution::task_general::TaskInfo
 #[derive(Clone, Debug)]
 pub enum BoardCastChannel {
     /// Generic alt-task lifecycle/control events.
