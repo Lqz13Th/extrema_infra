@@ -4,8 +4,8 @@
 //! need to combine timers, model workers, order execution, public market data,
 //! and private account streams in one process. The framework is intentionally
 //! small at the strategy boundary: implement [`Strategy`], register the tasks
-//! your process needs, add the broadcast channels that should publish task
-//! output, then start the environment with [`EnvBuilder`].
+//! your process needs, and start the environment with [`EnvBuilder`]. The
+//! builder creates one broadcast stream for every concrete runtime task.
 //!
 //! The crate is organized around a few concepts:
 //!
@@ -13,27 +13,28 @@
 //!   strategy module or several independent modules in the same runtime.
 //! - [`EventHandler`] contains async callbacks for schedule ticks, model
 //!   predictions, order execution intents, trades, LOB updates, candles, and
-//!   private account updates. All callbacks default to no-op, and
-//!   [`EventMask`] can be used to subscribe only to the event streams a module
-//!   actually handles.
+//!   private account updates. All callbacks default to no-op.
 //! - [`CommandEmitter`] gives a strategy access to task command handles after
-//!   the runtime has spawned those tasks.
+//!   the runtime has prepared those tasks.
 //! - [`TaskInfo`] declares work that the runtime owns, such as [`AltTaskInfo`]
 //!   for scheduler/model/order-intent work or [`WsTaskInfo`] for websocket
 //!   relays.
-//! - [`BoardCastChannel`] declares which event streams are available to
-//!   strategies. Add only the channels your process needs to consume or publish.
+//! - [`TaskKey`] identifies one concrete task stream. Strategies receive every
+//!   registered task by default, or can bind to selected keys. A key contains a
+//!   complete [`AltTaskType`] or [`WsChannel`] plus its task id.
 //! - [`prelude`] re-exports the common types used by strategy binaries.
 //!
 //! # Event Model
 //!
 //! Runtime tasks own IO, timers, model workers, and order relays. They publish
-//! normalized `InfraMsg<T>` values into typed broadcast channels.
+//! normalized `InfraMsg<T>` values into their task-local broadcast stream. A
+//! task's lifecycle event and primary business events share that stream.
 //!
-//! Strategy modules use [`EventMask`] to subscribe to the streams they consume,
-//! handle those streams through async callbacks, and send `TaskCommand` values
-//! back through command handles when they need active work such as websocket
-//! connect/subscribe or order execution.
+//! Strategy modules handle inbound events through async callbacks and send
+//! `TaskCommand` values back through command handles when they need active work
+//! such as websocket connect/subscribe or order execution. Register a module
+//! with `EnvBuilder::with_strategy_module` to receive all tasks, or
+//! `EnvBuilder::with_strategy_module_on` to receive selected task streams.
 //!
 //! Market data, account updates, timers, model outputs, and order relays can
 //! run on independent cadences without forcing one polling loop or one module
@@ -48,11 +49,11 @@
 //! [`EventHandler`] is the inbound event surface. Its methods are callbacks:
 //! `on_schedule`, `on_trade`, `on_candle`, `on_acc_pos`, `on_inst_intent`,
 //! `on_order_execution`, and so on. Every callback defaults to no-op, so modules
-//! stay narrow and only implement the events that matter to them. Existing
-//! modules receive every registered channel by default; override
-//! `event_mask()` to avoid receiver creation and wakeups for unused callbacks.
+//! stay narrow and only implement the events that matter to them. Modules
+//! receive every registered task by default; explicit task bindings avoid
+//! receiver creation and wakeups for unrelated tasks.
 //!
-//! [`CommandEmitter`] is the outbound command surface. After tasks are spawned,
+//! [`CommandEmitter`] is the outbound command surface. After tasks are prepared,
 //! the runtime supplies a [`CommandRegistry`]. Strategy modules store that
 //! registry, then find task handles by `(task type, task id)` or
 //! `(websocket channel, task id)` when they need to send commands.
@@ -68,23 +69,26 @@
 //!
 //! ```text
 //! EnvBuilder
-//!   -> registers BoardCastChannel values
 //!   -> registers TaskInfo values
+//!   -> expands each declaration into concrete TaskKey values
+//!   -> creates one broadcast stream per concrete task
 //!   -> registers Strategy modules
 //!   -> EnvMediator::execute()
 //!       -> Strategy::initialize()
-//!       -> spawn AltTask/WsTask workers
+//!       -> prepare AltTask/WsTask workers and command handles
 //!       -> CommandEmitter::command_init()
 //!       -> spawn strategy event loops
-//!       -> strategy loops subscribe according to EventHandler::event_mask()
+//!       -> strategy loops subscribe to all or selected task streams
+//!       -> spawn prepared task workers
 //!       -> tasks publish InfraMsg<T>
 //!       -> EventHandler callbacks react
 //!       -> strategies send TaskCommand through CommandHandle when needed
 //! ```
 //!
-//! `InfraMsg<T>` always carries the `task_id` that emitted the event. Use it to
-//! route multiple accounts, markets, model workers, or schedule tasks that
-//! publish into the same event type.
+//! `InfraMsg<T>` always carries the `task_id` that emitted the event, but not the
+//! full [`TaskKey`]. The builder therefore rejects id reuse within the same
+//! [`AltTaskType`] or [`WsChannel`] variant, while different variants may reuse
+//! an id.
 //!
 //! # Minimal scheduler runtime
 //!
@@ -129,7 +133,7 @@
 //! }
 //!
 //! #[tokio::main]
-//! async fn main() {
+//! async fn main() -> InfraResult<()> {
 //!     let schedule = AltTaskInfo {
 //!         alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
 //!         chunk: 1,
@@ -137,36 +141,35 @@
 //!     };
 //!
 //!     let env = EnvBuilder::new()
-//!         .with_board_cast_channel(BoardCastChannel::default_alt_event())
-//!         .with_board_cast_channel(BoardCastChannel::default_scheduler())
-//!         .with_task(TaskInfo::AltTask(Arc::new(schedule)))
+//!         .with_task(schedule)
 //!         .with_strategy_module(Heartbeat::new())
-//!         .build();
+//!         .build()?;
 //!
 //!     env.execute().await;
+//!     Ok(())
 //! }
 //! ```
 //!
 //! # Downstream usage shape
 //!
 //! Real strategy binaries usually follow the same shape as the minimal example:
-//! build `AltTaskInfo` and `WsTaskInfo` values from config, add the matching
-//! broadcast channels, register one or more strategy modules, and call
-//! [`EnvMediator::execute`]. A simple signal process may only need scheduler and
-//! intent channels; an execution orchestrator typically adds private account
-//! websocket channels, order execution tasks, risk/evaluation modules, and
-//! several independent strategy modules.
+//! build `AltTaskInfo` and `WsTaskInfo` values from config, register one or more
+//! strategy modules, and call [`EnvMediator::execute`]. A simple signal process
+//! may only need scheduler and intent tasks; an execution orchestrator typically
+//! adds private account websocket tasks, order execution tasks, risk/evaluation
+//! modules, and several independently bound strategy modules.
 //!
 //! [`Strategy`]: crate::arch::traits::strategy::Strategy
 //! [`EventHandler`]: crate::arch::traits::strategy::EventHandler
-//! [`EventMask`]: crate::arch::strategy_base::handler::event_mask::EventMask
 //! [`CommandEmitter`]: crate::arch::traits::strategy::CommandEmitter
 //! [`EnvBuilder`]: crate::arch::infra_core::env_builder::EnvBuilder
 //! [`EnvMediator::execute`]: crate::arch::infra_core::env_mediator::EnvMediator::execute
 //! [`TaskInfo`]: crate::arch::task_execution::task_general::TaskInfo
+//! [`TaskKey`]: crate::arch::task_execution::task_key::TaskKey
 //! [`AltTaskInfo`]: crate::arch::task_execution::task_alt::AltTaskInfo
+//! [`AltTaskType`]: crate::arch::task_execution::task_alt::AltTaskType
 //! [`WsTaskInfo`]: crate::arch::task_execution::task_ws::WsTaskInfo
-//! [`BoardCastChannel`]: crate::arch::strategy_base::handler::handler_core::BoardCastChannel
+//! [`WsChannel`]: crate::arch::task_execution::task_ws::WsChannel
 //! [`CommandRegistry`]: crate::arch::strategy_base::command::command_core::CommandRegistry
 //! [`MarketLobApi`]: crate::arch::traits::market_lob::MarketLobApi
 //! [`LobPublicRest`]: crate::arch::traits::market_lob::LobPublicRest

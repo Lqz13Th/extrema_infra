@@ -36,7 +36,7 @@ use crate::arch::{
             ack_handle::{AckHandle, AckStatus},
             command_core::{TaskCommand, WsConnectTarget},
         },
-        handler::handler_core::*,
+        handler::task_channel::{InfraMsg, TaskEvent},
     },
     traits::conversion::IntoWsData,
 };
@@ -51,7 +51,7 @@ static _PING: Bytes = Bytes::from_static(b"ping");
 #[derive(Debug)]
 pub(crate) struct WsTaskBuilder {
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
-    pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
+    pub event_tx: broadcast::Sender<TaskEvent>,
     pub ws_info: Arc<WsTaskInfo>,
     pub filter_channels: bool,
     pub task_id: u64,
@@ -85,7 +85,7 @@ impl WsTaskBuilder {
         &mut self,
         msg: Result<Option<Result<Message, Error>>, Elapsed>,
         ws_stream: &mut WsStream,
-        tx: &broadcast::Sender<InfraMsg<WsData::Output>>,
+        into_event: impl Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
     ) -> bool
     where
         WsData: DeserializeOwned + IntoWsData + Send + 'static,
@@ -95,10 +95,10 @@ impl WsTaskBuilder {
             Ok(Some(Ok(Message::Text(text)))) => {
                 match from_slice::<WsData>(text.as_ref()) {
                     Ok(parsed_raw) => {
-                        let _ = tx.send(InfraMsg {
+                        let _ = self.event_tx.send(into_event(InfraMsg {
                             task_id: self.task_id,
                             data: Arc::new(parsed_raw.into_ws()),
-                        });
+                        }));
                     },
                     Err(e) => {
                         if self.filter_channels {
@@ -115,10 +115,10 @@ impl WsTaskBuilder {
             Ok(Some(Ok(Message::Binary(bytes)))) => {
                 match from_slice::<WsData>(bytes.as_ref()) {
                     Ok(parsed_raw) => {
-                        let _ = tx.send(InfraMsg {
+                        let _ = self.event_tx.send(into_event(InfraMsg {
                             task_id: self.task_id,
                             data: Arc::new(parsed_raw.into_ws()),
-                        });
+                        }));
                     },
                     Err(e) => {
                         if self.filter_channels {
@@ -213,7 +213,7 @@ impl WsTaskBuilder {
 
     async fn ws_loop<WsData>(
         &mut self,
-        tx: broadcast::Sender<InfraMsg<WsData::Output>>,
+        into_event: impl Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
         ws_stream: &mut WsStream,
     ) where
         WsData: DeserializeOwned + IntoWsData + Send + 'static,
@@ -224,7 +224,7 @@ impl WsTaskBuilder {
         loop {
             tokio::select! {
                 msg = timeout(timeout_sec, ws_stream.next()) => {
-                    if self.handle_ws_msg::<WsData>(msg, ws_stream, &tx).await {
+                    if self.handle_ws_msg::<WsData>(msg, ws_stream, into_event).await {
                         break;
                     };
                 },
@@ -272,17 +272,13 @@ impl WsTaskBuilder {
     }
 
     fn ws_event(&self) {
-        if let Some(tx) = find_ws_event(&self.board_cast_channel) {
-            let msg = InfraMsg {
-                task_id: self.task_id,
-                data: self.ws_info.clone(),
-            };
+        let msg = TaskEvent::Ws(InfraMsg {
+            task_id: self.task_id,
+            data: self.ws_info.clone(),
+        });
 
-            if let Err(e) = tx.send(msg) {
-                self.log(LogLevel::Warn, &format!("Ws event send failed: {:?}", e));
-            }
-        } else {
-            self.log(LogLevel::Warn, "No broadcast channel found for Ws event");
+        if let Err(e) = self.event_tx.send(msg) {
+            self.log(LogLevel::Warn, &format!("Ws event send failed: {:?}", e));
         }
     }
 

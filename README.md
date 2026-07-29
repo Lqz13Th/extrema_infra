@@ -31,10 +31,12 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
   - Supported exchange clients normalize common fields into the shared `Market` enum and data structs.
   - Strategies can consume unified types while still handling exchange-specific capabilities where needed.
 
-- **Broadcast-based Data Distribution**
-  - Subscribe once, broadcast to many.
-  - Multiple strategies consume the same feed without extra I/O.
-  - Strategy modules can narrow their runtime subscriptions with `EventMask`.
+- **Task-local Broadcast Distribution**
+  - Every concrete `TaskKey` owns one Tokio broadcast ring.
+  - Multiple strategies can consume the same task feed without extra exchange I/O.
+  - `with_strategy_module` subscribes a module to every task, while
+    `with_strategy_module_on` binds it to an explicit set of tasks.
+  - A task's lifecycle event and primary data events travel through the same ring.
 
 - **Static Efficiency**
   - Strategy registration avoids `Box<dyn Strategy>` and dynamic dispatch at the strategy-list boundary.
@@ -184,7 +186,8 @@ With **HList**:
 ## Strategy Execution Model
 
 - Trait-driven: `on_trade`, `on_candle`, `on_lob`.
-- Optional `EventMask` lets modules subscribe only to callbacks they use.
+- Strategy modules receive all registered tasks by default and can opt into
+  concrete `TaskKey` bindings when they need a narrower hot path.
 - HList ensures safe registration of multiple strategy types.
 - All infra timestamps are unified to microseconds (µs).
 - All instrument names returned by the internal API are automatically normalized.
@@ -402,7 +405,7 @@ impl EventHandler for EmptyStrategy {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> InfraResult<()> {
   tracing_subscriber::fmt::init();
   info!("Logger initialized");
 
@@ -413,15 +416,33 @@ async fn main() {
   };
 
   let env = EnvBuilder::new()
-          .with_board_cast_channel(BoardCastChannel::default_alt_event())
-          .with_board_cast_channel(BoardCastChannel::default_scheduler())
-          .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
+          .with_task(alt_task)
           .with_strategy_module(EmptyStrategy::new())
-          .build();
+          .build()?;
 
   env.execute().await;
+  Ok(())
 }
 ```
+
+`EnvBuilder::build()` validates the configuration and returns an `InfraResult`.
+It creates one broadcast ring for every concrete `TaskKey` produced by each
+`TaskInfo`. A module registered with `with_strategy_module` subscribes to every
+task ring. Use `with_strategy_module_on(module, task_keys)` when the module
+should receive only selected tasks. Once a task is selected, both its lifecycle
+event and its primary events arrive through that same ring.
+
+One websocket task may broadcast events to several strategies, but exactly one
+strategy should own its connect, login, and subscribe command sequence. Other
+subscribers should treat `on_ws_event` as a lifecycle notification and must not
+send duplicate startup commands to the same task.
+
+`TaskKey` is `(AltTaskType, task_id)` or `(WsChannel, task_id)`. Parameters
+embedded in those enums, such as scheduler duration or trade stream type, are
+part of identity; websocket market is not. Callback envelopes expose only
+`task_id`, so build additionally rejects a duplicate task id for the same task
+type, even when embedded parameters differ. Trade and LOB may reuse an id; two
+Trade configurations may not.
 
 ---
 

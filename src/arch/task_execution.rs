@@ -3,7 +3,7 @@
 //! Tasks are the active workers owned by the runtime. Strategy modules do not
 //! usually run their own polling loops; instead they declare tasks through
 //! [`task_general::TaskInfo`] and receive events when those tasks publish into
-//! broadcast channels.
+//! their task-local broadcast streams.
 //!
 //! [`task_alt::AltTaskInfo`] describes non-websocket workers such as timers,
 //! model prediction workers, instrument-intent relays, and order-execution
@@ -15,4 +15,5 @@ pub mod register_alt;
 pub mod register_ws;
 pub mod task_alt;
 pub mod task_general;
+pub mod task_key;
 pub mod task_ws;

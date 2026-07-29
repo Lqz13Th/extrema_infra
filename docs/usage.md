@@ -1,7 +1,7 @@
 # Extrema Infra Usage Guide
 
-This guide covers common runtime wiring for strategy modules, tasks, broadcast
-channels, and command handles.
+This guide covers common runtime wiring for strategy modules, task-local
+broadcast rings, task bindings, and command handles.
 
 ## Runtime Model
 
@@ -10,11 +10,11 @@ An application usually has four layers:
 1. **Strategy modules** implement business logic.
 2. **Tasks** own long-running work such as timers, model workers,
    order-execution relays, and websocket relays.
-3. **Broadcast channels** make task output streams available to strategy
-   modules. A module can override `EventHandler::event_mask()` to subscribe
-   only to the streams it consumes.
+3. **Task-local broadcast rings** carry task output to strategies. Every
+   concrete `TaskKey` owns one ring, and that task's lifecycle event and primary
+   events travel together.
 4. **Command handles** let strategies send commands back to tasks after the
-   runtime has spawned them.
+   runtime has prepared them.
 
 The final binary wires those pieces together with `EnvBuilder`:
 
@@ -59,7 +59,7 @@ impl EventHandler for StrategyModule {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> InfraResult<()> {
     let schedule_task = AltTaskInfo {
         alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(30)),
         chunk: 1,
@@ -67,15 +67,19 @@ async fn main() {
     };
 
     let env = EnvBuilder::new()
-        .with_board_cast_channel(BoardCastChannel::default_alt_event())
-        .with_board_cast_channel(BoardCastChannel::default_scheduler())
-        .with_task(TaskInfo::AltTask(Arc::new(schedule_task)))
+        .with_task(schedule_task)
         .with_strategy_module(StrategyModule::new())
-        .build();
+        .build()?;
 
     env.execute().await;
+    Ok(())
 }
 ```
+
+`EnvBuilder::build()` validates task identities and explicit bindings, creates
+the task rings, and returns `InfraResult<EnvMediator<_>>`. The
+`with_strategy_module` call above subscribes the module to every registered
+task.
 
 ## Prerequisites
 
@@ -143,33 +147,17 @@ impl EventHandler for MyModule {}
 
 Use `initialize` for startup-only work. Use `command_init` only to store the
 runtime-provided command registry. Implement only the event callbacks your
-module needs; all other callbacks default to no-op. By default, a module
-subscribes to every registered broadcast channel for backwards compatibility.
-Override `event_mask()` when you want to avoid receiver creation and wakeups for
-unused callbacks:
+module needs; all other callbacks default to no-op.
 
-```rust,ignore
-impl EventHandler for MyModule {
-    fn event_mask(&self) -> EventMask {
-        EventMask::SCHEDULE | EventMask::ORDER_EXECUTION
-    }
-
-    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
-        let _ = msg;
-    }
-
-    async fn on_order_execution(&mut self, msg: InfraMsg<Vec<AltOrder>>) {
-        let _ = msg;
-    }
-}
-```
+Strategy modules receive every registered task by default. See
+[Task Bindings](#task-bindings) for explicit per-task routing.
 
 ## Scheduler and Intent Tasks
 
 `AltTaskInfo` is used for non-websocket runtime tasks:
 
 ```rust,ignore
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use extrema_infra::prelude::*;
 
@@ -186,11 +174,8 @@ let order_execution_task = AltTaskInfo {
 };
 
 let env = EnvBuilder::new()
-    .with_board_cast_channel(BoardCastChannel::default_alt_event())
-    .with_board_cast_channel(BoardCastChannel::default_scheduler())
-    .with_board_cast_channel(BoardCastChannel::default_order_execution())
-    .with_task(TaskInfo::AltTask(Arc::new(schedule_task)))
-    .with_task(TaskInfo::AltTask(Arc::new(order_execution_task)));
+    .with_task(schedule_task)
+    .with_task(order_execution_task);
 ```
 
 Common `AltTaskType` values:
@@ -204,11 +189,9 @@ Common `AltTaskType` values:
 - `ModelPreds(ModelRunner::Onnx(..))`: in-process ONNX inference. Enable
   `model_onnx`, `model_runner`, or `all`, to make this variant available.
 
-Each alt task needs its matching channel and callback: scheduler tasks use
-`BoardCastChannel::default_scheduler()` and `on_schedule`, intent tasks use
-`default_inst_intent()` and `on_inst_intent`, order-execution relay tasks use
-`default_order_execution()` and `on_order_execution`, and model prediction tasks
-use `default_model_preds()` and `on_preds`.
+Scheduler tasks publish to `on_schedule`, intent tasks to `on_inst_intent`,
+order-execution relay tasks to `on_order_execution`, and model prediction tasks
+to `on_preds`.
 
 ## Public Websocket Task
 
@@ -218,8 +201,6 @@ events such as trades or candles. LOB updates are available only for exchange
 relays that implement `WsChannel::Lob` routing.
 
 ```rust,ignore
-use std::sync::Arc;
-
 use extrema_infra::prelude::*;
 
 const TASK_ID: u64 = 2001;
@@ -233,9 +214,7 @@ let trades_task = WsTaskInfo {
 };
 
 let env = EnvBuilder::new()
-    .with_board_cast_channel(BoardCastChannel::default_ws_event())
-    .with_board_cast_channel(BoardCastChannel::default_trade())
-    .with_task(TaskInfo::WsTask(Arc::new(trades_task)));
+    .with_task(trades_task);
 ```
 
 The corresponding strategy callbacks are:
@@ -247,10 +226,6 @@ use extrema_infra::prelude::*;
 struct MyPublicWsModule;
 
 impl EventHandler for MyPublicWsModule {
-    fn event_mask(&self) -> EventMask {
-        EventMask::WS_EVENT | EventMask::TRADE
-    }
-
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         // Find the Ws handle, connect, and subscribe.
         let _ = msg;
@@ -263,10 +238,9 @@ impl EventHandler for MyPublicWsModule {
 }
 ```
 
-Registering a `WsTaskInfo` only creates the relay task. The strategy still owns
-the connect and subscribe sequence. In practice, the `on_ws_event` handler
-finds the websocket handle, sends `TaskCommand::WsConnect`, then sends exchange
-login/subscription messages as needed:
+The strategy owns the connect and subscribe sequence. In practice, the
+`on_ws_event` handler finds the websocket handle, sends `TaskCommand::WsConnect`,
+then sends exchange login/subscription messages as needed:
 
 ```rust,ignore
 async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
@@ -325,8 +299,6 @@ Private account streams use the same task model, but publish account-specific
 payloads:
 
 ```rust,ignore
-use std::sync::Arc;
-
 use extrema_infra::prelude::*;
 
 let positions_task = WsTaskInfo {
@@ -338,9 +310,7 @@ let positions_task = WsTaskInfo {
 };
 
 let env = EnvBuilder::new()
-    .with_board_cast_channel(BoardCastChannel::default_ws_event())
-    .with_board_cast_channel(BoardCastChannel::default_account_pos())
-    .with_task(TaskInfo::WsTask(Arc::new(positions_task)));
+    .with_task(positions_task);
 ```
 
 Useful callbacks:
@@ -381,29 +351,69 @@ let signal_module = build_signal_module();
 let allocator_module = build_allocator_module();
 let account_state_module = build_account_state_module();
 let order_executor_module = build_order_executor_module();
+let runtime_tasks = build_runtime_tasks();
 
 let env = EnvBuilder::new()
-    .with_board_cast_channel(BoardCastChannel::default_alt_event())
-    .with_board_cast_channel(BoardCastChannel::default_ws_event())
-    .with_board_cast_channel(BoardCastChannel::default_inst_intent())
-    .with_board_cast_channel(BoardCastChannel::default_order_execution())
-    .with_board_cast_channel(BoardCastChannel::default_account_order())
-    .with_board_cast_channel(BoardCastChannel::default_account_pos())
+    .with_tasks(runtime_tasks)
     .with_strategy_module(signal_module)
     .with_strategy_module(allocator_module)
     .with_strategy_module(account_state_module)
     .with_strategy_module(order_executor_module)
-    .build();
+    .build()?;
 ```
 
 `EnvBuilder` stores strategy modules in a heterogeneous list. This keeps each
 module as its concrete type instead of forcing all modules into
-`Box<dyn Strategy>`. Each module has its own event loop and can independently
-override `event_mask()`; for example, a signal module can subscribe to market
-data and model predictions while an account module subscribes only to account
-and order-execution streams.
+`Box<dyn Strategy>`. Each module has its own event loop. In the simple form
+above, every module subscribes to every task. Use explicit bindings for larger
+runtimes that partition feeds across modules.
 
-## Task IDs and Chunks
+## Task Bindings
+
+Every concrete runtime task owns one broadcast ring. A `TaskInfo` declaration
+with `chunk = n` expands to `n` `TaskKey` values and `n` independent rings, so
+traffic or lag on one publisher does not write into another publisher's ring.
+A selected ring carries both that task's lifecycle event and primary events.
+
+`with_strategy_module` and `with_strategy_modules` subscribe to every task.
+Their `_on` variants accept explicit keys and avoid receiver creation and
+wakeups for unrelated tasks. `TaskInfo::task_keys()` expands a declaration's
+whole chunk into the keys accepted by those methods.
+
+For example, 100 one-task trade declarations can be split across 20 same-type
+signal strategies, five task streams per strategy:
+
+```rust,ignore
+let trade_tasks: Vec<TaskInfo> = build_100_trade_tasks();
+
+let bound_signal_modules = (0..20)
+    .map(|partition| -> InfraResult<_> {
+        let task_keys = trade_tasks[partition * 5..(partition + 1) * 5]
+            .iter()
+            .map(TaskInfo::task_keys)
+            .collect::<InfraResult<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+        Ok((build_signal_strategy(partition), task_keys))
+    })
+    .collect::<InfraResult<Vec<_>>>()?;
+
+let env = EnvBuilder::new()
+    .with_tasks(trade_tasks)
+    .with_strategy_modules_on(bound_signal_modules)
+    .build()?;
+```
+
+Each pair passed to `with_strategy_modules_on` gets an independent strategy
+handler loop and only its five receivers. For different strategy Rust types,
+call `with_strategy_module_on` once per module.
+
+The event side supports fan-out: several strategies may bind to the same
+websocket task and receive its lifecycle and primary events. The command side
+still needs one owner. Designate exactly one strategy to send that task's
+connect, login, and subscribe sequence; the remaining consumers must not send
+duplicate startup commands when they receive `on_ws_event`.
 
 Every spawned task receives a `task_id`:
 
@@ -415,38 +425,24 @@ Every spawned task receives a `task_id`:
 Use stable task IDs when a strategy must route events or command handles by
 market, account, channel, or model worker.
 
-Command registry keys are not market-aware. They are keyed as
-`(AltTaskType, task_id)` for alt tasks and `(WsChannel, task_id)` for websocket
-tasks. If two tasks share the same `AltTaskType` or `WsChannel`, give them
-distinct `task_base_id` values even when they target different markets or
-accounts.
+Both task rings and command handles use `TaskKey`. `TaskKey::Alt` stores the
+complete `AltTaskType` plus `task_id`, while `TaskKey::Ws` stores the complete
+`WsChannel` plus `task_id`. Embedded parameters are part of identity: for
+example, `Trades(AggTrades)` and `Trades(AllTrades)` produce different routing
+keys, as do schedulers with different durations. Websocket market, chunk, and
+`task_base_id` are not part of the key.
 
-## Channels
+The `InfraMsg` callback envelope carries `task_id`, not the full `TaskKey`.
+`EnvBuilder::build()` therefore rejects a duplicate task id for the same task
+type, ignoring embedded parameters: two `Trades` channels or two schedulers
+cannot share an id even though their full keys differ. Different task types,
+such as Trade and LOB, may reuse an id. This check runs during build, not on the
+message path. Build also rejects an explicit binding to an unregistered key.
 
-Only add channels that the process needs. `EnvBuilder` skips duplicate channel
-variants, so adding `BoardCastChannel::default_trade()` twice still results in
-one trade broadcast channel. `BoardCastChannel` controls which streams exist in
-the runtime; `EventMask` controls which of those streams a particular strategy
-module subscribes to.
-
-Common channel pairs:
-
-| Task output | Required channel | Callback |
-| --- | --- | --- |
-| Schedule tick | `default_scheduler()` | `on_schedule` |
-| Instrument intent | `default_inst_intent()` | `on_inst_intent` |
-| Order execution batch | `default_order_execution()` | `on_order_execution` |
-| Model predictions | `default_model_preds()` | `on_preds` |
-| Public trades | `default_trade()` | `on_trade` |
-| Public LOB, when the exchange relay implements it | `default_lob()` | `on_lob` |
-| Public candles | `default_candle()` | `on_candle` |
-| Account orders | `default_account_order()` | `on_acc_order` |
-| Account balance/position | `default_account_bal_pos()` | `on_acc_bal_pos` |
-| Account positions | `default_account_pos()` | `on_acc_pos` |
-
-`default_alt_event()` and `default_ws_event()` publish task startup/control
-events. Strategy modules often use these events to find command handles and
-connect websocket relays.
+Ring capacity is selected internally per concrete task. Total reserved slots
+therefore scale with publisher count, not receiver count: 100 Trade tasks at
+the default capacity of 8,192 reserve 819,200 ring slots. Explicit bindings
+reduce receivers and wakeups, but do not reduce publisher ring capacity.
 
 ## TLS Setup
 

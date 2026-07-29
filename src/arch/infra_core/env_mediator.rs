@@ -21,99 +21,146 @@ use crate::arch::{
 /// [`EnvBuilder`]: crate::arch::infra_core::env_builder::EnvBuilder
 pub struct EnvMediator<S> {
     pub(crate) core: EnvCore<S>,
-    /// Runtime task declarations owned by this environment.
-    pub tasks: Vec<TaskInfo>,
+    pub(crate) tasks: Vec<TaskInfo>,
 }
 
 impl<S> EnvMediator<S>
 where
     S: Strategy,
 {
+    /// Returns the runtime task declarations captured when the environment was built.
+    pub fn tasks(&self) -> &[TaskInfo] {
+        &self.tasks
+    }
+
     /// Starts the environment and waits forever.
     ///
     /// This method is intended to be the last awaited call in a strategy binary.
     pub async fn execute(mut self) {
         self.core.strategy.initialize().await;
 
-        let command_handles = self.register_tasks();
+        let (command_handles, prepared_tasks) = self.prepare_tasks();
         let command_registry = Arc::new(CommandRegistry::new(command_handles));
-
-        self.core.strategy.command_init(command_registry);
 
         self.core
             .strategy
-            ._spawn_strategy_tasks(&self.core.channel)
+            .command_init(Arc::clone(&command_registry));
+
+        self.core
+            .strategy
+            ._spawn_strategy_tasks(&self.core.task_channels)
             .await;
+
+        for task in prepared_tasks {
+            task.spawn();
+        }
 
         pending::<()>().await;
     }
 
-    fn register_tasks(&self) -> Vec<Arc<CommandHandle>> {
-        self.tasks
-            .iter()
-            .flat_map(|task| match task {
-                TaskInfo::WsTask(ws) => self.spawn_ws_tasks(ws),
-                TaskInfo::AltTask(alt) => self.spawn_alt_tasks(alt),
-            })
-            .collect()
+    fn prepare_tasks(&self) -> (Vec<Arc<CommandHandle>>, Vec<PreparedTask>) {
+        let mut handles = Vec::new();
+        let mut tasks = Vec::new();
+
+        for task in &self.tasks {
+            let task_ids = task
+                .task_ids()
+                .expect("EnvBuilder validated every task-id range");
+            let prepared = match task {
+                TaskInfo::WsTask(ws) => self.prepare_ws_tasks(ws, task_ids),
+                TaskInfo::AltTask(alt) => self.prepare_alt_tasks(alt, task_ids),
+            };
+            for (handle, task) in prepared {
+                handles.push(handle);
+                tasks.push(task);
+            }
+        }
+
+        (handles, tasks)
     }
 
-    fn spawn_ws_tasks(&self, ws_task_info: &Arc<WsTaskInfo>) -> Vec<Arc<CommandHandle>> {
-        (1..=ws_task_info.chunk)
-            .map(|chunk_numb| {
-                let task_id = match ws_task_info.task_base_id {
-                    Some(base) => base + chunk_numb - 1,
-                    None => chunk_numb,
-                };
-
+    fn prepare_ws_tasks(
+        &self,
+        ws_task_info: &Arc<WsTaskInfo>,
+        task_ids: impl IntoIterator<Item = u64>,
+    ) -> Vec<(Arc<CommandHandle>, PreparedTask)> {
+        task_ids
+            .into_iter()
+            .map(|task_id| {
                 let (cmd_tx, cmd_rx) = mpsc::channel::<TaskCommand>(2048);
                 let handle = Arc::new(CommandHandle {
                     cmd_tx,
                     task_info: TaskInfo::WsTask(ws_task_info.clone()),
                     task_id,
                 });
+                let task_key = handle.task_info.task_key(task_id);
+                let event_tx = self
+                    .core
+                    .task_channels
+                    .sender(&task_key)
+                    .expect("EnvBuilder created a channel for every concrete task");
 
-                let mut ws_task = WsTaskBuilder {
+                let ws_task = WsTaskBuilder {
                     cmd_rx,
-                    board_cast_channel: self.core.channel.clone(),
+                    event_tx,
                     ws_info: ws_task_info.clone(),
                     filter_channels: ws_task_info.filter_channels,
                     task_id,
                 };
 
-                tokio::spawn(async move { ws_task.ws_mid_relay().await });
-
-                handle
+                (handle, PreparedTask::Ws(ws_task))
             })
             .collect()
     }
 
-    fn spawn_alt_tasks(&self, alt_task_info: &Arc<AltTaskInfo>) -> Vec<Arc<CommandHandle>> {
-        (1..=alt_task_info.chunk)
-            .map(|chunk_numb| {
-                let task_id = match alt_task_info.task_base_id {
-                    Some(base) => base + chunk_numb - 1,
-                    None => chunk_numb,
-                };
-
+    fn prepare_alt_tasks(
+        &self,
+        alt_task_info: &Arc<AltTaskInfo>,
+        task_ids: impl IntoIterator<Item = u64>,
+    ) -> Vec<(Arc<CommandHandle>, PreparedTask)> {
+        task_ids
+            .into_iter()
+            .map(|task_id| {
                 let (cmd_tx, cmd_rx) = mpsc::channel::<TaskCommand>(2048);
                 let handle = Arc::new(CommandHandle {
                     cmd_tx,
                     task_info: TaskInfo::AltTask(alt_task_info.clone()),
                     task_id,
                 });
+                let task_key = handle.task_info.task_key(task_id);
+                let event_tx = self
+                    .core
+                    .task_channels
+                    .sender(&task_key)
+                    .expect("EnvBuilder created a channel for every concrete task");
 
-                let mut alt_task = AltTaskBuilder {
+                let alt_task = AltTaskBuilder {
                     cmd_rx,
-                    board_cast_channel: self.core.channel.clone(),
+                    event_tx,
                     alt_info: alt_task_info.clone(),
                     task_id,
                 };
 
-                tokio::spawn(async move { alt_task.alt_mid_relay().await });
-
-                handle
+                (handle, PreparedTask::Alt(alt_task))
             })
             .collect()
+    }
+}
+
+enum PreparedTask {
+    Ws(WsTaskBuilder),
+    Alt(AltTaskBuilder),
+}
+
+impl PreparedTask {
+    fn spawn(self) {
+        match self {
+            Self::Ws(mut task) => {
+                tokio::spawn(async move { task.ws_mid_relay().await });
+            },
+            Self::Alt(mut task) => {
+                tokio::spawn(async move { task.alt_mid_relay().await });
+            },
+        }
     }
 }

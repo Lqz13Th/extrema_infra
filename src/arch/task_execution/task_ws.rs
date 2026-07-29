@@ -3,7 +3,7 @@ use crate::arch::market_assets::market_core::Market;
 /// Descriptor for a websocket relay task.
 ///
 /// The relay owns websocket IO for a market/channel pair and publishes
-/// normalized events into matching broadcast channels. Strategies usually react
+/// normalized events into its task-local broadcast stream. Strategies usually react
 /// to the initial `on_ws_event` event by sending connect/login/subscribe
 /// commands through the task handle.
 #[derive(Clone, Debug)]
