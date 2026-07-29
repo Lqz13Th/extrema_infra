@@ -24,17 +24,16 @@ use crate::arch::{
     strategy_base::{
         command::{ack_handle::AckStatus, command_core::TaskCommand},
         handler::{
-            alt_events::{AltOrder, AltScheduleEvent, AltTensor},
-            handler_core::*,
+            alt_events::{AltScheduleEvent, AltTensor},
+            task_channel::{InfraMsg, TaskEvent},
         },
     },
 };
-use crate::prelude::AltIntent;
 
 #[derive(Debug)]
 pub(crate) struct AltTaskBuilder {
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
-    pub board_cast_channel: Arc<Vec<BoardCastChannel>>,
+    pub event_tx: broadcast::Sender<TaskEvent>,
     pub alt_info: Arc<AltTaskInfo>,
     pub task_id: u64,
 }
@@ -55,11 +54,11 @@ impl AltTaskBuilder {
     }
 
     #[allow(dead_code)]
-    fn emit_model_preds(&self, tx: &broadcast::Sender<InfraMsg<AltTensor>>, tensor: AltTensor) {
-        let _ = tx.send(InfraMsg {
+    fn emit_model_preds(&self, tensor: AltTensor) {
+        let _ = self.event_tx.send(TaskEvent::ModelPreds(InfraMsg {
             task_id: self.task_id,
             data: Arc::new(tensor),
-        });
+        }));
     }
 
     fn handle_cmd(&self, cmd: TaskCommand) {
@@ -72,51 +71,47 @@ impl AltTaskBuilder {
         }
     }
 
-    async fn order_execution(&mut self, tx: broadcast::Sender<InfraMsg<Vec<AltOrder>>>) {
+    async fn order_execution(&mut self) {
         while let Some(cmd) = self.cmd_rx.recv().await {
             match cmd {
                 TaskCommand::OrderExecute(alt_orders) => {
-                    let _ = tx.send(InfraMsg {
+                    let _ = self.event_tx.send(TaskEvent::OrderExecute(InfraMsg {
                         task_id: self.task_id,
                         data: Arc::new(alt_orders),
-                    });
+                    }));
                 },
                 _ => self.handle_cmd(cmd),
             };
         }
     }
 
-    async fn inst_intent(&mut self, tx: broadcast::Sender<InfraMsg<AltIntent>>) {
+    async fn inst_intent(&mut self) {
         while let Some(cmd) = self.cmd_rx.recv().await {
             match cmd {
                 TaskCommand::InstIntent(alt_intent) => {
-                    let _ = tx.send(InfraMsg {
+                    let _ = self.event_tx.send(TaskEvent::InstIntent(InfraMsg {
                         task_id: self.task_id,
                         data: Arc::new(alt_intent),
-                    });
+                    }));
                 },
                 _ => self.handle_cmd(cmd),
             };
         }
     }
 
-    async fn time_scheduler(
-        &mut self,
-        tx: broadcast::Sender<InfraMsg<AltScheduleEvent>>,
-        duration: Duration,
-    ) {
+    async fn time_scheduler(&mut self, duration: Duration) {
         let mut interval = interval(duration);
         loop {
             select! {
                 _ = interval.tick() => {
-                    let _ = tx.send(
-                        InfraMsg {
+                    let _ = self.event_tx.send(
+                        TaskEvent::Schedule(InfraMsg {
                             task_id: self.task_id,
                             data: Arc::new(AltScheduleEvent {
                                 timestamp: get_micros_timestamp(),
                                 duration,
                             }),
-                        }
+                        })
                     );
                 },
                 result = self.cmd_rx.recv() => {
@@ -135,72 +130,33 @@ impl AltTaskBuilder {
     async fn alt_task_distribution(&mut self) {
         match self.alt_info.alt_task_type.clone() {
             AltTaskType::OrderExecution => {
-                if let Some(tx) = find_order_execution(&self.board_cast_channel) {
-                    self.order_execution(tx).await
-                } else {
-                    self.log(
-                        LogLevel::Error,
-                        "No broadcast channel found for order execution",
-                    );
-                }
+                self.order_execution().await;
             },
             AltTaskType::InstIntent => {
-                if let Some(tx) = find_inst_intent(&self.board_cast_channel) {
-                    self.inst_intent(tx).await
-                } else {
-                    self.log(
-                        LogLevel::Error,
-                        "No broadcast channel found for inst intent",
-                    );
-                }
+                self.inst_intent().await;
             },
             #[cfg(feature = "model_zmq")]
             AltTaskType::ModelPreds(ModelRunner::Zmq(port)) => {
-                if let Some(tx) = find_model_preds(&self.board_cast_channel) {
-                    self.model_preds_zmq(tx, port).await
-                } else {
-                    self.log(
-                        LogLevel::Error,
-                        "No broadcast channel found for model preds zmq",
-                    );
-                }
+                self.model_preds_zmq(port).await;
             },
             #[cfg(feature = "model_onnx")]
             AltTaskType::ModelPreds(ModelRunner::Onnx(config_path)) => {
-                if let Some(tx) = find_model_preds(&self.board_cast_channel) {
-                    self.model_preds_onnx(tx, config_path).await
-                } else {
-                    self.log(
-                        LogLevel::Error,
-                        "No broadcast channel found for model preds onnx",
-                    );
-                }
+                self.model_preds_onnx(config_path).await;
             },
             AltTaskType::TimeScheduler(duration) => {
-                if let Some(tx) = find_scheduler(&self.board_cast_channel) {
-                    self.time_scheduler(tx, duration).await
-                } else {
-                    self.log(
-                        LogLevel::Error,
-                        "No broadcast channel found for time scheduler",
-                    );
-                }
+                self.time_scheduler(duration).await;
             },
         };
     }
 
     fn alt_event(&self) {
-        if let Some(tx) = find_alt_event(&self.board_cast_channel) {
-            let msg = InfraMsg {
-                task_id: self.task_id,
-                data: self.alt_info.clone(),
-            };
+        let msg = TaskEvent::Alt(InfraMsg {
+            task_id: self.task_id,
+            data: self.alt_info.clone(),
+        });
 
-            if let Err(e) = tx.send(msg) {
-                self.log(LogLevel::Warn, &format!("Alt event send failed: {:?}", e));
-            }
-        } else {
-            self.log(LogLevel::Warn, "No broadcast channel found for Alt event");
+        if let Err(e) = self.event_tx.send(msg) {
+            self.log(LogLevel::Warn, &format!("Alt event send failed: {:?}", e));
         }
     }
 

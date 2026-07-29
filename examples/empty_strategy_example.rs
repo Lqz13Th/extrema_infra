@@ -41,7 +41,7 @@ impl EventHandler for EmptyStrategy {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> InfraResult<()> {
     tracing_subscriber::fmt::init();
     info!("Logger initialized");
 
@@ -52,9 +52,10 @@ async fn main() {
     };
 
     let env = EnvBuilder::new()
-        .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
+        .with_task(alt_task)
         .with_strategy_module(EmptyStrategy)
-        .build();
+        .build()?;
 
     env.execute().await;
+    Ok(())
 }

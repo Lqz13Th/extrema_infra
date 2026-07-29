@@ -10,9 +10,7 @@ use crate::arch::{
         },
         schemas::spot_ws::account_order::WsAccountOrderGateSpot,
     },
-    strategy_base::handler::handler_core::{
-        find_acc_order, find_acc_pos, find_candle, find_lob, find_trade,
-    },
+    strategy_base::handler::task_channel::TaskEvent,
     task_execution::{
         task_general::LogLevel,
         task_ws::{LobParam, WsChannel},
@@ -25,71 +23,43 @@ impl WsTaskBuilder {
     pub(super) async fn ws_channel_gate_futures(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsAccountOrderGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Acc Order",
-                    );
-                }
+                self.ws_loop::<GateWsData<WsAccountOrderGateFutures>>(
+                    TaskEvent::AccOrder,
+                    ws_stream,
+                )
+                .await;
             },
             WsChannel::AccountPositions => {
-                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsAccountPositionGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Acc Position",
-                    );
-                }
+                self.ws_loop::<GateWsData<WsAccountPositionGateFutures>>(
+                    TaskEvent::AccPos,
+                    ws_stream,
+                )
+                .await;
             },
             WsChannel::Candles(..) => {
-                if let Some(tx) = find_candle(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsCandleGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Candles",
-                    );
-                }
+                self.ws_loop::<GateWsData<WsCandleGateFutures>>(TaskEvent::Candle, ws_stream)
+                    .await;
             },
             WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsTradeGateFutures>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures Trades",
-                    );
-                }
+                self.ws_loop::<GateWsData<WsTradeGateFutures>>(TaskEvent::Trade, ws_stream)
+                    .await;
             },
-            WsChannel::Lob(lob_param) => {
-                if let Some(tx) = find_lob(&self.board_cast_channel) {
-                    match lob_param {
-                        Some(LobParam::Bbo { .. }) => {
-                            self.ws_loop::<GateWsData<WsBookTickerGateFutures>>(tx, ws_stream)
-                                .await;
-                        },
-                        Some(LobParam::Snapshot { .. }) => {
-                            self.ws_loop::<GateWsData<WsOrderBookGateFutures>>(tx, ws_stream)
-                                .await;
-                        },
-                        None | Some(LobParam::Incremental { .. }) => {
-                            self.ws_loop::<GateWsData<WsOrderBookUpdateGateFutures>>(tx, ws_stream)
-                                .await;
-                        },
-                    }
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Futures LOB",
-                    );
-                }
+            WsChannel::Lob(lob_param) => match lob_param {
+                Some(LobParam::Bbo { .. }) => {
+                    self.ws_loop::<GateWsData<WsBookTickerGateFutures>>(TaskEvent::Lob, ws_stream)
+                        .await;
+                },
+                Some(LobParam::Snapshot { .. }) => {
+                    self.ws_loop::<GateWsData<WsOrderBookGateFutures>>(TaskEvent::Lob, ws_stream)
+                        .await;
+                },
+                None | Some(LobParam::Incremental { .. }) => {
+                    self.ws_loop::<GateWsData<WsOrderBookUpdateGateFutures>>(
+                        TaskEvent::Lob,
+                        ws_stream,
+                    )
+                    .await;
+                },
             },
             c => {
                 self.log(
@@ -103,15 +73,8 @@ impl WsTaskBuilder {
     pub(super) async fn ws_channel_gate_spot(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<GateWsData<WsAccountOrderGateSpot>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Gate Spot Acc Order",
-                    );
-                }
+                self.ws_loop::<GateWsData<WsAccountOrderGateSpot>>(TaskEvent::AccOrder, ws_stream)
+                    .await;
             },
             c => {
                 self.log(

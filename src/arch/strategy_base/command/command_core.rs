@@ -6,72 +6,37 @@ use crate::arch::{
         command::ack_handle::{AckHandle, AckStatus},
         handler::alt_events::{AltIntent, AltOrder, AltTensor},
     },
-    task_execution::{task_alt::AltTaskType, task_general::TaskInfo, task_ws::WsChannel},
+    task_execution::{
+        task_alt::AltTaskType, task_general::TaskInfo, task_key::TaskKey, task_ws::WsChannel,
+    },
 };
 use crate::errors::{InfraError, InfraResult};
 
-/// Lookup key used by [`CommandRegistry`].
-///
-/// Alt task commands are routed by `(AltTaskType, task_id)`. Websocket task
-/// commands are routed by `(WsChannel, task_id)`. The market is part of the
-/// task descriptor, but it is not part of the command key, so task ids must be
-/// unique when several tasks share the same task type or websocket channel.
-/// When a model-runner feature is enabled, `AltTaskType::ModelPreds` includes
-/// its `ModelRunner` backend value in the key.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum CommandKey {
-    /// Command key for a non-websocket task.
-    Alt {
-        /// Alt task kind such as scheduler, model prediction, order execution,
-        /// or instrument intent.
-        alt_task_type: AltTaskType,
-        /// Runtime task id assigned by `EnvBuilder`.
-        task_id: u64,
-    },
-    /// Command key for a websocket relay task.
-    Ws {
-        /// Websocket channel such as trades, candles, account orders, or
-        /// account positions.
-        ws_channel: WsChannel,
-        /// Runtime task id assigned by `EnvBuilder`.
-        task_id: u64,
-    },
-}
-
 /// Registry of command handles for all runtime-owned tasks.
 ///
-/// The runtime creates this after spawning tasks and passes it into strategies
-/// through `CommandEmitter::command_init`. Strategy modules store the registry
-/// and use it to find the task they want to command.
+/// The runtime creates this while preparing tasks, passes it into strategies
+/// through `CommandEmitter::command_init`, subscribes strategy receivers, and
+/// only then starts task producers. Strategy modules store the registry and use
+/// it to find the task they want to command.
 #[derive(Clone, Debug, Default)]
 pub struct CommandRegistry {
-    handles: Arc<HashMap<CommandKey, Arc<CommandHandle>>>,
+    handles: Arc<HashMap<TaskKey, Arc<CommandHandle>>>,
 }
 
 impl CommandRegistry {
     /// Builds a registry from task command handles.
     ///
-    /// Panics if two handles produce the same [`CommandKey`]. In practice this
-    /// means task ids must be unique for repeated alt task types or repeated
-    /// websocket channels.
-    pub fn new(handles: Vec<Arc<CommandHandle>>) -> Self {
+    /// Panics if two handles produce the same [`TaskKey`]. In practice this
+    /// means their complete task type or websocket channel and task id are equal.
+    pub(crate) fn new(handles: Vec<Arc<CommandHandle>>) -> Self {
         let mut map = HashMap::with_capacity(handles.len());
 
         for handle in handles {
-            let key = match &handle.task_info {
-                TaskInfo::AltTask(task) => CommandKey::Alt {
-                    alt_task_type: task.alt_task_type.clone(),
-                    task_id: handle.task_id,
-                },
-                TaskInfo::WsTask(task) => CommandKey::Ws {
-                    ws_channel: task.ws_channel.clone(),
-                    task_id: handle.task_id,
-                },
-            };
+            let key = handle.task_info.task_key(handle.task_id);
 
             if let Some(old) = map.insert(key.clone(), handle.clone()) {
                 panic!(
-                    "Duplicate CommandKey in registry: {:?}, old={:?}, new={:?}",
+                    "Duplicate TaskKey in registry: {:?}, old={:?}, new={:?}",
                     key, old, handle
                 );
             }
@@ -85,18 +50,16 @@ impl CommandRegistry {
     /// Finds a non-websocket task handle.
     ///
     /// Use this for `TaskCommand::OrderExecute`, `TaskCommand::InstIntent`, or
-    /// `TaskCommand::FeatInput` depending on the task type. Model task lookups
-    /// must use the exact registered `ModelRunner` value.
+    /// `TaskCommand::FeatInput` depending on the task type. Lookup identity uses
+    /// the complete [`AltTaskType`], including embedded configuration, and
+    /// `task_id`.
     pub fn find_alt_handle(
         &self,
         alt_task_type: &AltTaskType,
         task_id: u64,
     ) -> Option<Arc<CommandHandle>> {
         self.handles
-            .get(&CommandKey::Alt {
-                alt_task_type: alt_task_type.clone(),
-                task_id,
-            })
+            .get(&TaskKey::alt(alt_task_type, task_id))
             .cloned()
     }
 
@@ -109,12 +72,7 @@ impl CommandRegistry {
         ws_channel: &WsChannel,
         task_id: u64,
     ) -> Option<Arc<CommandHandle>> {
-        self.handles
-            .get(&CommandKey::Ws {
-                ws_channel: ws_channel.clone(),
-                task_id,
-            })
-            .cloned()
+        self.handles.get(&TaskKey::ws(ws_channel, task_id)).cloned()
     }
 }
 
@@ -259,15 +217,15 @@ pub enum TaskCommand {
 
     /// Sends a normalized batch of orders to an order-execution task.
     ///
-    /// The receiving task publishes the same batch into the order-execution
-    /// broadcast channel, where execution modules can handle it through
+    /// The receiving task publishes the same batch into its task stream, where
+    /// execution modules can handle it through
     /// `EventHandler::on_order_execution`.
     OrderExecute(Vec<AltOrder>),
 
     /// Sends an instrument, allocation, or portfolio intent to an intent task.
     ///
-    /// The receiving task publishes the intent into the instrument-intent
-    /// broadcast channel, where modules can handle it through
+    /// The receiving task publishes the intent into its task stream, where
+    /// modules can handle it through
     /// `EventHandler::on_inst_intent`.
     InstIntent(AltIntent),
 
@@ -313,5 +271,60 @@ impl WsConnectTarget {
     pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.headers.push((key.into(), value.into()));
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::arch::{market_assets::market_core::Market, task_execution::task_ws::WsTaskInfo};
+
+    use super::*;
+
+    fn ws_handle(market: Market, task_id: u64) -> Arc<CommandHandle> {
+        let (cmd_tx, _cmd_rx) = mpsc::channel(1);
+
+        Arc::new(CommandHandle {
+            cmd_tx,
+            task_info: TaskInfo::WsTask(Arc::new(WsTaskInfo {
+                market,
+                ws_channel: WsChannel::Trades(None),
+                filter_channels: false,
+                chunk: 1,
+                task_base_id: Some(task_id),
+            })),
+            task_id,
+        })
+    }
+
+    #[test]
+    #[should_panic(expected = "Duplicate TaskKey in registry")]
+    fn duplicate_ws_channel_and_id_panics_across_markets() {
+        CommandRegistry::new(vec![
+            ws_handle(Market::BinanceSpot, 7),
+            ws_handle(Market::Okx, 7),
+        ]);
+    }
+
+    #[test]
+    fn same_ws_channel_with_different_ids_can_coexist() {
+        let registry = CommandRegistry::new(vec![
+            ws_handle(Market::BinanceSpot, 7),
+            ws_handle(Market::Okx, 8),
+        ]);
+
+        assert_eq!(
+            registry
+                .find_ws_handle(&WsChannel::Trades(None), 7)
+                .unwrap()
+                .task_id,
+            7
+        );
+        assert_eq!(
+            registry
+                .find_ws_handle(&WsChannel::Trades(None), 8)
+                .unwrap()
+                .task_id,
+            8
+        );
     }
 }

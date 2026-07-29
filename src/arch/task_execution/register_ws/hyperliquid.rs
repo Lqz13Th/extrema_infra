@@ -7,7 +7,7 @@ use crate::arch::{
             trades::WsTradeHyperliquid,
         },
     },
-    strategy_base::handler::handler_core::{find_acc_order, find_acc_pos, find_lob, find_trade},
+    strategy_base::handler::task_channel::TaskEvent,
     task_execution::{task_general::LogLevel, task_ws::WsChannel},
 };
 
@@ -17,48 +17,26 @@ impl WsTaskBuilder {
     pub(super) async fn ws_channel_hyperliquid(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<HyperliquidWsData<WsAccountOrderHyperliquid>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Hyperliquid Acc Order",
-                    );
-                }
+                self.ws_loop::<HyperliquidWsData<WsAccountOrderHyperliquid>>(
+                    TaskEvent::AccOrder,
+                    ws_stream,
+                )
+                .await;
             },
             WsChannel::AccountPositions => {
-                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<HyperliquidWsData<WsAccountPositionHyperliquid>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Hyperliquid Acc Position",
-                    );
-                }
+                self.ws_loop::<HyperliquidWsData<WsAccountPositionHyperliquid>>(
+                    TaskEvent::AccPos,
+                    ws_stream,
+                )
+                .await;
             },
             WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<HyperliquidWsData<WsTradeHyperliquid>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Hyperliquid Trades",
-                    );
-                }
+                self.ws_loop::<HyperliquidWsData<WsTradeHyperliquid>>(TaskEvent::Trade, ws_stream)
+                    .await;
             },
             WsChannel::Lob(..) => {
-                if let Some(tx) = find_lob(&self.board_cast_channel) {
-                    self.ws_loop::<HyperliquidWsData<WsLobHyperliquid>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Hyperliquid LOB",
-                    );
-                }
+                self.ws_loop::<HyperliquidWsData<WsLobHyperliquid>>(TaskEvent::Lob, ws_stream)
+                    .await;
             },
             c => {
                 self.log(

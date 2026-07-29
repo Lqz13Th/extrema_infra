@@ -1,27 +1,27 @@
 use std::sync::Arc;
 use tracing::info;
 
-use crate::arch::{
-    infra_core::{env_core::EnvCore, env_mediator::EnvMediator},
-    strategy_base::{
-        handler::handler_core::BoardCastChannel,
-        hlist_core::{HCons, HNil},
-        strategy_group::InnerStrategyGroup,
-        strategy_module::InnerStrategyModule,
+use crate::{
+    arch::{
+        infra_core::{env_core::EnvCore, env_mediator::EnvMediator},
+        strategy_base::{
+            handler::task_channel::TaskChannels,
+            hlist_core::{HCons, HNil},
+            strategy_group::InnerStrategyGroup,
+            strategy_module::InnerStrategyModule,
+        },
+        task_execution::{task_general::TaskInfo, task_key::TaskKey},
+        traits::strategy::Strategy,
     },
-    task_execution::{task_alt::AltTaskType, task_general::TaskInfo, task_ws::WsChannel},
-    traits::strategy::Strategy,
+    errors::{InfraError, InfraResult},
 };
 
 /// Builder for an `extrema_infra` runtime.
 ///
 /// Use this builder in the final binary to declare runtime tasks and strategy
-/// modules. `build` infers the default broadcast channels required by each
-/// task. Call `with_board_cast_channel` only when a stream needs an explicit
-/// channel or custom capacity. `with_strategy_module` keeps each strategy as
-/// its concrete type by accumulating modules in a heterogeneous list, so a
-/// process can compose different modules without boxing them behind a trait
-/// object.
+/// modules. Every concrete task owns one broadcast stream. Strategies receive
+/// all task streams by default and can opt into an explicit set of [`TaskKey`]
+/// values with [`EnvBuilder::with_strategy_module_on`].
 ///
 /// ```rust,no_run
 /// use std::{sync::Arc, time::Duration};
@@ -46,78 +46,24 @@ use crate::arch::{
 /// # impl EventHandler for MyStrategy {}
 /// # let my_strategy = MyStrategy;
 /// let env = EnvBuilder::new()
-///     .with_task(TaskInfo::AltTask(Arc::new(task)))
+///     .with_task(task)
 ///     .with_strategy_module(my_strategy)
-///     .build();
+///     .build()
+///     .expect("invalid runtime configuration");
 /// ```
 pub struct EnvBuilder<Strategies = HNil> {
-    board_cast_channels: Vec<BoardCastChannel>,
     tasks: Vec<TaskInfo>,
     strategies: Strategies,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ChannelKind {
-    Alt,
-    Ws,
-    OrderExecute,
-    InstIntent,
-    ModelPreds,
-    Schedule,
-    Trade,
-    Lob,
-    LobMbo,
-    Candle,
-    AccOrder,
-    AccBalPos,
-    AccPos,
-}
-
-impl ChannelKind {
-    fn of(channel: &BoardCastChannel) -> Self {
-        match channel {
-            BoardCastChannel::Alt(_) => Self::Alt,
-            BoardCastChannel::Ws(_) => Self::Ws,
-            BoardCastChannel::OrderExecute(_) => Self::OrderExecute,
-            BoardCastChannel::InstIntent(_) => Self::InstIntent,
-            BoardCastChannel::ModelPreds(_) => Self::ModelPreds,
-            BoardCastChannel::Schedule(_) => Self::Schedule,
-            BoardCastChannel::Trade(_) => Self::Trade,
-            BoardCastChannel::Lob(_) => Self::Lob,
-            BoardCastChannel::LobMbo(_) => Self::LobMbo,
-            BoardCastChannel::Candle(_) => Self::Candle,
-            BoardCastChannel::AccOrder(_) => Self::AccOrder,
-            BoardCastChannel::AccBalPos(_) => Self::AccBalPos,
-            BoardCastChannel::AccPos(_) => Self::AccPos,
-        }
-    }
-
-    fn default_channel(self) -> BoardCastChannel {
-        match self {
-            Self::Alt => BoardCastChannel::default_alt_event(),
-            Self::Ws => BoardCastChannel::default_ws_event(),
-            Self::OrderExecute => BoardCastChannel::default_order_execution(),
-            Self::InstIntent => BoardCastChannel::default_inst_intent(),
-            Self::ModelPreds => BoardCastChannel::default_model_preds(),
-            Self::Schedule => BoardCastChannel::default_scheduler(),
-            Self::Trade => BoardCastChannel::default_trade(),
-            Self::Lob => BoardCastChannel::default_lob(),
-            Self::LobMbo => BoardCastChannel::default_lob_mbo(),
-            Self::Candle => BoardCastChannel::default_candle(),
-            Self::AccOrder => BoardCastChannel::default_account_order(),
-            Self::AccBalPos => BoardCastChannel::default_account_bal_pos(),
-            Self::AccPos => BoardCastChannel::default_account_pos(),
-        }
-    }
+    explicit_bindings: Vec<Arc<[TaskKey]>>,
 }
 
 impl EnvBuilder<HNil> {
     /// Creates an empty runtime builder.
     pub fn new() -> Self {
         Self {
-            board_cast_channels: Vec::new(),
             tasks: vec![],
             strategies: HNil,
+            explicit_bindings: Vec::new(),
         }
     }
 }
@@ -129,41 +75,21 @@ impl Default for EnvBuilder<HNil> {
 }
 
 impl<HeadList> EnvBuilder<HeadList> {
-    /// Adds an explicit broadcast channel if the same variant is not present.
-    ///
-    /// Duplicate variants are skipped. For example, adding two trade channels
-    /// still leaves one `Trade` broadcast channel in the runtime. An explicit
-    /// channel takes precedence over the default inferred from tasks, regardless
-    /// of whether it is registered before or after those tasks. A
-    /// [`WsChannel::Other`] task infers only its websocket lifecycle channel, so
-    /// its custom business stream must be added explicitly.
-    pub fn with_board_cast_channel(mut self, channel: BoardCastChannel) -> Self {
-        let kind = ChannelKind::of(&channel);
-        let channel_type_exists = self
-            .board_cast_channels
-            .iter()
-            .any(|registered| ChannelKind::of(registered) == kind);
-
-        if !channel_type_exists {
-            info!("Adding board cast channel: {:?}", channel);
-            self.board_cast_channels.push(channel);
-        } else {
-            info!("Skipped duplicate channel: {:?}", channel);
-        }
-
-        self
-    }
-
     /// Adds one runtime task.
-    pub fn with_task(mut self, task: TaskInfo) -> Self {
+    pub fn with_task(mut self, task: impl Into<TaskInfo>) -> Self {
+        let task = task.into();
         info!("Adding task: {:?}", task);
         self.tasks.push(task);
         self
     }
 
     /// Adds several runtime tasks in order.
-    pub fn with_tasks(mut self, tasks: Vec<TaskInfo>) -> Self {
+    pub fn with_tasks<T>(mut self, tasks: impl IntoIterator<Item = T>) -> Self
+    where
+        T: Into<TaskInfo>,
+    {
         for task in tasks {
+            let task = task.into();
             info!("Adding task: {:?}", task);
             self.tasks.push(task);
         }
@@ -176,11 +102,8 @@ impl<HeadList> EnvBuilder<HeadList> {
     /// use [`EnvBuilder::with_strategy_modules`] so every child gets its own
     /// independent handler loop.
     ///
-    /// Calling this method repeatedly creates a static module chain. By default,
-    /// modules subscribe to every registered broadcast event for backwards
-    /// compatibility. Modules that override `EventHandler::event_mask` subscribe
-    /// only to their selected event streams. All modules may independently send
-    /// commands to the tasks they care about.
+    /// Calling this method repeatedly creates a static module chain. Every
+    /// module registered through this method receives every task stream.
     pub fn with_strategy_module<S>(
         self,
         strategy: S,
@@ -189,21 +112,29 @@ impl<HeadList> EnvBuilder<HeadList> {
         S: Strategy + Clone,
     {
         info!("Adding strategy: {}", strategy.strategy_name());
-        self.with_strategy_node(InnerStrategyModule::new(strategy))
+        self.with_strategy_node(InnerStrategyModule::new(strategy), None)
     }
 
-    fn with_strategy_node<N>(self, node: N) -> EnvBuilder<HCons<N, HeadList>>
+    /// Registers one strategy module for an explicit set of concrete tasks.
+    pub fn with_strategy_module_on<S, I>(
+        self,
+        strategy: S,
+        task_keys: I,
+    ) -> EnvBuilder<HCons<InnerStrategyModule<S>, HeadList>>
     where
-        N: Strategy + Clone,
+        S: Strategy + Clone,
+        I: IntoIterator<Item = TaskKey>,
     {
-        EnvBuilder {
-            strategies: HCons {
-                head: node,
-                tail: self.strategies,
-            },
-            board_cast_channels: self.board_cast_channels,
-            tasks: self.tasks,
-        }
+        let task_keys: Arc<[TaskKey]> = task_keys.into_iter().collect::<Vec<_>>().into();
+        info!(
+            "Adding strategy {} on {} task(s)",
+            strategy.strategy_name(),
+            task_keys.len()
+        );
+        self.with_strategy_node(
+            InnerStrategyModule::on(strategy, task_keys.clone()),
+            Some(task_keys),
+        )
     }
 
     /// Registers many same-type strategy modules.
@@ -222,9 +153,58 @@ impl<HeadList> EnvBuilder<HeadList> {
         S: Strategy + Clone,
         I: IntoIterator<Item = S>,
     {
-        let group = InnerStrategyGroup::new(strategies);
+        let group =
+            InnerStrategyGroup::new(strategies.into_iter().map(|strategy| (strategy, None)));
         info!("Adding strategy group with {} module(s)", group.len());
-        self.with_strategy_node(group)
+        self.with_strategy_node(group, None)
+    }
+
+    /// Registers many same-type strategy modules with independent task sets.
+    ///
+    /// Each `(strategy, task_keys)` pair gets its own handler loop and subscribes
+    /// only to those concrete tasks. Use repeated
+    /// [`EnvBuilder::with_strategy_module_on`] calls when the modules have
+    /// different concrete Rust types.
+    pub fn with_strategy_modules_on<S, I>(
+        mut self,
+        strategies: I,
+    ) -> EnvBuilder<HCons<InnerStrategyGroup<S>, HeadList>>
+    where
+        S: Strategy + Clone,
+        I: IntoIterator<Item = (S, Vec<TaskKey>)>,
+    {
+        let mut modules = Vec::new();
+        for (strategy, task_keys) in strategies {
+            let task_keys: Arc<[TaskKey]> = task_keys.into();
+            self.explicit_bindings.push(task_keys.clone());
+            modules.push((strategy, Some(task_keys)));
+        }
+
+        let group = InnerStrategyGroup::new(modules);
+        info!("Adding bound strategy group with {} module(s)", group.len());
+        self.with_strategy_node(group, None)
+    }
+
+    fn with_strategy_node<N>(
+        mut self,
+        node: N,
+        explicit_binding: Option<Arc<[TaskKey]>>,
+    ) -> EnvBuilder<HCons<N, HeadList>>
+    where
+        N: Strategy + Clone,
+    {
+        if let Some(binding) = explicit_binding {
+            self.explicit_bindings.push(binding);
+        }
+
+        EnvBuilder {
+            strategies: HCons {
+                head: node,
+                tail: self.strategies,
+            },
+            tasks: self.tasks,
+            explicit_bindings: self.explicit_bindings,
+        }
     }
 }
 
@@ -232,265 +212,211 @@ impl<Strategies> EnvBuilder<Strategies>
 where
     Strategies: Strategy,
 {
-    /// Finalizes the builder and fills in channels required by its tasks.
-    pub fn build(mut self) -> EnvMediator<Strategies> {
-        add_inferred_channels(&mut self.board_cast_channels, &self.tasks);
+    /// Validates task bindings and creates one broadcast stream per task.
+    pub fn build(self) -> InfraResult<EnvMediator<Strategies>> {
+        let mut task_keys = Vec::new();
+        for task in &self.tasks {
+            task_keys.extend(task.task_keys()?);
+        }
 
-        EnvMediator {
+        let task_channels = TaskChannels::new(task_keys)?;
+
+        for binding in &self.explicit_bindings {
+            for task_key in binding.iter() {
+                if !task_channels.contains(task_key) {
+                    return Err(InfraError::Msg(format!(
+                        "strategy references an unregistered task: {task_key:?}"
+                    )));
+                }
+            }
+        }
+
+        Ok(EnvMediator {
             core: EnvCore {
-                channel: Arc::new(self.board_cast_channels),
+                task_channels: Arc::new(task_channels),
                 strategy: self.strategies,
             },
             tasks: self.tasks,
-        }
-    }
-}
-
-fn add_inferred_channels(channels: &mut Vec<BoardCastChannel>, tasks: &[TaskInfo]) {
-    for kind in inferred_channel_kinds(tasks) {
-        if channels
-            .iter()
-            .any(|registered| ChannelKind::of(registered) == kind)
-        {
-            continue;
-        }
-
-        let channel = kind.default_channel();
-        info!("Adding inferred board cast channel: {:?}", channel);
-        channels.push(channel);
-    }
-}
-
-fn inferred_channel_kinds(tasks: &[TaskInfo]) -> Vec<ChannelKind> {
-    let mut kinds = Vec::new();
-
-    for task in tasks {
-        match task {
-            TaskInfo::AltTask(task) => {
-                push_unique_kind(&mut kinds, ChannelKind::Alt);
-                let primary = match &task.alt_task_type {
-                    AltTaskType::OrderExecution => ChannelKind::OrderExecute,
-                    AltTaskType::InstIntent => ChannelKind::InstIntent,
-                    #[cfg(any(feature = "model_onnx", feature = "model_zmq"))]
-                    AltTaskType::ModelPreds(_) => ChannelKind::ModelPreds,
-                    AltTaskType::TimeScheduler(_) => ChannelKind::Schedule,
-                };
-                push_unique_kind(&mut kinds, primary);
-            },
-            TaskInfo::WsTask(task) => {
-                push_unique_kind(&mut kinds, ChannelKind::Ws);
-                let primary = match &task.ws_channel {
-                    WsChannel::AccountOrders => Some(ChannelKind::AccOrder),
-                    WsChannel::AccountBalAndPos => Some(ChannelKind::AccBalPos),
-                    WsChannel::AccountPositions => Some(ChannelKind::AccPos),
-                    WsChannel::Candles(_) => Some(ChannelKind::Candle),
-                    WsChannel::Trades(_) => Some(ChannelKind::Trade),
-                    WsChannel::Lob(_) => Some(ChannelKind::Lob),
-                    WsChannel::LobMbo => Some(ChannelKind::LobMbo),
-                    WsChannel::Other(_) => None,
-                };
-
-                if let Some(primary) = primary {
-                    push_unique_kind(&mut kinds, primary);
-                }
-            },
-        }
-    }
-
-    kinds
-}
-
-fn push_unique_kind(kinds: &mut Vec<ChannelKind>, kind: ChannelKind) {
-    if !kinds.contains(&kind) {
-        kinds.push(kind);
+        })
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod task_channel_tests {
     use std::time::Duration;
 
     use crate::arch::{
         market_assets::market_core::Market,
-        task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
+        task_execution::{
+            task_alt::{AltTaskInfo, AltTaskType},
+            task_general::TaskInfo,
+            task_key::TaskKey,
+            task_ws::{TradesParam, WsChannel, WsTaskInfo},
+        },
     };
 
     use super::*;
 
-    fn alt_task(alt_task_type: AltTaskType) -> TaskInfo {
-        TaskInfo::AltTask(Arc::new(AltTaskInfo {
-            alt_task_type,
-            chunk: 1,
-            task_base_id: None,
-        }))
+    fn trade_task(market: Market, task_id: u64) -> TaskInfo {
+        ws_task(market, WsChannel::Trades(None), task_id)
     }
 
-    fn ws_task(ws_channel: WsChannel) -> TaskInfo {
+    fn ws_task(market: Market, ws_channel: WsChannel, task_id: u64) -> TaskInfo {
         TaskInfo::WsTask(Arc::new(WsTaskInfo {
-            market: Market::HyperLiquid,
+            market,
             ws_channel,
             filter_channels: false,
             chunk: 1,
-            task_base_id: None,
+            task_base_id: Some(task_id),
         }))
     }
 
-    fn assert_channel_kinds(channels: &[BoardCastChannel], expected: &[ChannelKind]) {
-        assert_eq!(channels.len(), expected.len());
-        for expected_kind in expected {
-            assert_eq!(
-                channels
-                    .iter()
-                    .filter(|channel| ChannelKind::of(channel) == *expected_kind)
-                    .count(),
-                1,
-                "missing or duplicated channel kind: {expected_kind:?}",
-            );
-        }
-    }
-
-    fn assert_trade_capacity(channels: &[BoardCastChannel], capacity: usize) {
-        let sender = channels
-            .iter()
-            .find_map(|channel| match channel {
-                BoardCastChannel::Trade(sender) => Some(sender),
-                _ => None,
-            })
-            .expect("trade channel must exist");
-        let mut receiver = sender.subscribe();
-
-        for task_id in 0..=capacity as u64 {
-            sender
-                .send(
-                    crate::arch::strategy_base::handler::handler_core::InfraMsg {
-                        task_id,
-                        data: Arc::new(Vec::new()),
-                    },
-                )
-                .unwrap();
-        }
-
-        assert!(matches!(
-            receiver.try_recv(),
-            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(1))
-        ));
+    fn scheduler_task(duration: Duration, task_id: u64) -> TaskInfo {
+        TaskInfo::AltTask(Arc::new(AltTaskInfo {
+            alt_task_type: AltTaskType::TimeScheduler(duration),
+            chunk: 1,
+            task_base_id: Some(task_id),
+        }))
     }
 
     #[test]
-    fn infers_alt_lifecycle_and_primary_channels() {
+    fn creates_one_channel_per_concrete_task() {
+        let task = trade_task(Market::BinanceUmFutures, 7);
+        let key = task.task_key(7);
+        let env = EnvBuilder::new().with_task(task).build().unwrap();
+
+        assert!(env.core.task_channels.contains(&key));
+    }
+
+    #[test]
+    fn task_descriptors_register_without_task_info_wrappers() {
+        let scheduler = AltTaskInfo {
+            alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(1)),
+            chunk: 1,
+            task_base_id: Some(11),
+        };
+        let trades = WsTaskInfo {
+            market: Market::BinanceUmFutures,
+            ws_channel: WsChannel::Trades(None),
+            filter_channels: false,
+            chunk: 1,
+            task_base_id: Some(12),
+        };
+        let scheduler_key = TaskKey::alt(&scheduler.alt_task_type, 11);
+        let trades_key = TaskKey::ws(&trades.ws_channel, 12);
+
         let env = EnvBuilder::new()
+            .with_task(scheduler)
+            .with_tasks([trades])
+            .build()
+            .unwrap();
+
+        assert!(env.core.task_channels.contains(&scheduler_key));
+        assert!(env.core.task_channels.contains(&trades_key));
+        assert_eq!(env.tasks().len(), 2);
+    }
+
+    #[test]
+    fn same_ws_channel_and_id_is_rejected_across_markets() {
+        let error = EnvBuilder::new()
             .with_tasks(vec![
-                alt_task(AltTaskType::OrderExecution),
-                alt_task(AltTaskType::InstIntent),
-                alt_task(AltTaskType::TimeScheduler(Duration::from_secs(1))),
+                trade_task(Market::BinanceUmFutures, 7),
+                trade_task(Market::Okx, 7),
             ])
-            .build();
+            .build()
+            .err()
+            .expect("market is not part of a websocket task key");
 
-        assert_channel_kinds(
-            &env.core.channel,
-            &[
-                ChannelKind::Alt,
-                ChannelKind::OrderExecute,
-                ChannelKind::InstIntent,
-                ChannelKind::Schedule,
-            ],
-        );
-    }
-
-    #[cfg(any(feature = "model_onnx", feature = "model_zmq"))]
-    #[test]
-    fn infers_model_prediction_channel() {
-        #[cfg(feature = "model_zmq")]
-        let runner = crate::arch::task_execution::task_alt::ModelRunner::Zmq(5_555);
-        #[cfg(all(not(feature = "model_zmq"), feature = "model_onnx"))]
-        let runner =
-            crate::arch::task_execution::task_alt::ModelRunner::Onnx("model.onnx".to_string());
-
-        let env = EnvBuilder::new()
-            .with_task(alt_task(AltTaskType::ModelPreds(runner)))
-            .build();
-
-        assert_channel_kinds(
-            &env.core.channel,
-            &[ChannelKind::Alt, ChannelKind::ModelPreds],
+        assert!(
+            error
+                .to_string()
+                .contains("duplicate task id for the same task type")
         );
     }
 
     #[test]
-    fn infers_ws_lifecycle_and_every_primary_channel() {
-        let env = EnvBuilder::new()
+    fn same_trade_callback_id_is_rejected_across_stream_parameters() {
+        let error = EnvBuilder::new()
             .with_tasks(vec![
-                ws_task(WsChannel::AccountOrders),
-                ws_task(WsChannel::AccountBalAndPos),
-                ws_task(WsChannel::AccountPositions),
-                ws_task(WsChannel::Candles(None)),
-                ws_task(WsChannel::Trades(None)),
-                ws_task(WsChannel::Lob(None)),
-                ws_task(WsChannel::LobMbo),
-                ws_task(WsChannel::Other("custom".to_string())),
+                ws_task(
+                    Market::BinanceUmFutures,
+                    WsChannel::Trades(Some(TradesParam::AggTrades)),
+                    7,
+                ),
+                ws_task(
+                    Market::BinanceUmFutures,
+                    WsChannel::Trades(Some(TradesParam::AllTrades)),
+                    7,
+                ),
             ])
-            .build();
+            .build()
+            .err()
+            .expect("trade stream parameters share one callback id namespace");
 
-        assert_channel_kinds(
-            &env.core.channel,
-            &[
-                ChannelKind::Ws,
-                ChannelKind::AccOrder,
-                ChannelKind::AccBalPos,
-                ChannelKind::AccPos,
-                ChannelKind::Candle,
-                ChannelKind::Trade,
-                ChannelKind::Lob,
-                ChannelKind::LobMbo,
-            ],
+        assert!(
+            error
+                .to_string()
+                .contains("duplicate task id for the same task type")
         );
     }
 
     #[test]
-    fn explicit_capacity_wins_independent_of_call_order() {
-        let task = ws_task(WsChannel::Trades(None));
-        let explicit_capacity = 32;
+    fn same_schedule_callback_id_is_rejected_across_durations() {
+        let error = EnvBuilder::new()
+            .with_tasks(vec![
+                scheduler_task(Duration::from_secs(1), 7),
+                scheduler_task(Duration::from_secs(5), 7),
+            ])
+            .build()
+            .err()
+            .expect("scheduler durations share one callback id namespace");
 
-        let explicit_before_task = EnvBuilder::new()
-            .with_board_cast_channel(BoardCastChannel::trade_with_capacity(explicit_capacity))
-            .with_task(task.clone())
-            .build();
-        let task_before_explicit = EnvBuilder::new()
+        assert!(
+            error
+                .to_string()
+                .contains("duplicate task id for the same task type")
+        );
+    }
+
+    #[test]
+    fn different_task_channels_may_reuse_task_id() {
+        EnvBuilder::new()
+            .with_tasks(vec![
+                ws_task(Market::BinanceUmFutures, WsChannel::Trades(None), 7),
+                ws_task(Market::BinanceUmFutures, WsChannel::Lob(None), 7),
+            ])
+            .build()
+            .expect("trade and lob channels have distinct task keys");
+    }
+
+    #[test]
+    fn explicit_binding_must_reference_a_registered_task() {
+        let missing = TaskKey::ws(&WsChannel::Trades(None), 99);
+        let error = EnvBuilder::new()
+            .with_strategy_module_on(HNil, [missing])
+            .build()
+            .err()
+            .expect("unknown task binding must fail");
+
+        assert!(error.to_string().contains("unregistered task"));
+    }
+
+    #[test]
+    fn overflowing_task_id_range_is_a_build_error() {
+        let task = TaskInfo::WsTask(Arc::new(WsTaskInfo {
+            market: Market::BinanceUmFutures,
+            ws_channel: WsChannel::Trades(None),
+            filter_channels: false,
+            chunk: 2,
+            task_base_id: Some(u64::MAX),
+        }));
+
+        let error = EnvBuilder::new()
             .with_task(task)
-            .with_board_cast_channel(BoardCastChannel::trade_with_capacity(explicit_capacity))
-            .build();
+            .build()
+            .err()
+            .expect("overflowing task ids must fail");
 
-        assert_trade_capacity(&explicit_before_task.core.channel, explicit_capacity);
-        assert_trade_capacity(&task_before_explicit.core.channel, explicit_capacity);
-        assert_eq!(
-            explicit_before_task
-                .core
-                .channel
-                .iter()
-                .filter(|channel| matches!(channel, BoardCastChannel::Trade(_)))
-                .count(),
-            1,
-        );
-        assert_eq!(
-            task_before_explicit
-                .core
-                .channel
-                .iter()
-                .filter(|channel| matches!(channel, BoardCastChannel::Trade(_)))
-                .count(),
-            1,
-        );
-    }
-
-    #[test]
-    fn repeated_tasks_do_not_duplicate_inferred_channels() {
-        let env = EnvBuilder::new()
-            .with_tasks(vec![
-                ws_task(WsChannel::Trades(None)),
-                ws_task(WsChannel::Trades(None)),
-            ])
-            .build();
-
-        assert_channel_kinds(&env.core.channel, &[ChannelKind::Ws, ChannelKind::Trade]);
+        assert!(error.to_string().contains("overflows u64"));
     }
 }

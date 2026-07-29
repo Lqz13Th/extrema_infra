@@ -16,9 +16,7 @@ use crate::arch::{
             },
         },
     },
-    strategy_base::handler::handler_core::{
-        find_acc_bal_pos, find_acc_order, find_acc_pos, find_candle, find_lob, find_trade,
-    },
+    strategy_base::handler::task_channel::TaskEvent,
     task_execution::{
         task_general::LogLevel,
         task_ws::{LobParam, WsChannel},
@@ -31,82 +29,50 @@ impl WsTaskBuilder {
     pub(super) async fn ws_channel_binance_um(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAccountOrderBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Acc order",
-                    );
-                }
+                self.ws_loop::<BinanceWsData<WsAccountOrderBinanceUM>>(
+                    TaskEvent::AccOrder,
+                    ws_stream,
+                )
+                .await;
             },
             WsChannel::AccountBalAndPos => {
-                if let Some(tx) = find_acc_bal_pos(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Acc Bal and Pos",
-                    );
-                }
+                self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(
+                    TaskEvent::AccBalPos,
+                    ws_stream,
+                )
+                .await;
             },
             WsChannel::AccountPositions => {
-                if let Some(tx) = find_acc_pos(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAccountPositionBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Acc Position",
-                    );
-                }
+                self.ws_loop::<BinanceWsData<WsAccountPositionBinanceUM>>(
+                    TaskEvent::AccPos,
+                    ws_stream,
+                )
+                .await;
             },
             WsChannel::Candles(..) => {
-                if let Some(tx) = find_candle(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Candles",
-                    );
-                }
+                self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(TaskEvent::Candle, ws_stream)
+                    .await;
             },
             WsChannel::Trades(..) => {
-                if let Some(tx) = find_trade(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures Trades",
-                    );
-                }
+                self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(TaskEvent::Trade, ws_stream)
+                    .await;
             },
-            WsChannel::Lob(lob_param) => {
-                if let Some(tx) = find_lob(&self.board_cast_channel) {
-                    match lob_param {
-                        Some(LobParam::Bbo { .. }) => {
-                            self.ws_loop::<BinanceWsData<WsBookTickerBinanceUM>>(tx, ws_stream)
-                                .await;
-                        },
-                        Some(LobParam::Snapshot { .. }) => {
-                            self.ws_loop::<BinanceWsData<WsPartialDepthBinanceUM>>(tx, ws_stream)
-                                .await;
-                        },
-                        None | Some(LobParam::Incremental { .. }) => {
-                            self.ws_loop::<BinanceWsData<WsDiffDepthBinanceUM>>(tx, ws_stream)
-                                .await;
-                        },
-                    }
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance UmFutures LOB",
-                    );
-                }
+            WsChannel::Lob(lob_param) => match lob_param {
+                Some(LobParam::Bbo { .. }) => {
+                    self.ws_loop::<BinanceWsData<WsBookTickerBinanceUM>>(TaskEvent::Lob, ws_stream)
+                        .await;
+                },
+                Some(LobParam::Snapshot { .. }) => {
+                    self.ws_loop::<BinanceWsData<WsPartialDepthBinanceUM>>(
+                        TaskEvent::Lob,
+                        ws_stream,
+                    )
+                    .await;
+                },
+                None | Some(LobParam::Incremental { .. }) => {
+                    self.ws_loop::<BinanceWsData<WsDiffDepthBinanceUM>>(TaskEvent::Lob, ws_stream)
+                        .await;
+                },
             },
             c => {
                 self.log(
@@ -120,15 +86,11 @@ impl WsTaskBuilder {
     pub(super) async fn ws_channel_binance_spot(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                if let Some(tx) = find_acc_order(&self.board_cast_channel) {
-                    self.ws_loop::<BinanceWsData<WsAccountOrderEnvelopeBinanceSpot>>(tx, ws_stream)
-                        .await;
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance Spot Acc order",
-                    );
-                }
+                self.ws_loop::<BinanceWsData<WsAccountOrderEnvelopeBinanceSpot>>(
+                    TaskEvent::AccOrder,
+                    ws_stream,
+                )
+                .await;
             },
             c => {
                 self.log(
@@ -141,28 +103,22 @@ impl WsTaskBuilder {
 
     pub(super) async fn ws_channel_binance_cm(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
-            WsChannel::Lob(lob_param) => {
-                if let Some(tx) = find_lob(&self.board_cast_channel) {
-                    match lob_param {
-                        Some(LobParam::Bbo { .. }) => {
-                            self.ws_loop::<BinanceWsData<WsBookTickerBinanceCM>>(tx, ws_stream)
-                                .await;
-                        },
-                        Some(LobParam::Snapshot { .. }) => {
-                            self.ws_loop::<BinanceWsData<WsPartialDepthBinanceCM>>(tx, ws_stream)
-                                .await;
-                        },
-                        None | Some(LobParam::Incremental { .. }) => {
-                            self.ws_loop::<BinanceWsData<WsDiffDepthBinanceCM>>(tx, ws_stream)
-                                .await;
-                        },
-                    }
-                } else {
-                    self.log(
-                        LogLevel::Warn,
-                        "No broadcast channel found for Binance CmFutures LOB",
-                    );
-                }
+            WsChannel::Lob(lob_param) => match lob_param {
+                Some(LobParam::Bbo { .. }) => {
+                    self.ws_loop::<BinanceWsData<WsBookTickerBinanceCM>>(TaskEvent::Lob, ws_stream)
+                        .await;
+                },
+                Some(LobParam::Snapshot { .. }) => {
+                    self.ws_loop::<BinanceWsData<WsPartialDepthBinanceCM>>(
+                        TaskEvent::Lob,
+                        ws_stream,
+                    )
+                    .await;
+                },
+                None | Some(LobParam::Incremental { .. }) => {
+                    self.ws_loop::<BinanceWsData<WsDiffDepthBinanceCM>>(TaskEvent::Lob, ws_stream)
+                        .await;
+                },
             },
             c => {
                 self.log(

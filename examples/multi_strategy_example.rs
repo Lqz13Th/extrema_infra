@@ -68,8 +68,8 @@ impl BinanceStrategy {
     }
 
     /// Connect after the websocket task emits `on_ws_event`.
-    async fn connect_channel(&self, channel: &WsChannel) -> InfraResult<()> {
-        if let Some(handle) = self.find_ws_handle(channel, 1) {
+    async fn connect_channel(&self, channel: &WsChannel, task_id: u64) -> InfraResult<()> {
+        if let Some(handle) = self.find_ws_handle(channel, task_id) {
             info!("[BinanceStrategy] Sending connect to {:?}", handle);
 
             let ws_url = self.binance_um_cli.get_public_connect_msg(channel).await?;
@@ -134,7 +134,10 @@ impl EventHandler for BinanceStrategy {
             "[BinanceStrategy] Triggering connect for channel: {:?}",
             msg.data.ws_channel
         );
-        if let Err(e) = self.connect_channel(&msg.data.ws_channel).await {
+        if let Err(e) = self
+            .connect_channel(&msg.data.ws_channel, msg.task_id)
+            .await
+        {
             error!("[BinanceStrategy] connect failed: {:?}", e);
         }
     }
@@ -147,7 +150,7 @@ impl EventHandler for BinanceStrategy {
 
 /// Run the example runtime.
 #[tokio::main]
-async fn main() {
+async fn main() -> InfraResult<()> {
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .expect("failed to install rustls crypto provider");
@@ -172,11 +175,12 @@ async fn main() {
     };
 
     let env = EnvBuilder::new()
-        .with_task(TaskInfo::WsTask(Arc::new(binance_ws_candle)))
-        .with_task(TaskInfo::AltTask(Arc::new(alt_task)))
+        .with_task(binance_ws_candle)
+        .with_task(alt_task)
         .with_strategy_module(EmptyStrategy)
         .with_strategy_module(BinanceStrategy::new())
-        .build();
+        .build()?;
 
     env.execute().await;
+    Ok(())
 }

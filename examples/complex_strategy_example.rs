@@ -156,10 +156,6 @@ impl CommandEmitter for HFTStrategy {
 }
 
 impl EventHandler for HFTStrategy {
-    fn event_mask(&self) -> EventMask {
-        EventMask::WS_EVENT | EventMask::TRADE | EventMask::MODEL_PREDS
-    }
-
     /// Handle predictions from models and generate orders.
     async fn on_preds(&mut self, msg: InfraMsg<AltTensor>) {
         info!("Received model prediction, task id: {}", msg.task_id);
@@ -221,8 +217,12 @@ impl AccountModule {
     }
 
     /// Connect, log in, and subscribe to the OKX private account channel.
-    pub async fn connect_acc_channel(&mut self, channel: &WsChannel) -> InfraResult<()> {
-        if let Some(handle) = self.find_ws_handle(channel, 1) {
+    pub async fn connect_acc_channel(
+        &mut self,
+        channel: &WsChannel,
+        task_id: u64,
+    ) -> InfraResult<()> {
+        if let Some(handle) = self.find_ws_handle(channel, task_id) {
             let ws_url = self.api_cli.get_private_connect_msg(channel).await?;
             let (tx, rx) = oneshot::channel();
             let cmd = TaskCommand::WsConnect {
@@ -277,10 +277,6 @@ impl CommandEmitter for AccountModule {
 }
 
 impl EventHandler for AccountModule {
-    fn event_mask(&self) -> EventMask {
-        EventMask::WS_EVENT | EventMask::ORDER_EXECUTION | EventMask::ACC_ORDER
-    }
-
     /// Receive order execution requests.
     async fn on_order_execution(&mut self, msg: InfraMsg<Vec<AltOrder>>) {
         info!("Received model order execution, task id: {}", msg.task_id);
@@ -290,7 +286,9 @@ impl EventHandler for AccountModule {
     /// Handle private account WebSocket events.
     async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         if msg.data.ws_channel == WsChannel::AccountOrders
-            && let Err(e) = self.connect_acc_channel(&msg.data.ws_channel).await
+            && let Err(e) = self
+                .connect_acc_channel(&msg.data.ws_channel, msg.task_id)
+                .await
         {
             error!("connect ws private account order channel failed: {:?}", e);
         }
@@ -303,7 +301,7 @@ impl EventHandler for AccountModule {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> InfraResult<()> {
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .expect("failed to install rustls crypto provider");
@@ -329,7 +327,7 @@ async fn main() {
         market: Market::Okx,
         ws_channel: WsChannel::Trades(Some(TradesParam::AggTrades)),
         filter_channels: false,
-        chunk: 10, // Run 10 independent WebSocket connections for parallel trade feeds
+        chunk: 10, // Ten task instances; each can own a separate symbol group.
         task_base_id: None,
     };
 
@@ -351,19 +349,29 @@ async fn main() {
         task_base_id: Some(2222), // Custom task ID
     };
 
+    // Bind each module only to the concrete task streams it consumes.
+    let mut account_task_keys = acc_order_task.task_keys()?;
+    account_task_keys.extend(place_order_task.task_keys()?);
+
+    // `task_keys()` expands the trade declaration into all 10 task identities.
+    let mut strategy_task_keys = okx_trade_task.task_keys()?;
+    strategy_task_keys.extend(model_a_task.task_keys()?);
+    strategy_task_keys.extend(model_b_task.task_keys()?);
+
     // EnvBuilder sets up the environment:
     // - Register strategy modules
     // - Register WebSocket tasks
     let env = EnvBuilder::new()
-        .with_task(TaskInfo::WsTask(Arc::new(acc_order_task)))
-        .with_task(TaskInfo::WsTask(Arc::new(okx_trade_task)))
-        .with_task(TaskInfo::AltTask(Arc::new(model_a_task)))
-        .with_task(TaskInfo::AltTask(Arc::new(model_b_task)))
-        .with_task(TaskInfo::AltTask(Arc::new(place_order_task)))
-        .with_strategy_module(strategy_account_module)
-        .with_strategy_module(strategy_logic)
-        .build();
+        .with_task(acc_order_task)
+        .with_task(okx_trade_task)
+        .with_task(model_a_task)
+        .with_task(model_b_task)
+        .with_task(place_order_task)
+        .with_strategy_module_on(strategy_account_module, account_task_keys)
+        .with_strategy_module_on(strategy_logic, strategy_task_keys)
+        .build()?;
 
     // Execute environment (runs all tasks)
     env.execute().await;
+    Ok(())
 }

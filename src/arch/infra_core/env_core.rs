@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use crate::arch::strategy_base::handler::handler_core::BoardCastChannel;
+use crate::arch::strategy_base::handler::task_channel::TaskChannels;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) struct EnvCore<S> {
-    pub channel: Arc<Vec<BoardCastChannel>>,
+    pub task_channels: Arc<TaskChannels>,
     pub strategy: S,
 }

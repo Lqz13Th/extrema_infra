@@ -6,11 +6,11 @@
 //! use extrema_infra::prelude::*;
 //! ```
 //!
-//! The prelude contains the runtime builder, strategy traits, task descriptors,
-//! broadcast channel types, event masks, command handles, normalized market
-//! data structures, and shared error/result aliases. Exchange-specific client
-//! structs remain available under `arch::market_assets::exchange::prelude` when
-//! the matching feature is enabled.
+//! The prelude contains the runtime builder, strategy traits, task descriptors
+//! and keys, command handles, normalized event data, and shared error/result
+//! aliases. Exchange-specific client structs remain available under
+//! `arch::market_assets::exchange::prelude` when the matching feature is
+//! enabled.
 pub use crate::errors::{InfraError, InfraResult};
 
 pub use crate::arch::{
@@ -24,8 +24,8 @@ pub use crate::arch::{
             ack_handle::{AckHandle, AckStatus},
             command_core::*,
         },
-        handler::{alt_events::*, event_mask::*, handler_core::*, lob_events::*},
+        handler::{alt_events::*, lob_events::*, task_channel::InfraMsg},
     },
-    task_execution::{task_alt::*, task_general::TaskInfo, task_ws::*},
+    task_execution::{task_alt::*, task_general::TaskInfo, task_key::TaskKey, task_ws::*},
     traits::{conversion::*, market_lob::*, strategy::*},
 };

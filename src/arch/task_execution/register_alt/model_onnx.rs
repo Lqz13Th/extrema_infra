@@ -5,11 +5,7 @@ use std::{
     sync::{Arc, mpsc},
     time::Duration,
 };
-use tokio::{
-    sync::{broadcast, oneshot},
-    task,
-    time::timeout,
-};
+use tokio::{sync::oneshot, task, time::timeout};
 use tract_onnx::prelude::{
     Framework, InferenceModelExt, IntoRunnable, IntoTensor, TValue, TypedRunnableModel,
     tract_ndarray::{ArrayD, IxDyn},
@@ -17,10 +13,7 @@ use tract_onnx::prelude::{
 };
 
 use crate::{
-    arch::{
-        strategy_base::handler::{alt_events::AltTensor, handler_core::InfraMsg},
-        task_execution::task_general::LogLevel,
-    },
+    arch::{strategy_base::handler::alt_events::AltTensor, task_execution::task_general::LogLevel},
     errors::{InfraError, InfraResult},
 };
 
@@ -290,11 +283,7 @@ fn onnx_worker_loop(runner: OnnxModelRunner, request_rx: mpsc::Receiver<OnnxWork
 }
 
 impl AltTaskBuilder {
-    pub(super) async fn model_preds_onnx(
-        &mut self,
-        tx: broadcast::Sender<InfraMsg<AltTensor>>,
-        config_path: String,
-    ) {
+    pub(super) async fn model_preds_onnx(&mut self, config_path: String) {
         self.log(
             LogLevel::Info,
             &format!("Loading ONNX runner config from {config_path}..."),
@@ -338,7 +327,7 @@ impl AltTaskBuilder {
             }
 
             match timeout(model_inference_timeout, response_rx).await {
-                Ok(Ok(Ok(matrix))) => self.emit_model_preds(&tx, matrix),
+                Ok(Ok(Ok(matrix))) => self.emit_model_preds(matrix),
                 Ok(Ok(Err(e))) => {
                     self.log(LogLevel::Error, &format!("ONNX inference error: {e}"));
                 },

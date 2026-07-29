@@ -3,7 +3,11 @@ use std::sync::Arc;
 use crate::arch::{
     strategy_base::{
         command::command_core::CommandRegistry,
-        handler::{alt_events::*, handler_core::*, lob_events::*},
+        handler::{
+            alt_events::*,
+            lob_events::*,
+            task_channel::{InfraMsg, TaskChannels},
+        },
     },
     task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
     traits::strategy::*,
@@ -15,7 +19,7 @@ pub struct HNil;
 impl Strategy for HNil {
     async fn initialize(&mut self) {}
 
-    async fn _spawn_strategy_tasks(&self, _channels: &Arc<Vec<BoardCastChannel>>) {}
+    async fn _spawn_strategy_tasks(&self, _task_channels: &Arc<TaskChannels>) {}
 }
 impl CommandEmitter for HNil {
     fn command_init(&mut self, _command_handle: Arc<CommandRegistry>) {}
@@ -42,10 +46,10 @@ where
         tokio::join!(fut_head, fut_tail);
     }
 
-    async fn _spawn_strategy_tasks(&self, channels: &Arc<Vec<BoardCastChannel>>) {
+    async fn _spawn_strategy_tasks(&self, task_channels: &Arc<TaskChannels>) {
         let HCons { head, tail } = self;
-        head._spawn_strategy_tasks(channels).await;
-        tail._spawn_strategy_tasks(channels).await;
+        head._spawn_strategy_tasks(task_channels).await;
+        tail._spawn_strategy_tasks(task_channels).await;
     }
 }
 impl<Head, Tail> CommandEmitter for HCons<Head, Tail>
@@ -164,7 +168,7 @@ mod tests {
     impl Strategy for ProbeStrategy {
         async fn initialize(&mut self) {}
 
-        async fn _spawn_strategy_tasks(&self, _channels: &Arc<Vec<BoardCastChannel>>) {
+        async fn _spawn_strategy_tasks(&self, _task_channels: &Arc<TaskChannels>) {
             self.spawn_count.fetch_add(1, Ordering::SeqCst);
         }
     }
@@ -194,7 +198,8 @@ mod tests {
             },
         };
 
-        strategies._spawn_strategy_tasks(&Arc::new(vec![])).await;
+        let task_channels = Arc::new(TaskChannels::new(Vec::new()).unwrap());
+        strategies._spawn_strategy_tasks(&task_channels).await;
 
         assert_eq!(spawn_count.load(Ordering::SeqCst), 2);
     }

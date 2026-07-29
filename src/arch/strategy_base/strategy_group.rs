@@ -6,8 +6,9 @@ use tracing::info;
 use crate::arch::{
     strategy_base::{
         command::command_core::CommandRegistry,
-        handler::handler_core::{BoardCastChannel, strategy_handler_loop},
+        handler::{handler_core::strategy_handler_loop, task_channel::TaskChannels},
     },
+    task_execution::task_key::TaskKey,
     traits::strategy::{CommandEmitter, EventHandler, Strategy},
 };
 
@@ -19,14 +20,14 @@ use crate::arch::{
 #[derive(Clone)]
 #[doc(hidden)]
 pub struct InnerStrategyGroup<S> {
-    strategies: Vec<S>,
+    strategies: Vec<(S, Option<Arc<[TaskKey]>>)>,
     command_registry: Arc<CommandRegistry>,
 }
 
 impl<S> InnerStrategyGroup<S> {
     pub(crate) fn new<I>(strategies: I) -> Self
     where
-        I: IntoIterator<Item = S>,
+        I: IntoIterator<Item = (S, Option<Arc<[TaskKey]>>)>,
     {
         Self {
             strategies: strategies.into_iter().collect(),
@@ -51,7 +52,7 @@ where
         future::join_all(
             self.strategies
                 .iter_mut()
-                .map(|strategy| strategy.initialize()),
+                .map(|(strategy, _)| strategy.initialize()),
         )
         .await;
         info!(
@@ -64,13 +65,18 @@ where
         "InnerStrategyGroup"
     }
 
-    async fn _spawn_strategy_tasks(&self, channels: &Arc<Vec<BoardCastChannel>>) {
-        for strategy in self.strategies.iter().cloned() {
-            let channels = channels.clone();
+    async fn _spawn_strategy_tasks(&self, task_channels: &Arc<TaskChannels>) {
+        for (strategy, task_keys) in self.strategies.iter().cloned() {
+            let receivers = match task_keys {
+                Some(task_keys) => task_channels
+                    .subscribe(task_keys.iter().cloned())
+                    .expect("strategy task bindings were validated during EnvBuilder::build"),
+                None => task_channels.subscribe_all(),
+            };
 
             tokio::spawn(async move {
                 info!("Spawned strategy task for {}", strategy.strategy_name());
-                strategy_handler_loop(strategy, &channels).await;
+                strategy_handler_loop(strategy, receivers).await;
             });
         }
     }
@@ -82,7 +88,7 @@ where
 {
     fn command_init(&mut self, registry: Arc<CommandRegistry>) {
         self.command_registry = registry.clone();
-        for strategy in &mut self.strategies {
+        for (strategy, _) in &mut self.strategies {
             strategy.command_init(registry.clone());
         }
     }
@@ -101,14 +107,11 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
     };
 
-    use crate::arch::strategy_base::handler::event_mask::EventMask;
-
     use super::*;
 
     #[derive(Clone)]
     struct ProbeStrategy {
         command_init_count: Arc<AtomicUsize>,
-        loop_start_count: Arc<AtomicUsize>,
     }
 
     impl Strategy for ProbeStrategy {
@@ -129,58 +132,24 @@ mod tests {
         }
     }
 
-    impl EventHandler for ProbeStrategy {
-        fn event_mask(&self) -> EventMask {
-            self.loop_start_count.fetch_add(1, Ordering::SeqCst);
-            EventMask::NONE
-        }
-    }
-
-    async fn wait_for_count(counter: &AtomicUsize, expected: usize) {
-        for _ in 0..10 {
-            if counter.load(Ordering::SeqCst) >= expected {
-                return;
-            }
-            tokio::task::yield_now().await;
-        }
-    }
-
-    #[tokio::test]
-    async fn strategy_group_spawns_each_child_once() {
-        let loop_start_count = Arc::new(AtomicUsize::new(0));
-        let group = InnerStrategyGroup::new(vec![
-            ProbeStrategy {
-                command_init_count: Arc::new(AtomicUsize::new(0)),
-                loop_start_count: loop_start_count.clone(),
-            },
-            ProbeStrategy {
-                command_init_count: Arc::new(AtomicUsize::new(0)),
-                loop_start_count: loop_start_count.clone(),
-            },
-            ProbeStrategy {
-                command_init_count: Arc::new(AtomicUsize::new(0)),
-                loop_start_count: loop_start_count.clone(),
-            },
-        ]);
-
-        group._spawn_strategy_tasks(&Arc::new(vec![])).await;
-        wait_for_count(&loop_start_count, 3).await;
-
-        assert_eq!(loop_start_count.load(Ordering::SeqCst), 3);
-    }
+    impl EventHandler for ProbeStrategy {}
 
     #[test]
     fn strategy_group_forwards_command_init_to_children() {
         let command_init_count = Arc::new(AtomicUsize::new(0));
         let mut group = InnerStrategyGroup::new(vec![
-            ProbeStrategy {
-                command_init_count: command_init_count.clone(),
-                loop_start_count: Arc::new(AtomicUsize::new(0)),
-            },
-            ProbeStrategy {
-                command_init_count: command_init_count.clone(),
-                loop_start_count: Arc::new(AtomicUsize::new(0)),
-            },
+            (
+                ProbeStrategy {
+                    command_init_count: command_init_count.clone(),
+                },
+                None,
+            ),
+            (
+                ProbeStrategy {
+                    command_init_count: command_init_count.clone(),
+                },
+                None,
+            ),
         ]);
 
         group.command_init(Arc::new(CommandRegistry::default()));

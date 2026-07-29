@@ -1,22 +1,17 @@
 use rmp_serde::{Deserializer, Serializer};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tokio::{sync::broadcast, time::timeout};
+use tokio::time::timeout;
 use zeromq::{ReqSocket, Socket, SocketRecv, SocketSend};
 
 use crate::arch::{
-    strategy_base::handler::{alt_events::AltTensor, handler_core::InfraMsg},
-    task_execution::task_general::LogLevel,
+    strategy_base::handler::alt_events::AltTensor, task_execution::task_general::LogLevel,
 };
 
 use super::AltTaskBuilder;
 
 impl AltTaskBuilder {
-    pub(super) async fn model_preds_zmq(
-        &mut self,
-        tx: broadcast::Sender<InfraMsg<AltTensor>>,
-        port: u64,
-    ) {
+    pub(super) async fn model_preds_zmq(&mut self, port: u64) {
         let mut zmq_socket = ReqSocket::new();
         let address = format!("tcp://127.0.0.1:{}", port);
 
@@ -59,7 +54,7 @@ impl AltTaskBuilder {
                         let mut de = Deserializer::new(&bytes[..]);
                         match AltTensor::deserialize(&mut de) {
                             Ok(matrix) => {
-                                self.emit_model_preds(&tx, matrix);
+                                self.emit_model_preds(matrix);
                             },
                             Err(e) => {
                                 self.log(
