@@ -6,9 +6,7 @@ use crate::arch::{
         command::ack_handle::{AckHandle, AckStatus},
         handler::alt_events::{AltIntent, AltOrder, AltTensor},
     },
-    task_execution::{
-        task_alt::AltTaskType, task_general::TaskInfo, task_key::TaskKey, task_ws::WsChannel,
-    },
+    task_execution::{TaskInfo, TaskKey, task_alt::AltTaskType, task_ws::WsChannel},
 };
 use crate::errors::{InfraError, InfraResult};
 

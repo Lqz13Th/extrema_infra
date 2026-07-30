@@ -13,7 +13,7 @@ pub struct AltScheduleEvent {
 
 /// Generic dense tensor payload exchanged across alt feature/model channels.
 ///
-/// Contract v1:
+/// Contract:
 /// - `data` stores a row-major / C-order flatten view of the tensor.
 /// - `shape` stores the original tensor shape before flattening.
 /// - `data.len()` must equal the product of all entries in `shape`.

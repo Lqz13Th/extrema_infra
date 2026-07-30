@@ -8,9 +8,9 @@ use crate::arch::{
     strategy_base::handler::alt_events::AltTensor, task_execution::task_general::LogLevel,
 };
 
-use super::AltTaskBuilder;
+use super::AltTaskRunner;
 
-impl AltTaskBuilder {
+impl AltTaskRunner {
     pub(super) async fn model_preds_zmq(&mut self, port: u64) {
         let mut zmq_socket = ReqSocket::new();
         let address = format!("tcp://127.0.0.1:{}", port);

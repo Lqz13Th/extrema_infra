@@ -49,7 +49,7 @@ static _PING: Bytes = Bytes::from_static(b"ping");
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub(crate) struct WsTaskBuilder {
+pub(crate) struct WsTaskRunner {
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub event_tx: broadcast::Sender<TaskEvent>,
     pub ws_info: Arc<WsTaskInfo>,
@@ -58,7 +58,7 @@ pub(crate) struct WsTaskBuilder {
 }
 
 #[allow(dead_code)]
-impl WsTaskBuilder {
+impl WsTaskRunner {
     async fn connect_websocket(&self, target: WsConnectTarget) -> InfraResult<WsStream> {
         let mut request = target.url.into_client_request().map_err(|e| {
             error!("WebSocket request build failed: {:?}", e);

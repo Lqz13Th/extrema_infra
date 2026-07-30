@@ -164,8 +164,8 @@
 //! [`CommandEmitter`]: crate::arch::traits::strategy::CommandEmitter
 //! [`EnvBuilder`]: crate::arch::infra_core::env_builder::EnvBuilder
 //! [`EnvMediator::execute`]: crate::arch::infra_core::env_mediator::EnvMediator::execute
-//! [`TaskInfo`]: crate::arch::task_execution::task_general::TaskInfo
-//! [`TaskKey`]: crate::arch::task_execution::task_key::TaskKey
+//! [`TaskInfo`]: crate::arch::task_execution::TaskInfo
+//! [`TaskKey`]: crate::arch::task_execution::TaskKey
 //! [`AltTaskInfo`]: crate::arch::task_execution::task_alt::AltTaskInfo
 //! [`AltTaskType`]: crate::arch::task_execution::task_alt::AltTaskType
 //! [`WsTaskInfo`]: crate::arch::task_execution::task_ws::WsTaskInfo

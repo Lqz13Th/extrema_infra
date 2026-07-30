@@ -8,7 +8,7 @@ use crate::arch::{
         command::command_core::CommandRegistry,
         handler::{handler_core::strategy_handler_loop, task_channel::TaskChannels},
     },
-    task_execution::task_key::TaskKey,
+    task_execution::TaskKey,
     traits::strategy::{CommandEmitter, EventHandler, Strategy},
 };
 
