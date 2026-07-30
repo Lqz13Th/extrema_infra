@@ -99,16 +99,16 @@ fn parse_order_status(status: &str, filled_size: f64) -> OrderStatus {
 }
 
 pub fn validate_hyperliquid_order_history_range(
-    start_time_ms: Option<u64>,
-    end_time_ms: Option<u64>,
+    start_time_us: Option<u64>,
+    end_time_us: Option<u64>,
 ) -> InfraResult<()> {
-    if let Some(end_time_ms) = end_time_ms
-        && let Some(start_time_ms) = start_time_ms
-        && end_time_ms < start_time_ms
+    if let Some(end_time_us) = end_time_us
+        && let Some(start_time_us) = start_time_us
+        && end_time_us < start_time_us
     {
         return Err(InfraError::ApiCliError(format!(
-            "Hyperliquid order history end_time_ms {} is earlier than start_time_ms {}",
-            end_time_ms, start_time_ms
+            "Hyperliquid order history end_time_us {} is earlier than start_time_us {}",
+            end_time_us, start_time_us
         )));
     }
 
@@ -118,20 +118,20 @@ pub fn validate_hyperliquid_order_history_range(
 pub fn finalize_hyperliquid_order_history(
     data: Vec<OrderDetailData>,
     normalized_inst: &str,
-    start_time_ms: Option<u64>,
-    end_time_ms: Option<u64>,
+    start_time_us: Option<u64>,
+    end_time_us: Option<u64>,
     limit: Option<u32>,
     require_recent_window_coverage: bool,
 ) -> InfraResult<Vec<OrderDetailData>> {
     if require_recent_window_coverage {
-        ensure_recent_orders_cover_start(&data, start_time_ms)?;
+        ensure_recent_orders_cover_start(&data, start_time_us)?;
     }
 
     Ok(filter_order_history(
         data,
         normalized_inst,
-        start_time_ms,
-        end_time_ms,
+        start_time_us,
+        end_time_us,
         limit,
     ))
 }
@@ -140,20 +140,13 @@ fn order_history_time(order: &OrderDetailData) -> u64 {
     order.update_time.max(order.timestamp)
 }
 
-fn millis_to_micros(timestamp_ms: u64) -> u64 {
-    timestamp_ms.saturating_mul(1_000)
-}
-
 fn filter_order_history(
     mut data: Vec<OrderDetailData>,
     normalized_inst: &str,
-    start_time_ms: Option<u64>,
-    end_time_ms: Option<u64>,
+    start_time_us: Option<u64>,
+    end_time_us: Option<u64>,
     limit: Option<u32>,
 ) -> Vec<OrderDetailData> {
-    let start_time_us = start_time_ms.map(millis_to_micros);
-    let end_time_us = end_time_ms.map(millis_to_micros);
-
     data.retain(|order| {
         if order.inst != normalized_inst {
             return false;
@@ -174,9 +167,9 @@ fn filter_order_history(
 
 fn ensure_recent_orders_cover_start(
     data: &[OrderDetailData],
-    start_time_ms: Option<u64>,
+    start_time_us: Option<u64>,
 ) -> InfraResult<()> {
-    let Some(start_time_ms) = start_time_ms else {
+    let Some(start_time_us) = start_time_us else {
         return Ok(());
     };
 
@@ -188,13 +181,10 @@ fn ensure_recent_orders_cover_start(
         return Ok(());
     };
 
-    let start_time_us = millis_to_micros(start_time_ms);
     if earliest_returned_us > start_time_us {
         return Err(InfraError::ApiCliError(format!(
-            "Hyperliquid historicalOrders only returns the most recent {} orders; requested startTime={}ms is older than earliest returned order update_time={}ms",
-            HYPERLIQUID_HISTORICAL_ORDERS_RECENT_LIMIT,
-            start_time_ms,
-            earliest_returned_us / 1_000
+            "Hyperliquid historicalOrders only returns the most recent {} orders; requested start_time_us={} is older than earliest returned order update_time_us={}",
+            HYPERLIQUID_HISTORICAL_ORDERS_RECENT_LIMIT, start_time_us, earliest_returned_us
         )));
     }
 
@@ -239,8 +229,8 @@ mod tests {
         let filtered = finalize_hyperliquid_order_history(
             data,
             "BTC_USDC_PERP",
-            Some(1_500),
-            Some(3_500),
+            Some(1_500_000),
+            Some(3_500_000),
             Some(2),
             true,
         )
@@ -264,7 +254,7 @@ mod tests {
         let err = finalize_hyperliquid_order_history(
             data,
             "BTC_USDC_PERP",
-            Some(1_000),
+            Some(1_000_000),
             None,
             None,
             true,

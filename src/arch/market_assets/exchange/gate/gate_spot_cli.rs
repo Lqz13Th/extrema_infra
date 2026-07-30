@@ -10,7 +10,10 @@ use crate::arch::{
             price_data::TickerData,
             utils_data::InstrumentInfo,
         },
-        api_general::{OrderParams, RequestMethod, get_seconds_timestamp, parse_json_response},
+        api_general::{
+            OrderParams, RequestMethod, get_seconds_timestamp, micros_to_seconds,
+            parse_json_response,
+        },
         base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TimeInForce},
         exchange::gate::{
             config_assets::*,
@@ -128,12 +131,12 @@ impl LobPrivateRest for GateSpotCli {
     async fn get_order_history(
         &self,
         inst: &str,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time, end_time, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
             .await
     }
 }
@@ -616,8 +619,8 @@ impl GateSpotCli {
     async fn _get_order_history(
         &self,
         inst: &str,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
@@ -629,11 +632,11 @@ impl GateSpotCli {
             )
         } else {
             let mut query = format!("currency_pair={currency_pair}&status=finished");
-            if let Some(start_time) = start_time {
-                query.push_str(&format!("&from={}", timestamp_to_seconds(start_time)));
+            if let Some(start_time_us) = start_time_us {
+                query.push_str(&format!("&from={}", micros_to_seconds(start_time_us)));
             }
-            if let Some(end_time) = end_time {
-                query.push_str(&format!("&to={}", timestamp_to_seconds(end_time)));
+            if let Some(end_time_us) = end_time_us {
+                query.push_str(&format!("&to={}", micros_to_seconds(end_time_us)));
             }
             if let Some(limit) = limit {
                 query.push_str(&format!("&limit={limit}"));
@@ -814,17 +817,8 @@ impl GateSpotCli {
     }
 }
 
-fn timestamp_to_seconds(timestamp: u64) -> u64 {
-    match timestamp {
-        0..=9_999_999_999 => timestamp,
-        10_000_000_000..=9_999_999_999_999 => timestamp / 1_000,
-        _ => timestamp / 1_000_000,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::timestamp_to_seconds;
     use crate::arch::{
         market_assets::exchange::gate::{
             config_assets::GATE_WS_BASE_URL, gate_spot_cli::GateSpotCli,
@@ -844,12 +838,5 @@ mod tests {
 
         assert_eq!(target.url, GATE_WS_BASE_URL);
         assert!(target.headers.is_empty());
-    }
-
-    #[test]
-    fn gate_spot_history_converts_millisecond_and_microsecond_ranges_to_seconds() {
-        assert_eq!(timestamp_to_seconds(1_783_580_000), 1_783_580_000);
-        assert_eq!(timestamp_to_seconds(1_783_580_000_123), 1_783_580_000);
-        assert_eq!(timestamp_to_seconds(1_783_580_000_123_456), 1_783_580_000);
     }
 }

@@ -114,12 +114,12 @@ impl LobPrivateRest for BinanceSpotCli {
     async fn get_order_history(
         &self,
         inst: &str,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time, end_time, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
             .await
     }
 }
@@ -725,8 +725,8 @@ impl BinanceSpotCli {
     async fn _get_order_history(
         &self,
         inst: &str,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
@@ -735,11 +735,11 @@ impl BinanceSpotCli {
             query_string.push_str(&format!("&orderId={order_id}"));
             BINANCE_SPOT_PLACE_ORDER
         } else {
-            if let Some(start_time) = start_time {
-                query_string.push_str(&format!("&startTime={start_time}"));
+            if let Some(start_time_us) = start_time_us {
+                query_string.push_str(&format!("&startTime={}", micros_to_millis(start_time_us)));
             }
-            if let Some(end_time) = end_time {
-                query_string.push_str(&format!("&endTime={end_time}"));
+            if let Some(end_time_us) = end_time_us {
+                query_string.push_str(&format!("&endTime={}", micros_to_millis(end_time_us)));
             }
             if let Some(limit) = limit {
                 query_string.push_str(&format!("&limit={limit}"));

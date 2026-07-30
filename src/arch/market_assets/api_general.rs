@@ -110,6 +110,16 @@ pub fn ts_to_micros(ts: u64) -> u64 {
     }
 }
 
+#[cfg(any(feature = "binance", feature = "okx", test))]
+pub(crate) fn micros_to_millis(timestamp_us: u64) -> u64 {
+    timestamp_us / 1_000
+}
+
+#[cfg(any(feature = "gate", test))]
+pub(crate) fn micros_to_seconds(timestamp_us: u64) -> u64 {
+    timestamp_us / 1_000_000
+}
+
 pub fn candle_interval_millis(interval: &CandleParam) -> InfraResult<u64> {
     match interval {
         CandleParam::OneSecond => Ok(1_000),
@@ -313,6 +323,14 @@ mod tests {
             candle_interval_millis(&CandleParam::OneWeek).unwrap(),
             7 * 24 * 60 * 60_000
         );
+    }
+
+    #[test]
+    fn converts_microsecond_timestamps_to_exchange_precision() {
+        let timestamp_us = 1_783_580_000_123_456;
+
+        assert_eq!(micros_to_millis(timestamp_us), 1_783_580_000_123);
+        assert_eq!(micros_to_seconds(timestamp_us), 1_783_580_000);
     }
 
     #[test]

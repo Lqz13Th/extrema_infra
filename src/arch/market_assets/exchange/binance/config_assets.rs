@@ -52,6 +52,6 @@ pub const BINANCE_CM_FUTURES_WS_MKT: &str = "wss://dstream.binance.com/market/ws
 pub const BINANCE_CM_FUTURES_BASE_URL: &str = "https://dapi.binance.com";
 pub const BINANCE_CM_FUTURES_EXCHANGE_INFO: &str = "/dapi/v1/exchangeInfo";
 
-pub const BINANCE_CM_FUTURES_ACCOUNT_INFO: &str = "/dapi/v1/balance";
-pub const BINANCE_CM_FUTURES_BALANCE_INFO: &str = "/dapi/v1/account";
+pub const BINANCE_CM_FUTURES_ACCOUNT_INFO: &str = "/dapi/v1/account";
+pub const BINANCE_CM_FUTURES_BALANCE_INFO: &str = "/dapi/v1/balance";
 pub const BINANCE_CM_FUTURES_LISTEN_KEY: &str = "/dapi/v1/listenKey";

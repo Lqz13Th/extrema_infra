@@ -11,7 +11,8 @@ use crate::arch::{
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
-            OrderParams, RequestMethod, get_seconds_timestamp, parse_json_response, value_to_f64,
+            OrderParams, RequestMethod, get_seconds_timestamp, micros_to_seconds,
+            parse_json_response, value_to_f64,
         },
         base_data::{InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER},
     },
@@ -136,12 +137,12 @@ impl LobPrivateRest for GateFuturesCli {
     async fn get_order_history(
         &self,
         inst: &str,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time, end_time, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
             .await
     }
 }
@@ -859,8 +860,8 @@ impl GateFuturesCli {
     async fn _get_order_history(
         &self,
         inst: &str,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
@@ -876,11 +877,11 @@ impl GateFuturesCli {
             )
         } else {
             let mut query = format!("status=finished&contract={}", contract);
-            if let Some(start_time) = start_time {
-                query.push_str(&format!("&from={}", start_time));
+            if let Some(start_time_us) = start_time_us {
+                query.push_str(&format!("&from={}", micros_to_seconds(start_time_us)));
             }
-            if let Some(end_time) = end_time {
-                query.push_str(&format!("&to={}", end_time));
+            if let Some(end_time_us) = end_time_us {
+                query.push_str(&format!("&to={}", micros_to_seconds(end_time_us)));
             }
             if let Some(limit) = limit {
                 query.push_str(&format!("&limit={}", limit));
