@@ -31,14 +31,14 @@ use crate::arch::{
 };
 
 #[derive(Debug)]
-pub(crate) struct AltTaskBuilder {
+pub(crate) struct AltTaskRunner {
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub event_tx: broadcast::Sender<TaskEvent>,
     pub alt_info: Arc<AltTaskInfo>,
     pub task_id: u64,
 }
 
-impl AltTaskBuilder {
+impl AltTaskRunner {
     #[allow(dead_code)]
     async fn recv_feat_input(&mut self) -> Option<AltTensor> {
         loop {

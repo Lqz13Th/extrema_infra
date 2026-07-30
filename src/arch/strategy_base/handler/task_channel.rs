@@ -1,27 +1,28 @@
 use std::{
     collections::{HashMap, HashSet},
     mem::{Discriminant, discriminant},
-    sync::Arc,
 };
 
 use tokio::sync::broadcast;
 
 use crate::{
     arch::{
-        strategy_base::handler::{
+        strategy_base::handler::events::{
             alt_events::{AltIntent, AltOrder, AltScheduleEvent, AltTensor},
             lob_events::{
                 WsAccBalPos, WsAccOrder, WsAccPosition, WsCandle, WsLob, WsLobMbo, WsTrade,
             },
         },
         task_execution::{
+            TaskKey,
             task_alt::{AltTaskInfo, AltTaskType},
-            task_key::TaskKey,
             task_ws::{WsChannel, WsTaskInfo},
         },
     },
     errors::{InfraError, InfraResult},
 };
+
+pub use super::events::InfraMsg;
 
 const WS_EVENT_CHANNEL_CAPACITY: usize = 2_048;
 const ORDER_EXECUTION_CHANNEL_CAPACITY: usize = 8_192;
@@ -36,15 +37,6 @@ const CANDLE_CHANNEL_CAPACITY: usize = 2_048;
 const ACC_ORDER_CHANNEL_CAPACITY: usize = 8_192;
 const ACC_BAL_POS_CHANNEL_CAPACITY: usize = 8_192;
 const ACC_POS_CHANNEL_CAPACITY: usize = 8_192;
-
-/// Message envelope published by one runtime task.
-#[derive(Clone, Debug)]
-pub struct InfraMsg<T> {
-    /// Runtime task id that emitted this message.
-    pub task_id: u64,
-    /// Shared event payload.
-    pub data: Arc<T>,
-}
 
 // Keep the event union complete across feature subsets and for callback types
 // whose exchange producer is not implemented yet.

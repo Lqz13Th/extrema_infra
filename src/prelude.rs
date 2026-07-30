@@ -24,8 +24,8 @@ pub use crate::arch::{
             ack_handle::{AckHandle, AckStatus},
             command_core::*,
         },
-        handler::{alt_events::*, lob_events::*, task_channel::InfraMsg},
+        handler::events::{InfraMsg, alt_events::*, lob_events::*},
     },
-    task_execution::{task_alt::*, task_general::TaskInfo, task_key::TaskKey, task_ws::*},
+    task_execution::{TaskInfo, TaskKey, task_alt::*, task_ws::*},
     traits::{conversion::*, market_lob::*, strategy::*},
 };

@@ -10,7 +10,7 @@ use crate::{
             strategy_group::InnerStrategyGroup,
             strategy_module::InnerStrategyModule,
         },
-        task_execution::{task_general::TaskInfo, task_key::TaskKey},
+        task_execution::{TaskInfo, TaskKey},
         traits::strategy::Strategy,
     },
     errors::{InfraError, InfraResult},
@@ -248,9 +248,8 @@ mod task_channel_tests {
     use crate::arch::{
         market_assets::market_core::Market,
         task_execution::{
+            TaskInfo, TaskKey,
             task_alt::{AltTaskInfo, AltTaskType},
-            task_general::TaskInfo,
-            task_key::TaskKey,
             task_ws::{TradesParam, WsChannel, WsTaskInfo},
         },
     };

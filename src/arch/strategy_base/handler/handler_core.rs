@@ -10,7 +10,7 @@ use tracing::error;
 
 use crate::arch::{
     strategy_base::handler::task_channel::{TaskEvent, TaskReceiver},
-    task_execution::task_key::TaskKey,
+    task_execution::TaskKey,
     traits::strategy::Strategy,
 };
 
@@ -232,7 +232,7 @@ mod tests {
                 task_channel::{InfraMsg, TaskChannels, TaskEvent, TaskReceiver},
             },
         },
-        task_execution::{task_alt::AltTaskType, task_key::TaskKey, task_ws::WsChannel},
+        task_execution::{TaskKey, task_alt::AltTaskType, task_ws::WsChannel},
         traits::strategy::{CommandEmitter, EventHandler, Strategy},
     };
 

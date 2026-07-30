@@ -6,8 +6,8 @@ use crate::arch::{
     infra_core::env_core::EnvCore,
     strategy_base::command::command_core::{CommandHandle, CommandRegistry, TaskCommand},
     task_execution::{
-        register_alt::AltTaskBuilder, register_ws::WsTaskBuilder, task_alt::AltTaskInfo,
-        task_general::TaskInfo, task_ws::WsTaskInfo,
+        TaskInfo, alt_runner::AltTaskRunner, task_alt::AltTaskInfo, task_ws::WsTaskInfo,
+        ws_runner::WsTaskRunner,
     },
     traits::strategy::Strategy,
 };
@@ -100,7 +100,7 @@ where
                     .sender(&task_key)
                     .expect("EnvBuilder created a channel for every concrete task");
 
-                let ws_task = WsTaskBuilder {
+                let ws_task = WsTaskRunner {
                     cmd_rx,
                     event_tx,
                     ws_info: ws_task_info.clone(),
@@ -134,7 +134,7 @@ where
                     .sender(&task_key)
                     .expect("EnvBuilder created a channel for every concrete task");
 
-                let alt_task = AltTaskBuilder {
+                let alt_task = AltTaskRunner {
                     cmd_rx,
                     event_tx,
                     alt_info: alt_task_info.clone(),
@@ -148,8 +148,8 @@ where
 }
 
 enum PreparedTask {
-    Ws(WsTaskBuilder),
-    Alt(AltTaskBuilder),
+    Ws(WsTaskRunner),
+    Alt(AltTaskRunner),
 }
 
 impl PreparedTask {

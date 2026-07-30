@@ -17,9 +17,9 @@ use crate::arch::{
     },
 };
 
-use super::{WsStream, WsTaskBuilder};
+use super::{WsStream, WsTaskRunner};
 
-impl WsTaskBuilder {
+impl WsTaskRunner {
     pub(super) async fn ws_channel_gate_futures(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {

@@ -17,7 +17,7 @@ use crate::{
     errors::{InfraError, InfraResult},
 };
 
-use super::AltTaskBuilder;
+use super::AltTaskRunner;
 
 #[derive(Debug, Deserialize)]
 struct OnnxRunnerConfig {
@@ -282,7 +282,7 @@ fn onnx_worker_loop(runner: OnnxModelRunner, request_rx: mpsc::Receiver<OnnxWork
     }
 }
 
-impl AltTaskBuilder {
+impl AltTaskRunner {
     pub(super) async fn model_preds_onnx(&mut self, config_path: String) {
         self.log(
             LogLevel::Info,

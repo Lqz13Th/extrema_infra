@@ -4,9 +4,8 @@ use crate::arch::{
     strategy_base::{
         command::command_core::{CommandHandle, CommandRegistry},
         handler::{
-            alt_events::*,
-            lob_events::*,
-            task_channel::{InfraMsg, TaskChannels},
+            events::{InfraMsg, alt_events::*, lob_events::*},
+            task_channel::TaskChannels,
         },
     },
     task_execution::{
@@ -101,7 +100,7 @@ pub trait Strategy: CommandEmitter + EventHandler {
 /// ```
 ///
 /// [`EnvMediator::execute`]: crate::arch::infra_core::env_mediator::EnvMediator::execute
-/// [`TaskInfo`]: crate::arch::task_execution::task_general::TaskInfo
+/// [`TaskInfo`]: crate::arch::task_execution::TaskInfo
 /// See [`TaskCommand`] for the concrete command variants and what each command
 /// does.
 ///
