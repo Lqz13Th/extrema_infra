@@ -77,8 +77,7 @@
 //!       -> Strategy::initialize()
 //!       -> prepare AltTask/WsTask workers and command handles
 //!       -> CommandEmitter::command_init()
-//!       -> spawn strategy event loops
-//!       -> strategy loops subscribe to all or selected task streams
+//!       -> subscribe strategies and spawn their event loops
 //!       -> spawn prepared task workers
 //!       -> tasks publish InfraMsg<T>
 //!       -> EventHandler callbacks react

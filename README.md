@@ -337,20 +337,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-extrema_infra = { version = "0.2", features = ["all"] }
-
-# Enable exchange clients explicitly when needed.
-# extrema_infra = { version = "0.2", features = ["hyperliquid", "okx"] }
-# extrema_infra = { version = "0.2", features = ["lob_clients"] }
+extrema_infra = { version = "0.3", features = ["all"] }
 
 # For local development.
 # extrema_infra = { path = "../extrema_infra", features = ["all"] }
 
-# Or use the latest default branch directly.
-# extrema_infra = { git = "https://github.com/Lqz13Th/extrema_infra", features = ["all"] }
-
 # Tokio async runtime
-tokio = { version = "1.53.0", features = ["full"] }
+tokio = { version = "1.53", features = ["full"] }
 
 # TLS / Cryptography
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
