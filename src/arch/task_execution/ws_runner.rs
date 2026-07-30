@@ -53,7 +53,6 @@ pub(crate) struct WsTaskRunner {
     pub cmd_rx: mpsc::Receiver<TaskCommand>,
     pub event_tx: broadcast::Sender<TaskEvent>,
     pub ws_info: Arc<WsTaskInfo>,
-    pub filter_channels: bool,
     pub task_id: u64,
 }
 
@@ -101,7 +100,7 @@ impl WsTaskRunner {
                         }));
                     },
                     Err(e) => {
-                        if self.filter_channels {
+                        if self.ws_info.filter_channels {
                             return false;
                         }
 
@@ -121,7 +120,7 @@ impl WsTaskRunner {
                         }));
                     },
                     Err(e) => {
-                        if self.filter_channels {
+                        if self.ws_info.filter_channels {
                             return false;
                         }
 

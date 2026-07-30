@@ -104,7 +104,6 @@ where
                     cmd_rx,
                     event_tx,
                     ws_info: ws_task_info.clone(),
-                    filter_channels: ws_task_info.filter_channels,
                     task_id,
                 };
 
