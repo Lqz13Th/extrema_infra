@@ -26,12 +26,12 @@ pub struct RestAccountPosRiskBinanceUM {
 
 impl From<RestAccountPosRiskBinanceUM> for PositionData {
     fn from(d: RestAccountPosRiskBinanceUM) -> Self {
-        let size = d.positionAmt.parse().unwrap_or_default();
-        let avg_price = d.entryPrice.parse().unwrap_or_default();
-        let mark_price = d.markPrice.parse().unwrap_or_default();
-        let margin = d.positionInitialMargin.parse().unwrap_or_default();
+        let size = d.positionAmt.parse::<f64>().unwrap_or_default();
+        let avg_price = d.entryPrice.parse::<f64>().unwrap_or_default();
+        let mark_price = d.markPrice.parse::<f64>().unwrap_or_default();
+        let margin = d.positionInitialMargin.parse::<f64>().unwrap_or_default();
         let leverage = if margin != 0.0 {
-            size * avg_price / margin
+            (size * avg_price).abs() / margin.abs()
         } else {
             0.0
         };
@@ -56,5 +56,44 @@ impl From<RestAccountPosRiskBinanceUM> for PositionData {
             margin,
             leverage,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn position(position_amount: &str, margin: &str) -> RestAccountPosRiskBinanceUM {
+        RestAccountPosRiskBinanceUM {
+            symbol: "BTCUSDT".into(),
+            positionSide: "BOTH".into(),
+            positionAmt: position_amount.into(),
+            entryPrice: "50000".into(),
+            markPrice: "51000".into(),
+            unRealizedProfit: "0".into(),
+            marginAsset: "USDT".into(),
+            isolatedMargin: "0".into(),
+            positionInitialMargin: margin.into(),
+            initialMargin: margin.into(),
+            maintMargin: "0".into(),
+            updateTime: 1_700_000_000_000,
+        }
+    }
+
+    #[test]
+    fn derives_non_negative_leverage_from_absolute_notional() {
+        let long = PositionData::from(position("0.2", "1000"));
+        let short = PositionData::from(position("-0.2", "1000"));
+
+        assert_eq!(long.leverage, 10.0);
+        assert_eq!(short.size, -0.2);
+        assert_eq!(short.leverage, 10.0);
+    }
+
+    #[test]
+    fn derives_zero_leverage_when_margin_is_zero() {
+        let position = PositionData::from(position("-0.2", "0"));
+
+        assert_eq!(position.leverage, 0.0);
     }
 }

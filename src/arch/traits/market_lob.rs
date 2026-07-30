@@ -129,11 +129,14 @@ pub trait LobPrivateRest: Send + Sync {
     }
 
     /// Fetches historical orders.
+    ///
+    /// `start_time_us` and `end_time_us` are Unix timestamps in microseconds.
+    /// Exchange adapters convert them to the precision required by the venue.
     fn get_order_history(
         &self,
         _inst: &str,
-        _start_time: Option<u64>,
-        _end_time: Option<u64>,
+        _start_time_us: Option<u64>,
+        _end_time_us: Option<u64>,
         _limit: Option<u32>,
         _order_id: Option<&str>,
     ) -> impl Future<Output = InfraResult<Vec<OrderDetailData>>> + Send {

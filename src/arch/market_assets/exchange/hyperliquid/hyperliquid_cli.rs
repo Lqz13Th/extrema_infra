@@ -148,12 +148,12 @@ impl LobPrivateRest for HyperliquidCli {
     async fn get_order_history(
         &self,
         inst: &str,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time, end_time, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
             .await
     }
 }
@@ -795,12 +795,12 @@ impl HyperliquidCli {
     async fn _get_order_history(
         &self,
         inst: &str,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
         limit: Option<u32>,
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        validate_hyperliquid_order_history_range(start_time, end_time)?;
+        validate_hyperliquid_order_history_range(start_time_us, end_time_us)?;
 
         let user = self._owner_address()?;
         let body = match order_id {
@@ -839,8 +839,8 @@ impl HyperliquidCli {
         finalize_hyperliquid_order_history(
             data,
             &normalized_inst,
-            start_time,
-            end_time,
+            start_time_us,
+            end_time_us,
             limit,
             order_id.is_none(),
         )
