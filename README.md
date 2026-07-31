@@ -38,9 +38,13 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
     `with_strategy_module_on` binds it to an explicit set of tasks.
   - A task's lifecycle event and primary data events travel through the same ring.
 
-- **Static Efficiency**
-  - Strategy registration avoids `Box<dyn Strategy>` and dynamic dispatch at the strategy-list boundary.
-  - Unified REST & WS interfaces with pre-converted data.
+- **Static Dispatch**
+  - HList keeps strategy types concrete, avoiding `Box<dyn Strategy>` and vtable dispatch.
+  - Task routes are bound at startup, avoiding per-event `TaskKey` lookups.
+
+- **Normalized Data**
+  - REST and WS payloads are converted into shared types at the exchange boundary.
+  - WS data is converted once before being broadcast to strategies.
 
 - **Channel-based Concurrency**
   - Message passing via Tokio channels and broadcast streams keeps data flow explicit.
@@ -157,7 +161,7 @@ model-prediction tasks, command handles, and account-bound order tasks.
 
 ## Why HList?
 
-Traditional frameworks force strategies into **homogeneous containers** (e.g., `Vec<Box<dyn Strategy>>`), which means:
+A common approach stores strategies in **homogeneous containers** (e.g., `Vec<Box<dyn Strategy>>`), which means:
 
 - Runtime overhead due to dynamic dispatch (`vtable` lookups).  
 - Possible type erasure issues.  
@@ -168,19 +172,6 @@ With **HList**:
 - **Heterogeneous strategies** (different struct types) can be stored in one container.  
 - **Compile-time guarantees**: only strategies implementing the `Strategy` trait can be registered.  
 - **Static strategy registration**: no `Box<dyn Strategy>` at the module-list boundary.
-- **Maximum flexibility**: easily mix and match different strategy types while keeping everything static.
-
----
-
-## Traditional vs HList Approach
-
-| Aspect                    | Traditional `Vec<Box<dyn Trait>>` | HList-based Extrema Infra     |
-|---------------------------|-----------------------------------|-------------------------------|
-| **Dispatch**              | Dynamic (runtime `vtable`)        | Static (compile-time inlined) |
-| **Type Safety**           | Runtime only                      | Compile-time enforced         |
-| **Strategy registration** | Trait-object indirection          | Concrete types, static dispatch |
-| **Compile-time Checking** | Limited                           | Full (trait bounds enforced)  |
-
 ---
 
 ## Strategy Execution Model
@@ -362,17 +353,7 @@ use tracing::info;
 use extrema_infra::prelude::*;
 
 #[derive(Clone)]
-struct EmptyStrategy {
-  registry: Arc<CommandRegistry>,
-}
-
-impl EmptyStrategy {
-  fn new() -> Self {
-    Self {
-      registry: Arc::new(CommandRegistry::default()),
-    }
-  }
-}
+struct EmptyStrategy;
 
 impl Strategy for EmptyStrategy {
   async fn initialize(&mut self) {
@@ -381,13 +362,13 @@ impl Strategy for EmptyStrategy {
 }
 
 impl CommandEmitter for EmptyStrategy {
-  fn command_init(&mut self, registry: Arc<CommandRegistry>) {
-    self.registry = registry;
+  fn command_init(&mut self, _registry: Arc<CommandRegistry>) {
     info!("[EmptyStrategy] Command channel initialized");
   }
 
   fn command_registry(&self) -> Arc<CommandRegistry> {
-    self.registry.clone()
+    // Safe here because this example never sends commands.
+    Arc::new(CommandRegistry::default())
   }
 }
 
@@ -410,32 +391,13 @@ async fn main() -> InfraResult<()> {
 
   let env = EnvBuilder::new()
           .with_task(alt_task)
-          .with_strategy_module(EmptyStrategy::new())
+          .with_strategy_module(EmptyStrategy)
           .build()?;
 
   env.execute().await;
   Ok(())
 }
 ```
-
-`EnvBuilder::build()` validates the configuration and returns an `InfraResult`.
-It creates one broadcast ring for every concrete `TaskKey` produced by each
-`TaskInfo`. A module registered with `with_strategy_module` subscribes to every
-task ring. Use `with_strategy_module_on(module, task_keys)` when the module
-should receive only selected tasks. Once a task is selected, both its lifecycle
-event and its primary events arrive through that same ring.
-
-One websocket task may broadcast events to several strategies, but exactly one
-strategy should own its connect, login, and subscribe command sequence. Other
-subscribers should treat `on_ws_event` as a lifecycle notification and must not
-send duplicate startup commands to the same task.
-
-`TaskKey` is `(AltTaskType, task_id)` or `(WsChannel, task_id)`. Parameters
-embedded in those enums, such as scheduler duration or trade stream type, are
-part of identity; websocket market is not. Callback envelopes expose only
-`task_id`, so build additionally rejects a duplicate task id for the same task
-type, even when embedded parameters differ. Trade and LOB may reuse an id; two
-Trade configurations may not.
 
 ---
 
