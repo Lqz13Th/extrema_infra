@@ -184,7 +184,8 @@ mod tests {
             "a":[["63298.7","333"]]
         }"#;
 
-        let parsed: BinanceWsData<WsPartialDepthBinanceCM> = serde_json::from_str(raw).unwrap();
+        let parsed =
+            BinanceWsData::<WsPartialDepthBinanceCM>::decode_single(raw.as_bytes()).unwrap();
         let lob = parsed.into_ws();
 
         assert_eq!(lob.len(), 1);

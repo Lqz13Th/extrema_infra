@@ -215,7 +215,8 @@ mod tests {
             }
         });
 
-        let data: GateWsData<WsBookTickerGateFutures> = serde_json::from_value(raw).unwrap();
+        let raw = serde_json::to_vec(&raw).unwrap();
+        let data = GateWsData::<WsBookTickerGateFutures>::decode_single(&raw).unwrap();
         let lob: Vec<WsLob> = data.into_ws();
 
         assert_eq!(lob.len(), 1);
@@ -243,7 +244,8 @@ mod tests {
             }
         });
 
-        let data: GateWsData<WsOrderBookGateFutures> = serde_json::from_value(raw).unwrap();
+        let raw = serde_json::to_vec(&raw).unwrap();
+        let data = GateWsData::<WsOrderBookGateFutures>::decode_single(&raw).unwrap();
         let lob: Vec<WsLob> = data.into_ws();
 
         assert_eq!(lob.len(), 1);
@@ -268,7 +270,8 @@ mod tests {
             }
         });
 
-        let data: GateWsData<WsOrderBookUpdateGateFutures> = serde_json::from_value(raw).unwrap();
+        let raw = serde_json::to_vec(&raw).unwrap();
+        let data = GateWsData::<WsOrderBookUpdateGateFutures>::decode_single(&raw).unwrap();
         let lob: Vec<WsLob> = data.into_ws();
 
         assert_eq!(lob.len(), 1);

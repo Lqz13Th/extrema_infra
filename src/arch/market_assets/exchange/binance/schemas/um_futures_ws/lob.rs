@@ -183,7 +183,7 @@ mod tests {
             "E":1780563843114
         }"#;
 
-        let parsed: BinanceWsData<WsBookTickerBinanceUM> = serde_json::from_str(raw).unwrap();
+        let parsed = BinanceWsData::<WsBookTickerBinanceUM>::decode_single(raw.as_bytes()).unwrap();
         let lob = parsed.into_ws();
 
         assert_eq!(lob.len(), 1);
@@ -209,7 +209,7 @@ mod tests {
             "a":[["63436.10","1.801"]]
         }"#;
 
-        let parsed: BinanceWsData<WsDiffDepthBinanceUM> = serde_json::from_str(raw).unwrap();
+        let parsed = BinanceWsData::<WsDiffDepthBinanceUM>::decode_single(raw.as_bytes()).unwrap();
         let lob = parsed.into_ws();
 
         assert_eq!(lob.len(), 1);

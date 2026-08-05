@@ -1,8 +1,12 @@
-use serde::Deserialize;
+use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::Value;
 use tracing::info;
 
-use crate::arch::traits::conversion::IntoWsData;
+use crate::arch::{
+    task_execution::ws_runner::ws_decode::decode_preferred, traits::conversion::IntoWsData,
+};
+
+use super::schemas::ws::lob::WsLobHyperliquid;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
@@ -15,6 +19,12 @@ pub enum HyperliquidWsData<T> {
 pub struct HyperliquidWsChannel<T> {
     pub channel: String,
     pub data: HyperliquidWsState<T>,
+}
+
+#[derive(Deserialize)]
+struct HyperliquidWsTypedChannel<T> {
+    channel: String,
+    data: T,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -46,6 +56,49 @@ pub struct WsClearinghouseStateHyperliquid<T> {
 pub struct HyperliquidWsEvent {
     pub channel: Option<String>,
     pub data: Option<Value>,
+}
+
+impl<T: DeserializeOwned> HyperliquidWsData<T> {
+    pub(crate) fn decode_batch(frame: &[u8]) -> serde_json::Result<Self> {
+        Self::decode_state(frame, HyperliquidWsState::ChannelBatch)
+    }
+
+    pub(crate) fn decode_clearinghouse(frame: &[u8]) -> serde_json::Result<Self> {
+        Self::decode_state(frame, HyperliquidWsState::Clearinghouse)
+    }
+
+    fn decode_single_with<Message, Wrap>(frame: &[u8], wrap: Wrap) -> serde_json::Result<Self>
+    where
+        Message: DeserializeOwned,
+        Wrap: FnOnce(Message) -> T,
+    {
+        Self::decode_state(frame, |message| {
+            HyperliquidWsState::ChannelSingle(wrap(message))
+        })
+    }
+
+    fn decode_state<Message, Wrap>(frame: &[u8], wrap: Wrap) -> serde_json::Result<Self>
+    where
+        Message: DeserializeOwned,
+        Wrap: FnOnce(Message) -> HyperliquidWsState<T>,
+    {
+        decode_preferred(frame, |message: HyperliquidWsTypedChannel<Message>| {
+            Self::Channel(HyperliquidWsChannel {
+                channel: message.channel,
+                data: wrap(message.data),
+            })
+        })
+    }
+}
+
+impl HyperliquidWsData<WsLobHyperliquid> {
+    pub(crate) fn decode_l2_book(frame: &[u8]) -> serde_json::Result<Self> {
+        Self::decode_single_with(frame, WsLobHyperliquid::Book)
+    }
+
+    pub(crate) fn decode_bbo(frame: &[u8]) -> serde_json::Result<Self> {
+        Self::decode_single_with(frame, WsLobHyperliquid::Bbo)
+    }
 }
 
 impl<T> IntoWsData for HyperliquidWsData<T>

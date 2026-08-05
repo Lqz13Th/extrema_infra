@@ -42,3 +42,31 @@ impl IntoWsData for WsAggTradeBinanceUM {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::arch::market_assets::exchange::binance::binance_ws_msg::BinanceWsData;
+
+    use super::*;
+
+    #[test]
+    fn decodes_aggregate_trade_frame() {
+        let frame = br#"{
+            "e":"aggTrade","E":1780563843114,"a":987654321,
+            "s":"BTCUSDT","p":"63405.40","q":"0.125",
+            "f":100,"l":101,"T":1780563843113,"m":true
+        }"#;
+
+        let trade = BinanceWsData::<WsAggTradeBinanceUM>::decode_single(frame)
+            .unwrap()
+            .into_ws()
+            .pop()
+            .unwrap();
+
+        assert_eq!(trade.inst, "BTC_USDT_PERP");
+        assert_eq!(trade.price, 63_405.40);
+        assert_eq!(trade.size, 0.125);
+        assert_eq!(trade.side, OrderSide::SELL);
+        assert_eq!(trade.trade_id, 987654321);
+    }
+}
