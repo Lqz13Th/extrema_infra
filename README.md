@@ -172,6 +172,7 @@ With **HList**:
 - **Heterogeneous strategies** (different struct types) can be stored in one container.  
 - **Compile-time guarantees**: only strategies implementing the `Strategy` trait can be registered.  
 - **Static strategy registration**: no `Box<dyn Strategy>` at the module-list boundary.
+
 ---
 
 ## Strategy Execution Model
