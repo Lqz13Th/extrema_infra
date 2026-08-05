@@ -1,8 +1,10 @@
-use serde::Deserialize;
+use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::Value;
 use tracing::{info, warn};
 
-use crate::arch::traits::conversion::IntoWsData;
+use crate::arch::{
+    task_execution::ws_runner::ws_decode::decode_preferred, traits::conversion::IntoWsData,
+};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
@@ -38,6 +40,16 @@ pub struct GateWsEvent {
 pub struct GateWsError {
     pub code: i64,
     pub message: String,
+}
+
+impl<T: DeserializeOwned> GateWsData<T> {
+    pub(crate) fn decode_single(frame: &[u8]) -> serde_json::Result<Self> {
+        decode_preferred(frame, Self::Single)
+    }
+
+    pub(crate) fn decode_batch(frame: &[u8]) -> serde_json::Result<Self> {
+        decode_preferred(frame, Self::Channel)
+    }
 }
 
 impl<T> IntoWsData for GateWsData<T>
@@ -76,5 +88,35 @@ where
                 Vec::new()
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize;
+
+    use super::GateWsData;
+
+    #[derive(Debug, Deserialize)]
+    struct TestPayload {
+        value: u64,
+    }
+
+    #[test]
+    fn preferred_decoders_preserve_control_and_error_frames() {
+        let control = GateWsData::<TestPayload>::decode_single(
+            br#"{"channel":"futures.book_ticker","event":"subscribe","result":{"status":"success"}}"#,
+        )
+        .unwrap();
+        let error = GateWsData::<TestPayload>::decode_batch(
+            br#"{"channel":"futures.trades","event":"subscribe","error":{"code":2,"message":"bad request"}}"#,
+        )
+        .unwrap();
+
+        assert!(matches!(control, GateWsData::Event(_)));
+        assert!(matches!(
+            error,
+            GateWsData::Event(super::GateWsEvent { error: Some(_), .. })
+        ));
     }
 }

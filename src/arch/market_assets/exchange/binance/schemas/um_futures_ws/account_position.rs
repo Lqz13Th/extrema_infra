@@ -46,3 +46,46 @@ impl IntoWsData for WsAccountPositionBinanceUM {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::arch::{
+        market_assets::exchange::binance::binance_ws_msg::BinanceWsData,
+        traits::conversion::IntoWsData,
+    };
+
+    use super::*;
+
+    #[test]
+    fn decodes_positions_from_account_update_frame() {
+        let frame = br#"{
+            "e":"ACCOUNT_UPDATE",
+            "E":1781905826733,
+            "T":1781905826733,
+            "a":{
+                "m":"ORDER",
+                "B":[],
+                "P":[{
+                    "s":"BTCUSDT",
+                    "pa":"1.5",
+                    "ep":"63900.1",
+                    "cr":"0",
+                    "up":"0",
+                    "mt":"cross",
+                    "iw":"0",
+                    "ps":"BOTH"
+                }]
+            }
+        }"#;
+
+        let positions =
+            BinanceWsData::<WsAccountPositionBinanceUM>::decode_account_positions(frame)
+                .unwrap()
+                .into_ws();
+
+        assert_eq!(positions.len(), 1);
+        assert_eq!(positions[0].inst, "BTC_USDT_PERP");
+        assert_eq!(positions[0].size, 1.5);
+        assert_eq!(positions[0].margin_mode, MarginMode::Cross);
+    }
+}

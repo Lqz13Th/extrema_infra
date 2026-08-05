@@ -67,3 +67,47 @@ impl IntoWsData for WsAccountPositionHyperliquid {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::arch::{
+        market_assets::exchange::hyperliquid::hyperliquid_ws_msg::HyperliquidWsData,
+        traits::conversion::IntoWsData,
+    };
+
+    use super::*;
+
+    #[test]
+    fn decodes_clearinghouse_state_positions() {
+        let frame = br#"{
+            "channel":"clearinghouseState",
+            "data":{
+                "clearinghouseState":{
+                    "assetPositions":[{
+                        "type":"oneWay",
+                        "position":{
+                            "coin":"BTC",
+                            "szi":"1.5",
+                            "entryPx":"63900.1",
+                            "leverage":{"type":"cross","value":10}
+                        }
+                    }],
+                    "time":1781905826733
+                }
+            }
+        }"#;
+
+        let position =
+            HyperliquidWsData::<WsAccountPositionHyperliquid>::decode_clearinghouse(frame)
+                .unwrap()
+                .into_ws()
+                .pop()
+                .unwrap();
+
+        assert_eq!(position.inst, "BTC_USDC_PERP");
+        assert_eq!(position.size, 1.5);
+        assert_eq!(position.avg_price, 63_900.1);
+        assert_eq!(position.position_side, PositionSide::Long);
+        assert_eq!(position.margin_mode, MarginMode::Cross);
+    }
+}

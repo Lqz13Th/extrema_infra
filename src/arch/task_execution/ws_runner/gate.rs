@@ -23,40 +23,59 @@ impl WsTaskRunner {
     pub(super) async fn ws_channel_gate_futures(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                self.ws_loop::<GateWsData<WsAccountOrderGateFutures>>(
+                self.ws_loop(
                     TaskEvent::AccOrder,
                     ws_stream,
+                    GateWsData::<WsAccountOrderGateFutures>::decode_batch,
                 )
                 .await;
             },
             WsChannel::AccountPositions => {
-                self.ws_loop::<GateWsData<WsAccountPositionGateFutures>>(
+                self.ws_loop(
                     TaskEvent::AccPos,
                     ws_stream,
+                    GateWsData::<WsAccountPositionGateFutures>::decode_batch,
                 )
                 .await;
             },
             WsChannel::Candles(..) => {
-                self.ws_loop::<GateWsData<WsCandleGateFutures>>(TaskEvent::Candle, ws_stream)
-                    .await;
+                self.ws_loop(
+                    TaskEvent::Candle,
+                    ws_stream,
+                    GateWsData::<WsCandleGateFutures>::decode_batch,
+                )
+                .await;
             },
             WsChannel::Trades(..) => {
-                self.ws_loop::<GateWsData<WsTradeGateFutures>>(TaskEvent::Trade, ws_stream)
-                    .await;
+                self.ws_loop(
+                    TaskEvent::Trade,
+                    ws_stream,
+                    GateWsData::<WsTradeGateFutures>::decode_batch,
+                )
+                .await;
             },
             WsChannel::Lob(lob_param) => match lob_param {
                 Some(LobParam::Bbo { .. }) => {
-                    self.ws_loop::<GateWsData<WsBookTickerGateFutures>>(TaskEvent::Lob, ws_stream)
-                        .await;
-                },
-                Some(LobParam::Snapshot { .. }) => {
-                    self.ws_loop::<GateWsData<WsOrderBookGateFutures>>(TaskEvent::Lob, ws_stream)
-                        .await;
-                },
-                None | Some(LobParam::Incremental { .. }) => {
-                    self.ws_loop::<GateWsData<WsOrderBookUpdateGateFutures>>(
+                    self.ws_loop(
                         TaskEvent::Lob,
                         ws_stream,
+                        GateWsData::<WsBookTickerGateFutures>::decode_single,
+                    )
+                    .await;
+                },
+                Some(LobParam::Snapshot { .. }) => {
+                    self.ws_loop(
+                        TaskEvent::Lob,
+                        ws_stream,
+                        GateWsData::<WsOrderBookGateFutures>::decode_single,
+                    )
+                    .await;
+                },
+                None | Some(LobParam::Incremental { .. }) => {
+                    self.ws_loop(
+                        TaskEvent::Lob,
+                        ws_stream,
+                        GateWsData::<WsOrderBookUpdateGateFutures>::decode_single,
                     )
                     .await;
                 },
@@ -73,8 +92,12 @@ impl WsTaskRunner {
     pub(super) async fn ws_channel_gate_spot(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                self.ws_loop::<GateWsData<WsAccountOrderGateSpot>>(TaskEvent::AccOrder, ws_stream)
-                    .await;
+                self.ws_loop(
+                    TaskEvent::AccOrder,
+                    ws_stream,
+                    GateWsData::<WsAccountOrderGateSpot>::decode_batch,
+                )
+                .await;
             },
             c => {
                 self.log(

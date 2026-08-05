@@ -173,32 +173,41 @@ fn value_to_u64_ms(v: &Value) -> Option<u64> {
 mod tests {
     use serde_json::json;
 
-    use crate::arch::traits::conversion::IntoWsData;
+    use crate::arch::{
+        market_assets::exchange::gate::gate_ws_msg::GateWsData, traits::conversion::IntoWsData,
+    };
 
     use super::*;
 
     #[test]
-    fn into_ws_preserves_exchange_and_client_order_ids() {
-        let raw: WsAccountOrderGateSpot = serde_json::from_value(json!({
-            "id": "370702544401581041",
-            "currency_pair": "RE_USDT",
-            "side": "buy",
-            "type": "market",
-            "amount": "16",
-            "price": "0",
-            "left": "0",
-            "filled_amount": "16",
-            "avg_deal_price": "0.87295",
-            "status": "closed",
-            "finish_as": "filled",
-            "event": "finish",
-            "update_time_ms": 1781905826733_u64,
-            "create_time_ms": 1781905826733_u64,
-            "text": "gate-spot-client-id"
+    fn decodes_spot_orders_v2_and_preserves_order_ids() {
+        let raw = serde_json::to_vec(&json!({
+            "channel": "spot.orders_v2",
+            "event": "update",
+            "result": [{
+                "id": "370702544401581041",
+                "currency_pair": "RE_USDT",
+                "side": "buy",
+                "type": "market",
+                "amount": "16",
+                "price": "0",
+                "left": "0",
+                "filled_amount": "16",
+                "avg_deal_price": "0.87295",
+                "status": "closed",
+                "finish_as": "filled",
+                "event": "finish",
+                "update_time_ms": 1781905826733_u64,
+                "create_time_ms": 1781905826733_u64,
+                "text": "gate-spot-client-id"
+            }]
         }))
         .unwrap();
-
-        let ws = raw.into_ws();
+        let ws = GateWsData::<WsAccountOrderGateSpot>::decode_batch(&raw)
+            .unwrap()
+            .into_ws()
+            .pop()
+            .unwrap();
 
         assert_eq!(ws.order_id.as_deref(), Some("370702544401581041"));
         assert_eq!(ws.cli_order_id.as_deref(), Some("gate-spot-client-id"));

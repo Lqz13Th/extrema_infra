@@ -1,7 +1,9 @@
-use serde::Deserialize;
+use serde::{Deserialize, de::DeserializeOwned};
 use tracing::{info, warn};
 
-use crate::arch::traits::conversion::IntoWsData;
+use crate::arch::{
+    task_execution::ws_runner::ws_decode::decode_preferred, traits::conversion::IntoWsData,
+};
 
 pub(crate) trait IntoOkxWsData {
     type Output;
@@ -49,6 +51,12 @@ pub(crate) struct OkxWsChannel<T> {
     pub arg: WsArg,
     pub action: Option<String>,
     pub data: Vec<T>,
+}
+
+impl<T: DeserializeOwned> OkxWsData<T> {
+    pub(crate) fn decode_batch(frame: &[u8]) -> serde_json::Result<Self> {
+        decode_preferred(frame, Self::ChannelBatch)
+    }
 }
 
 impl<T> IntoWsData for OkxWsData<T>

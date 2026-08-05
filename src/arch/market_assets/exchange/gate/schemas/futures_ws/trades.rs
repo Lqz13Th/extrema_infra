@@ -50,3 +50,32 @@ impl IntoWsData for WsTradeGateFutures {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::arch::market_assets::exchange::gate::gate_ws_msg::GateWsData;
+
+    use super::*;
+
+    #[test]
+    fn decodes_trade_batch_frame() {
+        let frame = br#"{
+            "channel":"futures.trades","event":"update","result":[{
+                "contract":"BTC_USDT","size":-3,"id":987654321,
+                "create_time_ms":1780563843113,"price":"63405.40"
+            }]
+        }"#;
+
+        let trade = GateWsData::<WsTradeGateFutures>::decode_batch(frame)
+            .unwrap()
+            .into_ws()
+            .pop()
+            .unwrap();
+
+        assert_eq!(trade.inst, "BTC_USDT_PERP");
+        assert_eq!(trade.price, 63_405.40);
+        assert_eq!(trade.size, 3.0);
+        assert_eq!(trade.side, OrderSide::SELL);
+        assert_eq!(trade.trade_id, 987654321);
+    }
+}

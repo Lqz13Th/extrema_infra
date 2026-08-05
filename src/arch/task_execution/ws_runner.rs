@@ -10,9 +10,15 @@ mod gate;
 #[cfg(feature = "okx")]
 mod okx;
 
+#[cfg(any(
+    feature = "hyperliquid",
+    feature = "binance",
+    feature = "gate",
+    feature = "okx"
+))]
+pub(crate) mod ws_decode;
+
 use futures_util::{SinkExt, StreamExt};
-use serde::de::DeserializeOwned;
-use serde_json::from_slice;
 use std::sync::Arc;
 use tokio::{
     net::TcpStream,
@@ -80,19 +86,21 @@ impl WsTaskRunner {
         })?;
         Ok(ws_stream)
     }
-    async fn handle_ws_msg<WsData>(
+    async fn handle_ws_msg<WsData, Decode>(
         &mut self,
         msg: Result<Option<Result<Message, Error>>, Elapsed>,
         ws_stream: &mut WsStream,
         into_event: impl Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
+        decode: Decode,
     ) -> bool
     where
-        WsData: DeserializeOwned + IntoWsData + Send + 'static,
+        WsData: IntoWsData + Send + 'static,
         WsData::Output: Send + Sync + 'static,
+        Decode: Fn(&[u8]) -> serde_json::Result<WsData> + Copy + Send,
     {
         match msg {
             Ok(Some(Ok(Message::Text(text)))) => {
-                match from_slice::<WsData>(text.as_ref()) {
+                match decode(text.as_ref()) {
                     Ok(parsed_raw) => {
                         let _ = self.event_tx.send(into_event(InfraMsg {
                             task_id: self.task_id,
@@ -112,7 +120,7 @@ impl WsTaskRunner {
                 };
             },
             Ok(Some(Ok(Message::Binary(bytes)))) => {
-                match from_slice::<WsData>(bytes.as_ref()) {
+                match decode(bytes.as_ref()) {
                     Ok(parsed_raw) => {
                         let _ = self.event_tx.send(into_event(InfraMsg {
                             task_id: self.task_id,
@@ -210,20 +218,22 @@ impl WsTaskRunner {
         ack_handle.respond(ack_status);
     }
 
-    async fn ws_loop<WsData>(
+    async fn ws_loop<WsData, Decode>(
         &mut self,
         into_event: impl Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
         ws_stream: &mut WsStream,
+        decode: Decode,
     ) where
-        WsData: DeserializeOwned + IntoWsData + Send + 'static,
+        WsData: IntoWsData + Send + 'static,
         WsData::Output: Send + Sync + 'static,
+        Decode: Fn(&[u8]) -> serde_json::Result<WsData> + Copy + Send,
     {
         let timeout_sec = Duration::from_secs(10);
 
         loop {
             tokio::select! {
                 msg = timeout(timeout_sec, ws_stream.next()) => {
-                    if self.handle_ws_msg::<WsData>(msg, ws_stream, into_event).await {
+                    if self.handle_ws_msg::<WsData, Decode>(msg, ws_stream, into_event, decode).await {
                         break;
                     };
                 },

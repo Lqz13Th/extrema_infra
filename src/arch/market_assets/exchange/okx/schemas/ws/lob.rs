@@ -152,7 +152,7 @@ mod tests {
             }]
         }"#;
 
-        let parsed: OkxWsData<OkxWsLobBook> = serde_json::from_str(raw).unwrap();
+        let parsed = OkxWsData::<OkxWsLobBook>::decode_batch(raw.as_bytes()).unwrap();
         let lob = parsed.into_ws();
 
         assert_eq!(lob.len(), 1);
@@ -176,7 +176,7 @@ mod tests {
             }]
         }"#;
 
-        let parsed: OkxWsData<OkxWsLobBook> = serde_json::from_str(raw).unwrap();
+        let parsed = OkxWsData::<OkxWsLobBook>::decode_batch(raw.as_bytes()).unwrap();
         let lob = parsed.into_ws();
 
         assert_eq!(lob.len(), 1);
@@ -200,7 +200,7 @@ mod tests {
             }]
         }"#;
 
-        let parsed: OkxWsData<OkxWsLobBook> = serde_json::from_str(raw).unwrap();
+        let parsed = OkxWsData::<OkxWsLobBook>::decode_batch(raw.as_bytes()).unwrap();
         let lob = parsed.into_ws();
 
         assert_eq!(lob.len(), 1);
@@ -212,14 +212,22 @@ mod tests {
 
     #[test]
     fn okx_lob_event_messages_produce_no_data() {
-        let raw = r#"{
-            "event": "error",
-            "code": "64003",
-            "msg": "Only API users who are VIP4 and above are allowed.",
-            "arg": {"channel": "books-l2-tbt", "instId": "BTC-USDT-SWAP"}
-        }"#;
+        let frames = [
+            r#"{
+                "event": "subscribe",
+                "arg": {"channel": "books", "instId": "BTC-USDT-SWAP"}
+            }"#,
+            r#"{
+                "event": "error",
+                "code": "64003",
+                "msg": "Only API users who are VIP4 and above are allowed.",
+                "arg": {"channel": "books-l2-tbt", "instId": "BTC-USDT-SWAP"}
+            }"#,
+        ];
 
-        let parsed: OkxWsData<OkxWsLobBook> = serde_json::from_str(raw).unwrap();
-        assert!(parsed.into_ws().is_empty());
+        for frame in frames {
+            let parsed = OkxWsData::<OkxWsLobBook>::decode_batch(frame.as_bytes()).unwrap();
+            assert!(parsed.into_ws().is_empty());
+        }
     }
 }

@@ -120,7 +120,7 @@ mod tests {
             }
         }"#;
 
-        let parsed: HyperliquidWsData<WsLobHyperliquid> = serde_json::from_str(raw).unwrap();
+        let parsed = HyperliquidWsData::<WsLobHyperliquid>::decode_l2_book(raw.as_bytes()).unwrap();
         let lob = parsed.into_ws();
 
         assert_eq!(lob.len(), 1);
@@ -146,7 +146,7 @@ mod tests {
             }
         }"#;
 
-        let parsed: HyperliquidWsData<WsLobHyperliquid> = serde_json::from_str(raw).unwrap();
+        let parsed = HyperliquidWsData::<WsLobHyperliquid>::decode_bbo(raw.as_bytes()).unwrap();
         let lob = parsed.into_ws();
 
         assert_eq!(lob.len(), 1);
@@ -155,5 +155,33 @@ mod tests {
         assert_eq!(lob[0].bids[0].order_count, Some(1));
         assert_eq!(lob[0].asks[0].price, 63900.0);
         assert_eq!(lob[0].asks[0].order_count, Some(4));
+    }
+
+    #[test]
+    fn lob_decoder_accepts_control_and_error_payloads() {
+        let frames: &[&[u8]] = &[
+            br#"{"channel":"pong"}"#,
+            br#"{"channel":"error","data":{"message":"bad request"}}"#,
+        ];
+
+        for frame in frames {
+            let parsed = HyperliquidWsData::<WsLobHyperliquid>::decode_l2_book(frame).unwrap();
+            assert!(parsed.into_ws().is_empty());
+        }
+    }
+
+    #[test]
+    fn lob_decoders_fall_back_to_the_other_lob_shape() {
+        let l2_book = HyperliquidWsData::<WsLobHyperliquid>::decode_bbo(
+            br#"{"channel":"l2Book","data":{"coin":"BTC","time":1,"levels":[[],[]]}}"#,
+        )
+        .unwrap();
+        let bbo = HyperliquidWsData::<WsLobHyperliquid>::decode_l2_book(
+            br#"{"channel":"bbo","data":{"coin":"BTC","time":1,"bbo":[null,null]}}"#,
+        )
+        .unwrap();
+
+        assert!(matches!(l2_book.into_ws()[0].event, LobEventKind::Snapshot));
+        assert!(matches!(bbo.into_ws()[0].event, LobEventKind::Bbo));
     }
 }

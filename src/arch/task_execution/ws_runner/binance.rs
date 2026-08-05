@@ -29,49 +29,69 @@ impl WsTaskRunner {
     pub(super) async fn ws_channel_binance_um(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                self.ws_loop::<BinanceWsData<WsAccountOrderBinanceUM>>(
+                self.ws_loop(
                     TaskEvent::AccOrder,
                     ws_stream,
+                    BinanceWsData::<WsAccountOrderBinanceUM>::decode_single,
                 )
                 .await;
             },
             WsChannel::AccountBalAndPos => {
-                self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(
+                self.ws_loop(
                     TaskEvent::AccBalPos,
                     ws_stream,
+                    BinanceWsData::<WsBalAndPosBinanceUM>::decode_single,
                 )
                 .await;
             },
             WsChannel::AccountPositions => {
-                self.ws_loop::<BinanceWsData<WsAccountPositionBinanceUM>>(
+                self.ws_loop(
                     TaskEvent::AccPos,
                     ws_stream,
+                    BinanceWsData::<WsAccountPositionBinanceUM>::decode_account_positions,
                 )
                 .await;
             },
             WsChannel::Candles(..) => {
-                self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(TaskEvent::Candle, ws_stream)
-                    .await;
+                self.ws_loop(
+                    TaskEvent::Candle,
+                    ws_stream,
+                    BinanceWsData::<WsCandleBinanceUM>::decode_single,
+                )
+                .await;
             },
             WsChannel::Trades(..) => {
-                self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(TaskEvent::Trade, ws_stream)
-                    .await;
+                self.ws_loop(
+                    TaskEvent::Trade,
+                    ws_stream,
+                    BinanceWsData::<WsAggTradeBinanceUM>::decode_single,
+                )
+                .await;
             },
             WsChannel::Lob(lob_param) => match lob_param {
                 Some(LobParam::Bbo { .. }) => {
-                    self.ws_loop::<BinanceWsData<WsBookTickerBinanceUM>>(TaskEvent::Lob, ws_stream)
-                        .await;
-                },
-                Some(LobParam::Snapshot { .. }) => {
-                    self.ws_loop::<BinanceWsData<WsPartialDepthBinanceUM>>(
+                    self.ws_loop(
                         TaskEvent::Lob,
                         ws_stream,
+                        BinanceWsData::<WsBookTickerBinanceUM>::decode_single,
+                    )
+                    .await;
+                },
+                Some(LobParam::Snapshot { .. }) => {
+                    self.ws_loop(
+                        TaskEvent::Lob,
+                        ws_stream,
+                        BinanceWsData::<WsPartialDepthBinanceUM>::decode_single,
                     )
                     .await;
                 },
                 None | Some(LobParam::Incremental { .. }) => {
-                    self.ws_loop::<BinanceWsData<WsDiffDepthBinanceUM>>(TaskEvent::Lob, ws_stream)
-                        .await;
+                    self.ws_loop(
+                        TaskEvent::Lob,
+                        ws_stream,
+                        BinanceWsData::<WsDiffDepthBinanceUM>::decode_single,
+                    )
+                    .await;
                 },
             },
             c => {
@@ -86,9 +106,10 @@ impl WsTaskRunner {
     pub(super) async fn ws_channel_binance_spot(&mut self, ws_stream: &mut WsStream) {
         match &self.ws_info.ws_channel {
             WsChannel::AccountOrders => {
-                self.ws_loop::<BinanceWsData<WsAccountOrderEnvelopeBinanceSpot>>(
+                self.ws_loop(
                     TaskEvent::AccOrder,
                     ws_stream,
+                    BinanceWsData::<WsAccountOrderEnvelopeBinanceSpot>::decode_single,
                 )
                 .await;
             },
@@ -105,19 +126,28 @@ impl WsTaskRunner {
         match &self.ws_info.ws_channel {
             WsChannel::Lob(lob_param) => match lob_param {
                 Some(LobParam::Bbo { .. }) => {
-                    self.ws_loop::<BinanceWsData<WsBookTickerBinanceCM>>(TaskEvent::Lob, ws_stream)
-                        .await;
-                },
-                Some(LobParam::Snapshot { .. }) => {
-                    self.ws_loop::<BinanceWsData<WsPartialDepthBinanceCM>>(
+                    self.ws_loop(
                         TaskEvent::Lob,
                         ws_stream,
+                        BinanceWsData::<WsBookTickerBinanceCM>::decode_single,
+                    )
+                    .await;
+                },
+                Some(LobParam::Snapshot { .. }) => {
+                    self.ws_loop(
+                        TaskEvent::Lob,
+                        ws_stream,
+                        BinanceWsData::<WsPartialDepthBinanceCM>::decode_single,
                     )
                     .await;
                 },
                 None | Some(LobParam::Incremental { .. }) => {
-                    self.ws_loop::<BinanceWsData<WsDiffDepthBinanceCM>>(TaskEvent::Lob, ws_stream)
-                        .await;
+                    self.ws_loop(
+                        TaskEvent::Lob,
+                        ws_stream,
+                        BinanceWsData::<WsDiffDepthBinanceCM>::decode_single,
+                    )
+                    .await;
                 },
             },
             c => {
