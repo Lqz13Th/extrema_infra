@@ -71,16 +71,13 @@ flowchart TB
     EXS["N Exchanges<br/>Binance / OKX / Gate / Hyperliquid"]
 
     subgraph RT["Extrema Infra runtime"]
-        direction TB
 
         subgraph INGEST["WS ingestion tasks"]
-            direction LR
             PUB["Public market WS<br/>trade / book / price"]
             ACC["Account WS<br/>position / order / fill"]
         end
 
         subgraph SIGS["N strategy signal modules"]
-            direction TB
             S1["Signal A"]
             S2["Signal B"]
             S3["Signal N"]
@@ -89,8 +86,7 @@ flowchart TB
         FEAT["Feature stream<br/>AltTensor"]
 
         subgraph MODELS["N model strategy modules"]
-            direction TB
-            M1["LightGBM<br/>Python / ZMQ"]
+            M1["PyTorch<br/>Python / ZMQ"]
             M2["ONNX<br/>Rust"]
             M3["Model N"]
         end
@@ -101,7 +97,6 @@ flowchart TB
         PLAN["Order planner<br/>slice / net / reduce-only / route"]
 
         subgraph ORDERS["N order tasks"]
-            direction TB
             O1["Account A"]
             O2["Account B"]
             O3["Account N"]
