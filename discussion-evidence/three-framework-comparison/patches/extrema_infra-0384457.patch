@@ -1,0 +1,1020 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 0a67684..9f92930 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -63,6 +63,9 @@ tracing-subscriber = "0.3.23"
+ dotenvy = "0.15.7"
+ thiserror = "2.0.19"
+ 
++[dev-dependencies]
++criterion = { version = "=0.5.1", default-features = false }
++
+ [features]
+ default = []
+ 
+@@ -87,6 +90,8 @@ hyperliquid = []
+ binance = []
+ gate = []
+ okx = []
++bench-internal = ["binance"]
++ws-bench-internal = ["gate", "hyperliquid"]
+ 
+ model_onnx = ["dep:tract-onnx"]
+ model_zmq = ["dep:zeromq"]
+@@ -114,3 +119,33 @@ required-features = ["binance"]
+ [[example]]
+ name = "websocket_private_account_example"
+ required-features = ["binance", "okx"]
++
++[[bench]]
++name = "binance_um_agg_trade"
++harness = false
++required-features = ["bench-internal"]
++
++[[bench]]
++name = "binance_usdm_book_ticker"
++harness = false
++required-features = ["bench-internal"]
++
++[[bench]]
++name = "native_tick_to_trade"
++harness = false
++required-features = ["bench-internal"]
++
++[[bench]]
++name = "live_pipeline"
++harness = false
++required-features = ["bench-internal"]
++
++[[bench]]
++name = "ws_decode_paths"
++harness = false
++required-features = ["ws-bench-internal"]
++
++[[bench]]
++name = "gate_usdt_futures_trade"
++harness = false
++required-features = ["ws-bench-internal"]
+diff --git a/src/arch/market_assets/exchange/binance.rs b/src/arch/market_assets/exchange/binance.rs
+index c49333b..3934cca 100644
+--- a/src/arch/market_assets/exchange/binance.rs
++++ b/src/arch/market_assets/exchange/binance.rs
+@@ -1,5 +1,8 @@
+ pub mod api_key;
+ pub mod api_utils;
++#[cfg(feature = "bench-internal")]
++#[doc(hidden)]
++pub mod benchmark;
+ pub(crate) mod binance_rest_msg;
+ pub(crate) mod binance_ws_msg;
+ pub mod config_assets;
+diff --git a/src/arch/market_assets/exchange/binance/binance_ws_msg.rs b/src/arch/market_assets/exchange/binance/binance_ws_msg.rs
+index 43e534e..9b0a2cf 100644
+--- a/src/arch/market_assets/exchange/binance/binance_ws_msg.rs
++++ b/src/arch/market_assets/exchange/binance/binance_ws_msg.rs
+@@ -1,4 +1,4 @@
+-use serde::Deserialize;
++use serde::{Deserialize, de::DeserializeOwned};
+ use serde_json::Value;
+ use tracing::{info, warn};
+ 
+@@ -39,6 +39,35 @@ pub struct BinanceWsError {
+     pub msg: String,
+ }
+ 
++fn decode_preferred_ws_frame<T, Message>(
++    frame: &[u8],
++    wrap: fn(Message) -> BinanceWsData<T>,
++) -> serde_json::Result<BinanceWsData<T>>
++where
++    T: DeserializeOwned,
++    Message: DeserializeOwned,
++{
++    match serde_json::from_slice::<Message>(frame) {
++        Ok(message) => Ok(wrap(message)),
++        Err(_) => serde_json::from_slice(frame),
++    }
++}
++
++pub(crate) fn decode_single_ws_frame<T: DeserializeOwned>(
++    frame: &[u8],
++) -> serde_json::Result<BinanceWsData<T>> {
++    decode_preferred_ws_frame::<T, T>(frame, BinanceWsData::ChannelSingle)
++}
++
++pub(crate) fn decode_account_positions_ws_frame<T: DeserializeOwned>(
++    frame: &[u8],
++) -> serde_json::Result<BinanceWsData<T>> {
++    decode_preferred_ws_frame::<T, BinanceWsAccountPositions<T>>(
++        frame,
++        BinanceWsData::AccountPositions,
++    )
++}
++
+ impl<T> IntoWsData for BinanceWsData<T>
+ where
+     T: IntoWsData + for<'de> Deserialize<'de>,
+@@ -81,3 +110,90 @@ where
+         }
+     }
+ }
++
++#[cfg(test)]
++mod tests {
++    use serde::Deserialize;
++
++    use super::{BinanceWsData, decode_account_positions_ws_frame, decode_single_ws_frame};
++
++    #[derive(Debug, Deserialize)]
++    struct TestPayload {
++        value: u64,
++    }
++
++    #[test]
++    fn decodes_single_data_frame() {
++        let decoded = decode_single_ws_frame::<TestPayload>(br#"{"value":42}"#).unwrap();
++
++        match decoded {
++            BinanceWsData::ChannelSingle(message) => assert_eq!(message.value, 42),
++            _ => panic!("expected single data frame"),
++        }
++    }
++
++    #[test]
++    fn single_decoder_falls_back_to_batch_data_frame() {
++        let decoded =
++            decode_single_ws_frame::<TestPayload>(br#"[{"value":41},{"value":42}]"#).unwrap();
++
++        match decoded {
++            BinanceWsData::ChannelBatch(messages) => {
++                assert_eq!(messages.len(), 2);
++                assert_eq!(messages[1].value, 42);
++            },
++            _ => panic!("expected batch data frame"),
++        }
++    }
++
++    #[test]
++    fn single_decoder_falls_back_to_control_event() {
++        let decoded =
++            decode_single_ws_frame::<TestPayload>(br#"{"status":200,"result":null,"id":42}"#)
++                .unwrap();
++
++        assert!(matches!(decoded, BinanceWsData::Event(_)));
++    }
++
++    #[test]
++    fn decodes_account_positions_frame() {
++        let frame = br#"{"a":{"P":[{"value":41},{"value":42}]}}"#;
++        let decoded = decode_account_positions_ws_frame::<TestPayload>(frame).unwrap();
++
++        match decoded {
++            BinanceWsData::AccountPositions(message) => {
++                assert_eq!(message.a.P.len(), 2);
++                assert_eq!(message.a.P[1].value, 42);
++            },
++            _ => panic!("expected account positions frame"),
++        }
++    }
++
++    #[test]
++    fn account_positions_decoder_falls_back_to_single_data_frame() {
++        let decoded = decode_account_positions_ws_frame::<TestPayload>(br#"{"value":42}"#).unwrap();
++
++        assert!(matches!(decoded, BinanceWsData::ChannelSingle(_)));
++    }
++
++    #[test]
++    fn decoders_preserve_untagged_errors() {
++        let frame = br#"{"value":"#;
++        let expected = serde_json::from_slice::<BinanceWsData<TestPayload>>(frame)
++            .unwrap_err()
++            .to_string();
++
++        assert_eq!(
++            decode_single_ws_frame::<TestPayload>(frame)
++                .unwrap_err()
++                .to_string(),
++            expected
++        );
++        assert_eq!(
++            decode_account_positions_ws_frame::<TestPayload>(frame)
++                .unwrap_err()
++                .to_string(),
++            expected
++        );
++    }
++}
+diff --git a/src/arch/market_assets/exchange/binance/schemas/um_futures_ws/account_order.rs b/src/arch/market_assets/exchange/binance/schemas/um_futures_ws/account_order.rs
+index 1839792..f7b784b 100644
+--- a/src/arch/market_assets/exchange/binance/schemas/um_futures_ws/account_order.rs
++++ b/src/arch/market_assets/exchange/binance/schemas/um_futures_ws/account_order.rs
+@@ -89,6 +89,7 @@ impl IntoWsData for WsAccountOrderBinanceUM {
+                 "FILLED" => OrderStatus::Filled,
+                 "CANCELED" => OrderStatus::Canceled,
+                 "EXPIRED" => OrderStatus::Expired,
++                "REJECTED" => OrderStatus::Rejected,
+                 _ => OrderStatus::Unknown,
+             },
+             order_type: match self.o.o.as_str() {
+diff --git a/src/arch/market_assets/exchange/gate/gate_ws_msg.rs b/src/arch/market_assets/exchange/gate/gate_ws_msg.rs
+index c41360f..e325628 100644
+--- a/src/arch/market_assets/exchange/gate/gate_ws_msg.rs
++++ b/src/arch/market_assets/exchange/gate/gate_ws_msg.rs
+@@ -1,4 +1,4 @@
+-use serde::Deserialize;
++use serde::{Deserialize, de::DeserializeOwned};
+ use serde_json::Value;
+ use tracing::{info, warn};
+ 
+@@ -40,6 +40,18 @@ pub struct GateWsError {
+     pub message: String,
+ }
+ 
++pub(crate) fn decode_single_ws_frame<T: DeserializeOwned>(
++    frame: &[u8],
++) -> serde_json::Result<GateWsData<T>> {
++    match serde_json::from_slice(frame) {
++        Ok(message) => Ok(GateWsData::Single(message)),
++        Err(_) => match serde_json::from_slice(frame) {
++            Ok(message) => Ok(GateWsData::Channel(message)),
++            Err(_) => serde_json::from_slice(frame).map(GateWsData::Event),
++        },
++    }
++}
++
+ impl<T> IntoWsData for GateWsData<T>
+ where
+     T: IntoWsData + for<'de> Deserialize<'de>,
+@@ -78,3 +90,80 @@ where
+         }
+     }
+ }
++
++#[cfg(test)]
++mod tests {
++    use serde::Deserialize;
++
++    use super::{GateWsData, decode_single_ws_frame};
++
++    #[derive(Debug, Deserialize)]
++    struct TestPayload {
++        value: u64,
++    }
++
++    #[test]
++    fn decodes_single_data_frame() {
++        let frame = br#"{
++            "channel":"futures.book_ticker",
++            "event":"update",
++            "result":{"value":42}
++        }"#;
++
++        let decoded = decode_single_ws_frame::<TestPayload>(frame).unwrap();
++
++        match decoded {
++            GateWsData::Single(message) => {
++                assert_eq!(message.channel, "futures.book_ticker");
++                assert_eq!(message.event, "update");
++                assert_eq!(message.result.value, 42);
++            },
++            _ => panic!("expected single data frame"),
++        }
++    }
++
++    #[test]
++    fn falls_back_to_control_event() {
++        let frame = br#"{
++            "channel":"futures.book_ticker",
++            "event":"subscribe",
++            "result":{"status":"success"}
++        }"#;
++
++        let decoded = decode_single_ws_frame::<TestPayload>(frame).unwrap();
++
++        match decoded {
++            GateWsData::Event(event) => {
++                assert_eq!(event.channel.as_deref(), Some("futures.book_ticker"));
++                assert_eq!(event.event.as_deref(), Some("subscribe"));
++            },
++            _ => panic!("expected control event"),
++        }
++    }
++
++    #[test]
++    fn falls_back_to_batch_data_frame() {
++        let frame = br#"{
++            "channel":"futures.trades",
++            "event":"update",
++            "result":[{"value":41},{"value":42}]
++        }"#;
++
++        let decoded = decode_single_ws_frame::<TestPayload>(frame).unwrap();
++
++        match decoded {
++            GateWsData::Channel(message) => {
++                assert_eq!(message.result.len(), 2);
++                assert_eq!(message.result[1].value, 42);
++            },
++            _ => panic!("expected batch data frame"),
++        }
++    }
++
++    #[test]
++    fn rejects_malformed_frame() {
++        let frame = br#"{"channel":"futures.book_ticker","result":"#;
++
++        assert!(decode_single_ws_frame::<TestPayload>(frame).is_err());
++    }
++}
+diff --git a/src/arch/market_assets/exchange/hyperliquid/schemas/ws/lob.rs b/src/arch/market_assets/exchange/hyperliquid/schemas/ws/lob.rs
+index 4681f51..441ed64 100644
+--- a/src/arch/market_assets/exchange/hyperliquid/schemas/ws/lob.rs
++++ b/src/arch/market_assets/exchange/hyperliquid/schemas/ws/lob.rs
+@@ -1,8 +1,13 @@
+-use serde::Deserialize;
++use serde::{Deserialize, de::DeserializeOwned};
++use serde_json::from_slice;
+ 
+ use crate::arch::{
+     market_assets::{
+-        api_general::ts_to_micros, exchange::hyperliquid::api_utils::hyperliquid_inst_to_cli,
++        api_general::ts_to_micros,
++        exchange::hyperliquid::{
++            api_utils::hyperliquid_inst_to_cli,
++            hyperliquid_ws_msg::{HyperliquidWsChannel, HyperliquidWsData, HyperliquidWsState},
++        },
+         market_core::Market,
+     },
+     strategy_base::handler::lob_events::{LobEventKind, LobLevel, LobLevelAction, WsLob},
+@@ -37,6 +42,40 @@ struct WsLevelHyperliquid {
+     n: u64,
+ }
+ 
++#[derive(Deserialize)]
++struct HyperliquidLobChannel<T> {
++    channel: String,
++    data: T,
++}
++
++fn decode_lob_frame<T>(
++    frame: &[u8],
++    wrap: fn(T) -> WsLobHyperliquid,
++) -> serde_json::Result<HyperliquidWsData<WsLobHyperliquid>>
++where
++    T: DeserializeOwned,
++{
++    match from_slice::<HyperliquidLobChannel<T>>(frame) {
++        Ok(channel) => Ok(HyperliquidWsData::Channel(HyperliquidWsChannel {
++            channel: channel.channel,
++            data: HyperliquidWsState::ChannelSingle(wrap(channel.data)),
++        })),
++        Err(_) => from_slice(frame),
++    }
++}
++
++pub(crate) fn decode_l2_book_frame(
++    frame: &[u8],
++) -> serde_json::Result<HyperliquidWsData<WsLobHyperliquid>> {
++    decode_lob_frame(frame, WsLobHyperliquid::Book)
++}
++
++pub(crate) fn decode_bbo_frame(
++    frame: &[u8],
++) -> serde_json::Result<HyperliquidWsData<WsLobHyperliquid>> {
++    decode_lob_frame(frame, WsLobHyperliquid::Bbo)
++}
++
+ impl IntoWsData for WsLobHyperliquid {
+     type Output = WsLob;
+ 
+@@ -100,7 +139,6 @@ impl From<WsLevelHyperliquid> for LobLevel {
+ #[cfg(test)]
+ mod tests {
+     use crate::arch::{
+-        market_assets::exchange::hyperliquid::hyperliquid_ws_msg::HyperliquidWsData,
+         strategy_base::handler::lob_events::LobEventKind, traits::conversion::IntoWsData,
+     };
+ 
+@@ -120,7 +158,7 @@ mod tests {
+             }
+         }"#;
+ 
+-        let parsed: HyperliquidWsData<WsLobHyperliquid> = serde_json::from_str(raw).unwrap();
++        let parsed = decode_l2_book_frame(raw.as_bytes()).unwrap();
+         let lob = parsed.into_ws();
+ 
+         assert_eq!(lob.len(), 1);
+@@ -146,7 +184,7 @@ mod tests {
+             }
+         }"#;
+ 
+-        let parsed: HyperliquidWsData<WsLobHyperliquid> = serde_json::from_str(raw).unwrap();
++        let parsed = decode_bbo_frame(raw.as_bytes()).unwrap();
+         let lob = parsed.into_ws();
+ 
+         assert_eq!(lob.len(), 1);
+@@ -156,4 +194,26 @@ mod tests {
+         assert_eq!(lob[0].asks[0].price, 63900.0);
+         assert_eq!(lob[0].asks[0].order_count, Some(4));
+     }
++
++    #[test]
++    fn lob_decoder_accepts_control_payload() {
++        let parsed = decode_l2_book_frame(br#"{"channel":"pong"}"#).unwrap();
++
++        assert!(parsed.into_ws().is_empty());
++    }
++
++    #[test]
++    fn lob_decoder_falls_back_to_other_lob_shape() {
++        let parsed = decode_bbo_frame(
++            br#"{"channel":"l2Book","data":{"coin":"BTC","time":1,"levels":[[],[]]}}"#,
++        )
++        .unwrap();
++
++        assert!(matches!(parsed.into_ws()[0].event, LobEventKind::Snapshot));
++    }
++
++    #[test]
++    fn lob_decoder_rejects_malformed_payload() {
++        assert!(decode_l2_book_frame(b"not json").is_err());
++    }
+ }
+diff --git a/src/arch/strategy_base/handler/handler_core.rs b/src/arch/strategy_base/handler/handler_core.rs
+index 8cb4243..00e19c3 100644
+--- a/src/arch/strategy_base/handler/handler_core.rs
++++ b/src/arch/strategy_base/handler/handler_core.rs
+@@ -53,18 +53,35 @@ where
+     }
+ }
+ 
+-pub(crate) async fn strategy_handler_loop<S>(mut strategy: S, receivers: Vec<TaskReceiver>)
++pub(crate) async fn strategy_handler_loop<S>(strategy: S, receivers: Vec<TaskReceiver>)
+ where
+     S: Strategy,
++{
++    strategy_handler_loop_with_lag_observer(strategy, receivers, |_, _| {}).await;
++}
++
++pub(crate) async fn strategy_handler_loop_with_lag_observer<S, O>(
++    mut strategy: S,
++    receivers: Vec<TaskReceiver>,
++    mut lag_observer: O,
++) where
++    S: Strategy,
++    O: FnMut(&TaskKey, u64) + Send,
+ {
+     let mut events = TaskEventMux::new(receivers);
+     while let Some(item) = events.next().await {
+         match item {
+             MuxItem::Event(event) => dispatch_task_event(&mut strategy, event).await,
+-            MuxItem::Lagged { key, skipped } => {
+-                error!(task_key = ?key, skipped, "task event receiver lagged");
++            MuxItem::Lagged {
++                key,
++                skipped,
++                report_skipped,
++            } => {
++                lag_observer(&key, skipped);
++                if let Some(skipped) = report_skipped {
++                    error!(task_key = ?key, skipped, "task event receiver lagged");
++                }
+             },
+-            MuxItem::LaggedSuppressed => {},
+         }
+     }
+ }
+@@ -79,8 +96,11 @@ struct TaskStream {
+ 
+ enum MuxItem {
+     Event(TaskEvent),
+-    Lagged { key: TaskKey, skipped: u64 },
+-    LaggedSuppressed,
++    Lagged {
++        key: TaskKey,
++        skipped: u64,
++        report_skipped: Option<u64>,
++    },
+ }
+ 
+ /// Allocation-stable adaptive fan-in for a strategy's selected task streams.
+@@ -159,17 +179,15 @@ impl TaskEventMux {
+             Ok(event) => MuxItem::Event(event),
+             Err(BroadcastStreamRecvError::Lagged(skipped)) => {
+                 let stream = &mut self.streams[index];
+-                if let Some(skipped) = record_lag(
++                let report_skipped = record_lag(
+                     &mut stream.last_lag_report_at,
+                     &mut stream.skipped_since_report,
+                     skipped,
+-                ) {
+-                    MuxItem::Lagged {
+-                        key: stream.key.clone(),
+-                        skipped,
+-                    }
+-                } else {
+-                    MuxItem::LaggedSuppressed
++                );
++                MuxItem::Lagged {
++                    key: stream.key.clone(),
++                    skipped,
++                    report_skipped,
+                 }
+             },
+         }
+@@ -406,6 +424,64 @@ mod tests {
+         }
+     }
+ 
++    #[tokio::test]
++    async fn lag_observer_counts_lag_even_when_logging_is_suppressed() {
++        let key = scheduler_key(9);
++        let (sender, receiver) = task_receiver(key.clone(), 1);
++        sender.send(schedule_event(9)).unwrap();
++        sender.send(schedule_event(9)).unwrap();
++        sender.send(schedule_event(9)).unwrap();
++
++        let (events, mut received) = mpsc::unbounded_channel();
++        let (lag_events, mut observed_lags) = mpsc::unbounded_channel();
++        let handler = tokio::spawn(strategy_handler_loop_with_lag_observer(
++            ScheduleProbe { events },
++            vec![receiver],
++            move |key: &TaskKey, skipped| {
++                let _ = lag_events.send((key.clone(), skipped));
++            },
++        ));
++
++        assert_eq!(
++            tokio::time::timeout(Duration::from_secs(1), observed_lags.recv())
++                .await
++                .unwrap(),
++            Some((key.clone(), 2))
++        );
++        let first_lag_at = Instant::now();
++        assert_eq!(
++            tokio::time::timeout(Duration::from_secs(1), received.recv())
++                .await
++                .unwrap(),
++            Some(9)
++        );
++
++        sender.send(schedule_event(9)).unwrap();
++        sender.send(schedule_event(9)).unwrap();
++        sender.send(schedule_event(9)).unwrap();
++        sender.send(schedule_event(9)).unwrap();
++
++        assert_eq!(
++            tokio::time::timeout(Duration::from_secs(1), observed_lags.recv())
++                .await
++                .unwrap(),
++            Some((key, 3))
++        );
++        assert!(first_lag_at.elapsed() < LAG_REPORT_INTERVAL / 2);
++        assert_eq!(
++            tokio::time::timeout(Duration::from_secs(1), received.recv())
++                .await
++                .unwrap(),
++            Some(9)
++        );
++
++        drop(sender);
++        tokio::time::timeout(Duration::from_secs(1), handler)
++            .await
++            .unwrap()
++            .unwrap();
++    }
++
+     #[test]
+     fn lag_rate_limit_aggregates_suppressed_messages() {
+         let mut last_report_at = None;
+@@ -539,6 +615,7 @@ mod tests {
+             Some(MuxItem::Lagged {
+                 key: lagged_key,
+                 skipped: 1,
++                report_skipped: Some(1),
+             }) if lagged_key == key
+         ));
+     }
+diff --git a/src/arch/strategy_base/handler/task_channel.rs b/src/arch/strategy_base/handler/task_channel.rs
+index 6bafe94..c95279a 100644
+--- a/src/arch/strategy_base/handler/task_channel.rs
++++ b/src/arch/strategy_base/handler/task_channel.rs
+@@ -25,16 +25,16 @@ use crate::{
+ pub use super::events::InfraMsg;
+ 
+ const WS_EVENT_CHANNEL_CAPACITY: usize = 2_048;
+-const ORDER_EXECUTION_CHANNEL_CAPACITY: usize = 8_192;
++pub(crate) const ORDER_EXECUTION_CHANNEL_CAPACITY: usize = 8_192;
+ const INST_INTENT_CHANNEL_CAPACITY: usize = 2_048;
+ #[cfg(any(feature = "model_onnx", feature = "model_zmq"))]
+ const MODEL_PREDS_CHANNEL_CAPACITY: usize = 8_192;
+ const SCHEDULE_CHANNEL_CAPACITY: usize = 1_024;
+-const TRADE_CHANNEL_CAPACITY: usize = 8_192;
++pub(crate) const TRADE_CHANNEL_CAPACITY: usize = 8_192;
+ const LOB_CHANNEL_CAPACITY: usize = 16_384;
+ const LOB_MBO_CHANNEL_CAPACITY: usize = 65_536;
+ const CANDLE_CHANNEL_CAPACITY: usize = 2_048;
+-const ACC_ORDER_CHANNEL_CAPACITY: usize = 8_192;
++pub(crate) const ACC_ORDER_CHANNEL_CAPACITY: usize = 8_192;
+ const ACC_BAL_POS_CHANNEL_CAPACITY: usize = 8_192;
+ const ACC_POS_CHANNEL_CAPACITY: usize = 8_192;
+ 
+diff --git a/src/arch/task_execution/alt_runner.rs b/src/arch/task_execution/alt_runner.rs
+index 3f7f099..5fa6c76 100644
+--- a/src/arch/task_execution/alt_runner.rs
++++ b/src/arch/task_execution/alt_runner.rs
+@@ -4,6 +4,8 @@ mod model_onnx;
+ #[cfg(feature = "model_zmq")]
+ mod model_zmq;
+ 
++#[cfg(feature = "bench-internal")]
++use std::sync::atomic::{AtomicU64, Ordering};
+ use std::{sync::Arc, time::Duration};
+ use tokio::{
+     select,
+@@ -71,20 +73,45 @@ impl AltTaskRunner {
+         }
+     }
+ 
+-    async fn order_execution(&mut self) {
++    async fn order_execution_with_observer(&mut self, mut observe_send: impl FnMut(bool)) {
+         while let Some(cmd) = self.cmd_rx.recv().await {
+             match cmd {
+                 TaskCommand::OrderExecute(alt_orders) => {
+-                    let _ = self.event_tx.send(TaskEvent::OrderExecute(InfraMsg {
+-                        task_id: self.task_id,
+-                        data: Arc::new(alt_orders),
+-                    }));
++                    let sent = self
++                        .event_tx
++                        .send(TaskEvent::OrderExecute(InfraMsg {
++                            task_id: self.task_id,
++                            data: Arc::new(alt_orders),
++                        }))
++                        .is_ok();
++                    observe_send(sent);
+                 },
+                 _ => self.handle_cmd(cmd),
+             };
+         }
+     }
+ 
++    async fn order_execution(&mut self) {
++        self.order_execution_with_observer(|_| {}).await;
++    }
++
++    #[cfg(feature = "bench-internal")]
++    pub(crate) async fn benchmark_order_execution(
++        &mut self,
++        orders_relayed: Arc<AtomicU64>,
++        failures: Arc<AtomicU64>,
++    ) {
++        debug_assert_eq!(self.alt_info.alt_task_type, AltTaskType::OrderExecution);
++        self.order_execution_with_observer(move |sent| {
++            if sent {
++                orders_relayed.fetch_add(1, Ordering::Relaxed);
++            } else {
++                failures.fetch_add(1, Ordering::Relaxed);
++            }
++        })
++        .await;
++    }
++
+     async fn inst_intent(&mut self) {
+         while let Some(cmd) = self.cmd_rx.recv().await {
+             match cmd {
+diff --git a/src/arch/task_execution/ws_runner.rs b/src/arch/task_execution/ws_runner.rs
+index f6b2a9a..60589be 100644
+--- a/src/arch/task_execution/ws_runner.rs
++++ b/src/arch/task_execution/ws_runner.rs
+@@ -47,6 +47,10 @@ use super::{task_general::LogLevel, task_ws::WsTaskInfo};
+ type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
+ static _PING: Bytes = Bytes::from_static(b"ping");
+ 
++fn serde_decode<T: DeserializeOwned>(frame: &[u8]) -> serde_json::Result<T> {
++    from_slice(frame)
++}
++
+ #[allow(dead_code)]
+ #[derive(Debug)]
+ pub(crate) struct WsTaskRunner {
+@@ -80,19 +84,21 @@ impl WsTaskRunner {
+         })?;
+         Ok(ws_stream)
+     }
+-    async fn handle_ws_msg<WsData>(
++    async fn handle_ws_msg<WsData, Decode>(
+         &mut self,
+         msg: Result<Option<Result<Message, Error>>, Elapsed>,
+         ws_stream: &mut WsStream,
+         into_event: impl Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
++        decode: Decode,
+     ) -> bool
+     where
+-        WsData: DeserializeOwned + IntoWsData + Send + 'static,
++        WsData: IntoWsData + Send + 'static,
+         WsData::Output: Send + Sync + 'static,
++        Decode: Fn(&[u8]) -> serde_json::Result<WsData> + Copy + Send,
+     {
+         match msg {
+             Ok(Some(Ok(Message::Text(text)))) => {
+-                match from_slice::<WsData>(text.as_ref()) {
++                match decode(text.as_ref()) {
+                     Ok(parsed_raw) => {
+                         let _ = self.event_tx.send(into_event(InfraMsg {
+                             task_id: self.task_id,
+@@ -112,7 +118,7 @@ impl WsTaskRunner {
+                 };
+             },
+             Ok(Some(Ok(Message::Binary(bytes)))) => {
+-                match from_slice::<WsData>(bytes.as_ref()) {
++                match decode(bytes.as_ref()) {
+                     Ok(parsed_raw) => {
+                         let _ = self.event_tx.send(into_event(InfraMsg {
+                             task_id: self.task_id,
+@@ -217,13 +223,27 @@ impl WsTaskRunner {
+     ) where
+         WsData: DeserializeOwned + IntoWsData + Send + 'static,
+         WsData::Output: Send + Sync + 'static,
++    {
++        self.ws_loop_decoded(into_event, ws_stream, serde_decode::<WsData>)
++            .await;
++    }
++
++    async fn ws_loop_decoded<WsData, Decode>(
++        &mut self,
++        into_event: impl Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
++        ws_stream: &mut WsStream,
++        decode: Decode,
++    ) where
++        WsData: IntoWsData + Send + 'static,
++        WsData::Output: Send + Sync + 'static,
++        Decode: Fn(&[u8]) -> serde_json::Result<WsData> + Copy + Send,
+     {
+         let timeout_sec = Duration::from_secs(10);
+ 
+         loop {
+             tokio::select! {
+                 msg = timeout(timeout_sec, ws_stream.next()) => {
+-                    if self.handle_ws_msg::<WsData>(msg, ws_stream, into_event).await {
++                    if self.handle_ws_msg::<WsData, Decode>(msg, ws_stream, into_event, decode).await {
+                         break;
+                     };
+                 },
+diff --git a/src/arch/task_execution/ws_runner/binance.rs b/src/arch/task_execution/ws_runner/binance.rs
+index a927403..17e9e5b 100644
+--- a/src/arch/task_execution/ws_runner/binance.rs
++++ b/src/arch/task_execution/ws_runner/binance.rs
+@@ -1,6 +1,8 @@
+ use crate::arch::{
+     market_assets::exchange::binance::{
+-        binance_ws_msg::BinanceWsData,
++        binance_ws_msg::{
++            BinanceWsData, decode_account_positions_ws_frame, decode_single_ws_frame,
++        },
+         schemas::{
+             cm_futures_ws::lob::{
+                 WsBookTickerBinanceCM, WsDiffDepthBinanceCM, WsPartialDepthBinanceCM,
+@@ -29,49 +31,69 @@ impl WsTaskRunner {
+     pub(super) async fn ws_channel_binance_um(&mut self, ws_stream: &mut WsStream) {
+         match &self.ws_info.ws_channel {
+             WsChannel::AccountOrders => {
+-                self.ws_loop::<BinanceWsData<WsAccountOrderBinanceUM>>(
++                self.ws_loop_decoded::<BinanceWsData<WsAccountOrderBinanceUM>, _>(
+                     TaskEvent::AccOrder,
+                     ws_stream,
++                    decode_single_ws_frame::<WsAccountOrderBinanceUM>,
+                 )
+                 .await;
+             },
+             WsChannel::AccountBalAndPos => {
+-                self.ws_loop::<BinanceWsData<WsBalAndPosBinanceUM>>(
++                self.ws_loop_decoded::<BinanceWsData<WsBalAndPosBinanceUM>, _>(
+                     TaskEvent::AccBalPos,
+                     ws_stream,
++                    decode_single_ws_frame::<WsBalAndPosBinanceUM>,
+                 )
+                 .await;
+             },
+             WsChannel::AccountPositions => {
+-                self.ws_loop::<BinanceWsData<WsAccountPositionBinanceUM>>(
++                self.ws_loop_decoded::<BinanceWsData<WsAccountPositionBinanceUM>, _>(
+                     TaskEvent::AccPos,
+                     ws_stream,
++                    decode_account_positions_ws_frame::<WsAccountPositionBinanceUM>,
+                 )
+                 .await;
+             },
+             WsChannel::Candles(..) => {
+-                self.ws_loop::<BinanceWsData<WsCandleBinanceUM>>(TaskEvent::Candle, ws_stream)
+-                    .await;
++                self.ws_loop_decoded::<BinanceWsData<WsCandleBinanceUM>, _>(
++                    TaskEvent::Candle,
++                    ws_stream,
++                    decode_single_ws_frame::<WsCandleBinanceUM>,
++                )
++                .await;
+             },
+             WsChannel::Trades(..) => {
+-                self.ws_loop::<BinanceWsData<WsAggTradeBinanceUM>>(TaskEvent::Trade, ws_stream)
+-                    .await;
++                self.ws_loop_decoded::<BinanceWsData<WsAggTradeBinanceUM>, _>(
++                    TaskEvent::Trade,
++                    ws_stream,
++                    decode_single_ws_frame::<WsAggTradeBinanceUM>,
++                )
++                .await;
+             },
+             WsChannel::Lob(lob_param) => match lob_param {
+                 Some(LobParam::Bbo { .. }) => {
+-                    self.ws_loop::<BinanceWsData<WsBookTickerBinanceUM>>(TaskEvent::Lob, ws_stream)
+-                        .await;
++                    self.ws_loop_decoded::<BinanceWsData<WsBookTickerBinanceUM>, _>(
++                        TaskEvent::Lob,
++                        ws_stream,
++                        decode_single_ws_frame::<WsBookTickerBinanceUM>,
++                    )
++                    .await;
+                 },
+                 Some(LobParam::Snapshot { .. }) => {
+-                    self.ws_loop::<BinanceWsData<WsPartialDepthBinanceUM>>(
++                    self.ws_loop_decoded::<BinanceWsData<WsPartialDepthBinanceUM>, _>(
+                         TaskEvent::Lob,
+                         ws_stream,
++                        decode_single_ws_frame::<WsPartialDepthBinanceUM>,
+                     )
+                     .await;
+                 },
+                 None | Some(LobParam::Incremental { .. }) => {
+-                    self.ws_loop::<BinanceWsData<WsDiffDepthBinanceUM>>(TaskEvent::Lob, ws_stream)
+-                        .await;
++                    self.ws_loop_decoded::<BinanceWsData<WsDiffDepthBinanceUM>, _>(
++                        TaskEvent::Lob,
++                        ws_stream,
++                        decode_single_ws_frame::<WsDiffDepthBinanceUM>,
++                    )
++                    .await;
+                 },
+             },
+             c => {
+@@ -86,9 +108,10 @@ impl WsTaskRunner {
+     pub(super) async fn ws_channel_binance_spot(&mut self, ws_stream: &mut WsStream) {
+         match &self.ws_info.ws_channel {
+             WsChannel::AccountOrders => {
+-                self.ws_loop::<BinanceWsData<WsAccountOrderEnvelopeBinanceSpot>>(
++                self.ws_loop_decoded::<BinanceWsData<WsAccountOrderEnvelopeBinanceSpot>, _>(
+                     TaskEvent::AccOrder,
+                     ws_stream,
++                    decode_single_ws_frame::<WsAccountOrderEnvelopeBinanceSpot>,
+                 )
+                 .await;
+             },
+@@ -105,19 +128,28 @@ impl WsTaskRunner {
+         match &self.ws_info.ws_channel {
+             WsChannel::Lob(lob_param) => match lob_param {
+                 Some(LobParam::Bbo { .. }) => {
+-                    self.ws_loop::<BinanceWsData<WsBookTickerBinanceCM>>(TaskEvent::Lob, ws_stream)
+-                        .await;
++                    self.ws_loop_decoded::<BinanceWsData<WsBookTickerBinanceCM>, _>(
++                        TaskEvent::Lob,
++                        ws_stream,
++                        decode_single_ws_frame::<WsBookTickerBinanceCM>,
++                    )
++                    .await;
+                 },
+                 Some(LobParam::Snapshot { .. }) => {
+-                    self.ws_loop::<BinanceWsData<WsPartialDepthBinanceCM>>(
++                    self.ws_loop_decoded::<BinanceWsData<WsPartialDepthBinanceCM>, _>(
+                         TaskEvent::Lob,
+                         ws_stream,
++                        decode_single_ws_frame::<WsPartialDepthBinanceCM>,
+                     )
+                     .await;
+                 },
+                 None | Some(LobParam::Incremental { .. }) => {
+-                    self.ws_loop::<BinanceWsData<WsDiffDepthBinanceCM>>(TaskEvent::Lob, ws_stream)
+-                        .await;
++                    self.ws_loop_decoded::<BinanceWsData<WsDiffDepthBinanceCM>, _>(
++                        TaskEvent::Lob,
++                        ws_stream,
++                        decode_single_ws_frame::<WsDiffDepthBinanceCM>,
++                    )
++                    .await;
+                 },
+             },
+             c => {
+diff --git a/src/arch/task_execution/ws_runner/gate.rs b/src/arch/task_execution/ws_runner/gate.rs
+index 946bf5f..a29fb8b 100644
+--- a/src/arch/task_execution/ws_runner/gate.rs
++++ b/src/arch/task_execution/ws_runner/gate.rs
+@@ -1,6 +1,6 @@
+ use crate::arch::{
+     market_assets::exchange::gate::{
+-        gate_ws_msg::GateWsData,
++        gate_ws_msg::{GateWsData, decode_single_ws_frame},
+         schemas::futures_ws::{
+             account_order::WsAccountOrderGateFutures,
+             account_position::WsAccountPositionGateFutures,
+@@ -46,17 +46,26 @@ impl WsTaskRunner {
+             },
+             WsChannel::Lob(lob_param) => match lob_param {
+                 Some(LobParam::Bbo { .. }) => {
+-                    self.ws_loop::<GateWsData<WsBookTickerGateFutures>>(TaskEvent::Lob, ws_stream)
+-                        .await;
++                    self.ws_loop_decoded::<GateWsData<WsBookTickerGateFutures>, _>(
++                        TaskEvent::Lob,
++                        ws_stream,
++                        decode_single_ws_frame::<WsBookTickerGateFutures>,
++                    )
++                    .await;
+                 },
+                 Some(LobParam::Snapshot { .. }) => {
+-                    self.ws_loop::<GateWsData<WsOrderBookGateFutures>>(TaskEvent::Lob, ws_stream)
+-                        .await;
++                    self.ws_loop_decoded::<GateWsData<WsOrderBookGateFutures>, _>(
++                        TaskEvent::Lob,
++                        ws_stream,
++                        decode_single_ws_frame::<WsOrderBookGateFutures>,
++                    )
++                    .await;
+                 },
+                 None | Some(LobParam::Incremental { .. }) => {
+-                    self.ws_loop::<GateWsData<WsOrderBookUpdateGateFutures>>(
++                    self.ws_loop_decoded::<GateWsData<WsOrderBookUpdateGateFutures>, _>(
+                         TaskEvent::Lob,
+                         ws_stream,
++                        decode_single_ws_frame::<WsOrderBookUpdateGateFutures>,
+                     )
+                     .await;
+                 },
+diff --git a/src/arch/task_execution/ws_runner/hyperliquid.rs b/src/arch/task_execution/ws_runner/hyperliquid.rs
+index 29d1376..f33ef11 100644
+--- a/src/arch/task_execution/ws_runner/hyperliquid.rs
++++ b/src/arch/task_execution/ws_runner/hyperliquid.rs
+@@ -3,12 +3,16 @@ use crate::arch::{
+         hyperliquid_ws_msg::HyperliquidWsData,
+         schemas::ws::{
+             account_order::WsAccountOrderHyperliquid,
+-            account_position::WsAccountPositionHyperliquid, lob::WsLobHyperliquid,
++            account_position::WsAccountPositionHyperliquid,
++            lob::{WsLobHyperliquid, decode_bbo_frame, decode_l2_book_frame},
+             trades::WsTradeHyperliquid,
+         },
+     },
+     strategy_base::handler::task_channel::TaskEvent,
+-    task_execution::{task_general::LogLevel, task_ws::WsChannel},
++    task_execution::{
++        task_general::LogLevel,
++        task_ws::{LobParam, WsChannel},
++    },
+ };
+ 
+ use super::{WsStream, WsTaskRunner};
+@@ -34,9 +38,21 @@ impl WsTaskRunner {
+                 self.ws_loop::<HyperliquidWsData<WsTradeHyperliquid>>(TaskEvent::Trade, ws_stream)
+                     .await;
+             },
+-            WsChannel::Lob(..) => {
+-                self.ws_loop::<HyperliquidWsData<WsLobHyperliquid>>(TaskEvent::Lob, ws_stream)
+-                    .await;
++            WsChannel::Lob(Some(LobParam::Bbo { .. })) => {
++                self.ws_loop_decoded::<HyperliquidWsData<WsLobHyperliquid>, _>(
++                    TaskEvent::Lob,
++                    ws_stream,
++                    decode_bbo_frame,
++                )
++                .await;
++            },
++            WsChannel::Lob(_) => {
++                self.ws_loop_decoded::<HyperliquidWsData<WsLobHyperliquid>, _>(
++                    TaskEvent::Lob,
++                    ws_stream,
++                    decode_l2_book_frame,
++                )
++                .await;
+             },
+             c => {
+                 self.log(
+diff --git a/src/lib.rs b/src/lib.rs
+index 90afe0e..0d008a1 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -175,8 +175,17 @@
+ //! [`LobPrivateRest`]: crate::arch::traits::market_lob::LobPrivateRest
+ //! [`LobWebsocket`]: crate::arch::traits::market_lob::LobWebsocket
+ #![doc = include_str!("../docs/usage.md")]
++#[cfg(feature = "bench-internal")]
++#[doc(hidden)]
++pub mod benchmark;
+ pub mod errors;
++#[cfg(feature = "bench-internal")]
++#[doc(hidden)]
++pub mod live_pipeline_benchmark;
+ pub mod prelude;
++#[cfg(feature = "ws-bench-internal")]
++#[doc(hidden)]
++pub mod ws_decode_benchmark;
+ pub mod arch {
+     pub mod infra_core;
+     pub mod market_assets;

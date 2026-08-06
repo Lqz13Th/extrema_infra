@@ -1,0 +1,28 @@
+[package]
+name = "binance-public-ws-crossbench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+barter-data = { path = "../../repos/barter-rs/barter-data" }
+barter-instrument = { path = "../../repos/barter-rs/barter-instrument" }
+criterion = { version = "=0.8.2", default-features = false, features = ["cargo_bench_support"] }
+extrema_infra = { path = "../../repos/extrema_infra", features = ["bench-internal"] }
+nautilus-binance = { path = "../../repos/nautilus_trader/crates/adapters/binance", features = ["high-precision"] }
+nautilus-core = { path = "../../repos/nautilus_trader/crates/core" }
+nautilus-model = { path = "../../repos/nautilus_trader/crates/model", features = ["high-precision"] }
+serde_json = "=1.0.151"
+
+[[bench]]
+name = "channels"
+harness = false
+
+[profile.bench]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = false
+incremental = false
+codegen-units = 1

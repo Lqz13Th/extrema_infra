@@ -1,0 +1,2275 @@
+{
+  "generatedAt": "2026-08-06T10:23:53.165Z",
+  "source": {
+    "repository": "extrema_infra",
+    "version": "0.3.1",
+    "commit": "3760565",
+    "benchmark": "direct_ws_decode"
+  },
+  "environment": {
+    "host": "Apple M5 Pro (15 cores, 48 GB)",
+    "os": "macOS 26.5.2 (25F84)",
+    "rustc": "1.97.1 (8bab26f4f 2026-07-14)",
+    "cargo": "1.97.1 (c980f4866 2026-06-30)"
+  },
+  "method": {
+    "runNames": [
+      "run-01",
+      "run-02",
+      "run-03"
+    ],
+    "processRuns": 3,
+    "statistic": "median of independent Criterion process-run medians",
+    "pairStatistic": "median of within-process legacy/preferred ratios and deltas",
+    "warmupSeconds": 1,
+    "measurementSeconds": 3,
+    "samplesPerBenchmark": 100,
+    "criterionResamples": 100000,
+    "pairOrder": "legacy_untagged then preferred",
+    "traceSubscriber": false,
+    "command": "cargo bench --offline --features bench-internal --bench direct_ws_decode",
+    "excludedDirectories": [
+      "baseline-11-cases"
+    ]
+  },
+  "behavior": {
+    "expectedEquivalentCases": 48,
+    "documentedSyntheticAmbiguities": 2
+  },
+  "counts": {
+    "criterionFunctionsPerRun": 110,
+    "benchmarkPairsPerRun": 55,
+    "hotScenarios": 21,
+    "hotPairs": 42,
+    "fallbackScenarios": 13
+  },
+  "exchangeSummaries": [
+    {
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "scenarios": 6,
+      "medianScenarioDeltaPct": -46.01445752843905,
+      "minScenarioDeltaPct": -55.40344215064151,
+      "maxScenarioDeltaPct": -36.49456321942063,
+      "geometricSpeedup": 1.8610959476289883
+    },
+    {
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "scenarios": 5,
+      "medianScenarioDeltaPct": -50.09671291093473,
+      "minScenarioDeltaPct": -54.65838435890474,
+      "maxScenarioDeltaPct": -32.14211792573742,
+      "geometricSpeedup": 1.883951850194538
+    },
+    {
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "scenarios": 5,
+      "medianScenarioDeltaPct": -55.08575153706008,
+      "minScenarioDeltaPct": -72.58494096204223,
+      "maxScenarioDeltaPct": -49.606614434188714,
+      "geometricSpeedup": 2.4503011016184044
+    },
+    {
+      "boundary": "decode-only",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "scenarios": 5,
+      "medianScenarioDeltaPct": -37.593377326436816,
+      "minScenarioDeltaPct": -42.8072591720149,
+      "maxScenarioDeltaPct": -36.5175727840071,
+      "geometricSpeedup": 1.6326750104685233
+    },
+    {
+      "boundary": "decode+normalize",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "scenarios": 6,
+      "medianScenarioDeltaPct": -36.61945874641303,
+      "minScenarioDeltaPct": -49.212782763960305,
+      "maxScenarioDeltaPct": -32.080259526516386,
+      "geometricSpeedup": 1.6064897105974074
+    },
+    {
+      "boundary": "decode+normalize",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "scenarios": 5,
+      "medianScenarioDeltaPct": -41.31178363021952,
+      "minScenarioDeltaPct": -45.66885563522458,
+      "maxScenarioDeltaPct": -28.919635367976337,
+      "geometricSpeedup": 1.646656835168658
+    },
+    {
+      "boundary": "decode+normalize",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "scenarios": 5,
+      "medianScenarioDeltaPct": -49.59665976665898,
+      "minScenarioDeltaPct": -61.672493695427036,
+      "maxScenarioDeltaPct": -40.21013036388804,
+      "geometricSpeedup": 2.06030059675398
+    },
+    {
+      "boundary": "decode+normalize",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "scenarios": 5,
+      "medianScenarioDeltaPct": -31.62365917824387,
+      "minScenarioDeltaPct": -35.75688037789395,
+      "maxScenarioDeltaPct": -30.429745827618138,
+      "geometricSpeedup": 1.4762298206922624
+    }
+  ],
+  "pairs": [
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "public data",
+      "scenario": "binance_bbo",
+      "scenarioLabel": "UM BBO / bookTicker",
+      "bytes": 141,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 539.5361895835981,
+          "preferredNs": 366.0132792677581,
+          "deltaPct": -32.16149605270429,
+          "speedup": 1.4740891113649972
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 535.9532302319034,
+          "preferredNs": 365.39795034897077,
+          "deltaPct": -31.82279166582026,
+          "speedup": 1.4667658363163913
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 539.2350895316804,
+          "preferredNs": 362.55929009612953,
+          "deltaPct": -32.7641510846395,
+          "speedup": 1.4873018131426359
+        }
+      ],
+      "legacyNs": 539.2350895316804,
+      "preferredNs": 365.39795034897077,
+      "deltaPct": -32.16149605270429,
+      "speedup": 1.4740891113649972,
+      "absoluteDeltaNs": -173.52291031584002
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "public data",
+      "scenario": "binance_cm_snapshot",
+      "scenarioLabel": "CM partial-depth snapshot",
+      "bytes": 191,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 754.7654914038255,
+          "preferredNs": 474.67335348548704,
+          "deltaPct": -37.10982299911213,
+          "speedup": 1.5900734386323672
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 768.9066045421215,
+          "preferredNs": 497.6838161518945,
+          "deltaPct": -35.27382737878006,
+          "speedup": 1.544970078567813
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 751.1646635811685,
+          "preferredNs": 464.627394559345,
+          "deltaPct": -38.14573327448079,
+          "speedup": 1.6167033463310463
+        }
+      ],
+      "legacyNs": 754.7654914038255,
+      "preferredNs": 474.67335348548704,
+      "deltaPct": -37.10982299911213,
+      "speedup": 1.5900734386323672,
+      "absoluteDeltaNs": -280.0921379183385
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "private data",
+      "scenario": "binance_positions",
+      "scenarioLabel": "UM account positions",
+      "bytes": 183,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 895.2368634051081,
+          "preferredNs": 462.09844063976936,
+          "deltaPct": -48.382549967598585,
+          "speedup": 1.937329332177932
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 904.6073825542702,
+          "preferredNs": 454.5834587456677,
+          "deltaPct": -49.747982659383624,
+          "speedup": 1.9899698617506973
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 901.5601061245366,
+          "preferredNs": 457.8772896109384,
+          "deltaPct": -49.212782763960305,
+          "speedup": 1.968999394773649
+        }
+      ],
+      "legacyNs": 901.5601061245366,
+      "preferredNs": 457.8772896109384,
+      "deltaPct": -49.212782763960305,
+      "speedup": 1.968999394773649,
+      "absoluteDeltaNs": -443.68281651359814
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "private data",
+      "scenario": "binance_spot_order",
+      "scenarioLabel": "Spot account order",
+      "bytes": 181,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 655.2745201555147,
+          "preferredNs": 445.0391960452522,
+          "deltaPct": -32.08354935888059,
+          "speedup": 1.4723973213561294
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 663.1059746824689,
+          "preferredNs": 452.3649338757457,
+          "deltaPct": -31.780899110076245,
+          "speedup": 1.4658651124903703
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 654.1199533504678,
+          "preferredNs": 444.2765747009098,
+          "deltaPct": -32.080259526516386,
+          "speedup": 1.4723260027626395
+        }
+      ],
+      "legacyNs": 655.2745201555147,
+      "preferredNs": 445.0391960452522,
+      "deltaPct": -32.080259526516386,
+      "speedup": 1.4723260027626395,
+      "absoluteDeltaNs": -210.23532411026247
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "public data",
+      "scenario": "binance_trade",
+      "scenarioLabel": "UM aggregate trade",
+      "bytes": 132,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 490.3718467247039,
+          "preferredNs": 304.060360420383,
+          "deltaPct": -37.993919828133336,
+          "speedup": 1.6127450682710935
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 493.95060467932734,
+          "preferredNs": 303.3753515564397,
+          "deltaPct": -38.58184428109145,
+          "speedup": 1.6281830483101498
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 489.88703656903743,
+          "preferredNs": 303.19055664262316,
+          "deltaPct": -38.11010824739471,
+          "speedup": 1.6157727403973112
+        }
+      ],
+      "legacyNs": 490.3718467247039,
+      "preferredNs": 303.3753515564397,
+      "deltaPct": -38.11010824739471,
+      "speedup": 1.6157727403973112,
+      "absoluteDeltaNs": -186.69647992641427
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "public data",
+      "scenario": "binance_um_diff_depth",
+      "scenarioLabel": "UM incremental depth",
+      "bytes": 202,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 845.1402279469708,
+          "preferredNs": 539.7987163876205,
+          "deltaPct": -36.12909449371392,
+          "speedup": 1.5656580912283784
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 837.2651086703634,
+          "preferredNs": 542.262856780758,
+          "deltaPct": -35.23403147159565,
+          "speedup": 1.5440207607818461
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 831.3632543255749,
+          "preferredNs": 519.8650313342011,
+          "deltaPct": -37.468365527421554,
+          "speedup": 1.5991905671976685
+        }
+      ],
+      "legacyNs": 837.2651086703634,
+      "preferredNs": 539.7987163876205,
+      "deltaPct": -36.12909449371392,
+      "speedup": 1.5656580912283784,
+      "absoluteDeltaNs": -305.34151155935024
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "public data",
+      "scenario": "gate_bbo",
+      "scenarioLabel": "Futures BBO",
+      "bytes": 157,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 773.0404147960554,
+          "preferredNs": 453.6836312613575,
+          "deltaPct": -41.31178363021952,
+          "speedup": 1.7039195631696116
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 764.0301821420874,
+          "preferredNs": 449.92671922299974,
+          "deltaPct": -41.11139458371208,
+          "speedup": 1.6981213817697427
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 780.0363512445866,
+          "preferredNs": 438.4256288949725,
+          "deltaPct": -43.79420546293225,
+          "speedup": 1.7791759875229582
+        }
+      ],
+      "legacyNs": 773.0404147960554,
+      "preferredNs": 449.92671922299974,
+      "deltaPct": -41.31178363021952,
+      "speedup": 1.7039195631696116,
+      "absoluteDeltaNs": -319.3567835346979
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "public data",
+      "scenario": "gate_incremental",
+      "scenarioLabel": "Futures incremental book",
+      "bytes": 178,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 832.4085409839386,
+          "preferredNs": 452.2570861067044,
+          "deltaPct": -45.66885563522458,
+          "speedup": 1.840564949793937
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 835.0269599225063,
+          "preferredNs": 473.1351596213909,
+          "deltaPct": -43.33893606677086,
+          "speedup": 1.7648803791937722
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 853.3835200746965,
+          "preferredNs": 452.90375959656785,
+          "deltaPct": -46.928461946754574,
+          "speedup": 1.8842491412190159
+        }
+      ],
+      "legacyNs": 835.0269599225063,
+      "preferredNs": 452.90375959656785,
+      "deltaPct": -45.66885563522458,
+      "speedup": 1.840564949793937,
+      "absoluteDeltaNs": -380.1514548772342
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "public data",
+      "scenario": "gate_snapshot",
+      "scenarioLabel": "Futures book snapshot",
+      "bytes": 193,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 965.3217995727825,
+          "preferredNs": 532.2573589020219,
+          "deltaPct": -44.862183870955754,
+          "speedup": 1.8136373005046216
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 965.2550216472441,
+          "preferredNs": 540.4918436677481,
+          "deltaPct": -44.0052803097177,
+          "speedup": 1.7858826788154218
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 973.797066197561,
+          "preferredNs": 526.3457210141671,
+          "deltaPct": -45.94913670571855,
+          "speedup": 1.8501092101997925
+        }
+      ],
+      "legacyNs": 965.3217995727825,
+      "preferredNs": 532.2573589020219,
+      "deltaPct": -44.862183870955754,
+      "speedup": 1.8136373005046216,
+      "absoluteDeltaNs": -433.06444067076063
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "private data",
+      "scenario": "gate_spot_order",
+      "scenarioLabel": "Spot account order",
+      "bytes": 371,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 1013.5899857170062,
+          "preferredNs": 712.0871249755726,
+          "deltaPct": -29.746037844696417,
+          "speedup": 1.423407263193779
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 1015.5517564417949,
+          "preferredNs": 722.7340662021084,
+          "deltaPct": -28.833359637487767,
+          "speedup": 1.405152744187655
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 1010.0222822893232,
+          "preferredNs": 717.9275211159384,
+          "deltaPct": -28.919635367976337,
+          "speedup": 1.4068582866406292
+        }
+      ],
+      "legacyNs": 1013.5899857170062,
+      "preferredNs": 717.9275211159384,
+      "deltaPct": -28.919635367976337,
+      "speedup": 1.4068582866406292,
+      "absoluteDeltaNs": -292.8176902396865
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "public data",
+      "scenario": "gate_trade",
+      "scenarioLabel": "Futures trades",
+      "bytes": 218,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 632.592151424964,
+          "preferredNs": 410.9132840644204,
+          "deltaPct": -35.04293672648235,
+          "speedup": 1.5394784640882775
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 625.1784885044389,
+          "preferredNs": 420.0489766806561,
+          "deltaPct": -32.811351573291745,
+          "speedup": 1.488346652918365
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 617.0717422508842,
+          "preferredNs": 407.8694542706928,
+          "deltaPct": -33.902425545705114,
+          "speedup": 1.5129148206360876
+        }
+      ],
+      "legacyNs": 625.1784885044389,
+      "preferredNs": 410.9132840644204,
+      "deltaPct": -33.902425545705114,
+      "speedup": 1.5129148206360876,
+      "absoluteDeltaNs": -209.2022879801914
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "public data",
+      "scenario": "hyperliquid_bbo",
+      "scenarioLabel": "BBO",
+      "bytes": 136,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 1329.5367686857333,
+          "preferredNs": 528.4998895326002,
+          "deltaPct": -60.24932126886343,
+          "speedup": 2.5156803152060485
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 1379.6469194312797,
+          "preferredNs": 522.417392926536,
+          "deltaPct": -62.133978950071686,
+          "speedup": 2.6408900969062685
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 1340.4511804634242,
+          "preferredNs": 513.7615107018416,
+          "deltaPct": -61.672493695427036,
+          "speedup": 2.6090922588425407
+        }
+      ],
+      "legacyNs": 1340.4511804634242,
+      "preferredNs": 522.417392926536,
+      "deltaPct": -61.672493695427036,
+      "speedup": 2.6090922588425407,
+      "absoluteDeltaNs": -826.6896697615825
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "public data",
+      "scenario": "hyperliquid_l2",
+      "scenarioLabel": "L2 book (10 + 10 levels)",
+      "bytes": 759,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 5337.800048875855,
+          "preferredNs": 2305.5530036313385,
+          "deltaPct": -56.8070556686197,
+          "speedup": 2.315192945236395
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 5355.206882460973,
+          "preferredNs": 2338.6376998282467,
+          "deltaPct": -56.3296479266263,
+          "speedup": 2.289883072890798
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 5279.525417291043,
+          "preferredNs": 2299.948731400924,
+          "deltaPct": -56.436449309092595,
+          "speedup": 2.2954970018289176
+        }
+      ],
+      "legacyNs": 5337.800048875855,
+      "preferredNs": 2305.5530036313385,
+      "deltaPct": -56.436449309092595,
+      "speedup": 2.2954970018289176,
+      "absoluteDeltaNs": -3016.5691826327266
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "private data",
+      "scenario": "hyperliquid_order",
+      "scenarioLabel": "Account order",
+      "bytes": 232,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 970.9400162905624,
+          "preferredNs": 575.0915545709549,
+          "deltaPct": -40.76961038560659,
+          "speedup": 1.6883225089523857
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 967.2087901059488,
+          "preferredNs": 578.2928747133625,
+          "deltaPct": -40.21013036388804,
+          "speedup": 1.6725241350852833
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 957.5910114001754,
+          "preferredNs": 583.1541454954074,
+          "deltaPct": -39.101961218001826,
+          "speedup": 1.6420890064781626
+        }
+      ],
+      "legacyNs": 967.2087901059488,
+      "preferredNs": 578.2928747133625,
+      "deltaPct": -40.21013036388804,
+      "speedup": 1.6725241350852833,
+      "absoluteDeltaNs": -388.91591539258627
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "private data",
+      "scenario": "hyperliquid_positions",
+      "scenarioLabel": "Account positions",
+      "bytes": 219,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 1058.356419097094,
+          "preferredNs": 538.7107538822844,
+          "deltaPct": -49.09930679667727,
+          "speedup": 1.964609786364798
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 1071.6385592599902,
+          "preferredNs": 540.1416290954867,
+          "deltaPct": -49.59665976665898,
+          "speedup": 1.9839954958749255
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 1072.2448965916144,
+          "preferredNs": 536.0930296481649,
+          "deltaPct": -50.00274365005007,
+          "speedup": 2.000109752024426
+        }
+      ],
+      "legacyNs": 1071.6385592599902,
+      "preferredNs": 538.7107538822844,
+      "deltaPct": -49.59665976665898,
+      "speedup": 1.9839954958749255,
+      "absoluteDeltaNs": -531.4969301645035
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "public data",
+      "scenario": "hyperliquid_trade",
+      "scenarioLabel": "Trades",
+      "bytes": 121,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 642.6141523442088,
+          "preferredNs": 344.01437126776034,
+          "deltaPct": -46.466418454554514,
+          "speedup": 1.8679863575932885
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 646.6211236672495,
+          "preferredNs": 354.2581129606446,
+          "deltaPct": -45.213959149446936,
+          "speedup": 1.8252824706348623
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 655.0238620981886,
+          "preferredNs": 349.01421043399455,
+          "deltaPct": -46.717328844170105,
+          "speedup": 1.8767827856741852
+        }
+      ],
+      "legacyNs": 646.6211236672495,
+      "preferredNs": 349.01421043399455,
+      "deltaPct": -46.466418454554514,
+      "speedup": 1.8679863575932885,
+      "absoluteDeltaNs": -298.5997810764485
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "public data",
+      "scenario": "okx_bbo",
+      "scenarioLabel": "BBO / bbo-tbt",
+      "bytes": 176,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 886.5769285574102,
+          "preferredNs": 614.9107014785391,
+          "deltaPct": -30.642149409517305,
+          "speedup": 1.4417978519899812
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 893.7252653171938,
+          "preferredNs": 623.3440447962062,
+          "deltaPct": -30.253281518792708,
+          "speedup": 1.43375921014756
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 888.500816993464,
+          "preferredNs": 618.1322767060424,
+          "deltaPct": -30.429745827618138,
+          "speedup": 1.4373959271762757
+        }
+      ],
+      "legacyNs": 888.500816993464,
+      "preferredNs": 618.1322767060424,
+      "deltaPct": -30.429745827618138,
+      "speedup": 1.4373959271762757,
+      "absoluteDeltaNs": -270.38122052098765
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "in-band heartbeat",
+      "scenario": "okx_heartbeat",
+      "scenarioLabel": "Books heartbeat update",
+      "bytes": 143,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 582.7546268423125,
+          "preferredNs": 362.93809518511546,
+          "deltaPct": -37.72025506657663,
+          "speedup": 1.6056584706135086
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 575.3954821152163,
+          "preferredNs": 369.91633307011824,
+          "deltaPct": -35.71094237475316,
+          "speedup": 1.5554746592012447
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 577.2648920713989,
+          "preferredNs": 370.8529751498502,
+          "deltaPct": -35.75688037789395,
+          "speedup": 1.5565869246111457
+        }
+      ],
+      "legacyNs": 577.2648920713989,
+      "preferredNs": 369.91633307011824,
+      "deltaPct": -35.75688037789395,
+      "speedup": 1.5565869246111457,
+      "absoluteDeltaNs": -206.4119169215487
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "private data",
+      "scenario": "okx_order",
+      "scenarioLabel": "Account order",
+      "bytes": 392,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 1260.1558423913043,
+          "preferredNs": 847.4847176804011,
+          "deltaPct": -32.74762619263088,
+          "speedup": 1.4869363613309752
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 1267.0256356653967,
+          "preferredNs": 867.4872361315661,
+          "deltaPct": -31.53356872088916,
+          "speedup": 1.460569773124864
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 1263.1797425864258,
+          "preferredNs": 863.7160859822764,
+          "deltaPct": -31.62365917824387,
+          "speedup": 1.4624941726653757
+        }
+      ],
+      "legacyNs": 1263.1797425864258,
+      "preferredNs": 863.7160859822764,
+      "deltaPct": -31.62365917824387,
+      "speedup": 1.4624941726653757,
+      "absoluteDeltaNs": -399.53839953383067
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "public data",
+      "scenario": "okx_snapshot",
+      "scenarioLabel": "Books snapshot",
+      "bytes": 228,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 1038.201843902158,
+          "preferredNs": 710.7194997633883,
+          "deltaPct": -31.54322505418631,
+          "speedup": 1.4607757972699422
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 1042.1513692809826,
+          "preferredNs": 725.5855337154326,
+          "deltaPct": -30.37618573431997,
+          "speedup": 1.4362901696021189
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 1041.519671632221,
+          "preferredNs": 721.5163762781186,
+          "deltaPct": -30.724652070431667,
+          "speedup": 1.443514944185761
+        }
+      ],
+      "legacyNs": 1041.519671632221,
+      "preferredNs": 721.5163762781186,
+      "deltaPct": -30.724652070431667,
+      "speedup": 1.443514944185761,
+      "absoluteDeltaNs": -320.0032953541023
+    },
+    {
+      "group": "decode_normalize_hot",
+      "traffic": "hot",
+      "boundary": "decode+normalize",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "public data",
+      "scenario": "okx_trade",
+      "scenarioLabel": "Trades",
+      "bytes": 174,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 650.7187689078191,
+          "preferredNs": 437.20580705379,
+          "deltaPct": -32.811864672720915,
+          "speedup": 1.4883580190593404
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 656.6903845729582,
+          "preferredNs": 451.20364550625106,
+          "deltaPct": -31.29126661422551,
+          "speedup": 1.4554190576987711
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 661.345629721186,
+          "preferredNs": 445.57809689176224,
+          "deltaPct": -32.62553241946852,
+          "speedup": 1.4842417846266736
+        }
+      ],
+      "legacyNs": 656.6903845729582,
+      "preferredNs": 445.57809689176224,
+      "deltaPct": -32.62553241946852,
+      "speedup": 1.4842417846266736,
+      "absoluteDeltaNs": -213.51296185402913
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "fallback/control",
+      "scenario": "binance_ack",
+      "scenarioLabel": "Trade decoder: subscription ACK",
+      "bytes": 36,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 360.3132566585956,
+          "preferredNs": 501.3158145683635,
+          "deltaPct": 39.13332504537039,
+          "speedup": 0.7187350691675822
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 372.825714025648,
+          "preferredNs": 510.93986501168706,
+          "deltaPct": 37.045232072307584,
+          "speedup": 0.7296860933274801
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 357.7072173833848,
+          "preferredNs": 502.95608873545586,
+          "deltaPct": 40.605518785603856,
+          "speedup": 0.7112096371727813
+        }
+      ],
+      "legacyNs": 360.3132566585956,
+      "preferredNs": 502.95608873545586,
+      "deltaPct": 39.13332504537039,
+      "speedup": 0.7187350691675822,
+      "absoluteDeltaNs": 141.00255790976792
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "fallback/control",
+      "scenario": "binance_error",
+      "scenarioLabel": "Trade decoder: business error",
+      "bytes": 62,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 442.49011994949495,
+          "preferredNs": 602.644866967903,
+          "deltaPct": 36.19397129967281,
+          "speedup": 0.7342468910019971
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 453.3593249014377,
+          "preferredNs": 611.1768290242536,
+          "deltaPct": 34.81068888505297,
+          "speedup": 0.7417809435367957
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 442.9048859621614,
+          "preferredNs": 616.2014807981961,
+          "deltaPct": 39.12727096237993,
+          "speedup": 0.7187663447164147
+        }
+      ],
+      "legacyNs": 442.9048859621614,
+      "preferredNs": 611.1768290242536,
+      "deltaPct": 36.19397129967281,
+      "speedup": 0.7342468910019971,
+      "absoluteDeltaNs": 160.15474701840805
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "fallback/control",
+      "scenario": "binance_positions_ack",
+      "scenarioLabel": "Positions decoder: subscription ACK",
+      "bytes": 36,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 357.5230588890324,
+          "preferredNs": 487.5889053022211,
+          "deltaPct": 36.37970843540985,
+          "speedup": 0.7332469114887463
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 365.36237128078585,
+          "preferredNs": 499.9376077312518,
+          "deltaPct": 36.83335970770867,
+          "speedup": 0.7308159370902766
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 360.32165604947886,
+          "preferredNs": 494.83224245165667,
+          "deltaPct": 37.33069721008027,
+          "speedup": 0.7281693170684629
+        }
+      ],
+      "legacyNs": 360.32165604947886,
+      "preferredNs": 494.83224245165667,
+      "deltaPct": 36.83335970770867,
+      "speedup": 0.7308159370902766,
+      "absoluteDeltaNs": 134.5105864021778
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "fallback/control",
+      "scenario": "gate_ack",
+      "scenarioLabel": "Batch decoder: subscription ACK",
+      "bytes": 78,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 538.0970465164935,
+          "preferredNs": 763.2847849462365,
+          "deltaPct": 41.84890808963782,
+          "speedup": 0.7049754654213308
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 541.6776716281481,
+          "preferredNs": 783.6178193146418,
+          "deltaPct": 44.66496596754337,
+          "speedup": 0.6912523659835909
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 535.0919619897139,
+          "preferredNs": 774.3385909965464,
+          "deltaPct": 44.71131057869104,
+          "speedup": 0.6910309885254066
+        }
+      ],
+      "legacyNs": 538.0970465164935,
+      "preferredNs": 774.3385909965464,
+      "deltaPct": 44.66496596754337,
+      "speedup": 0.6912523659835909,
+      "absoluteDeltaNs": 239.24662900683245
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "fallback/control",
+      "scenario": "gate_error",
+      "scenarioLabel": "Batch decoder: business error",
+      "bytes": 91,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 474.0504511897448,
+          "preferredNs": 692.6816701985076,
+          "deltaPct": 46.11982088827351,
+          "speedup": 0.6843698506615488
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 480.58424629938065,
+          "preferredNs": 697.2561898964577,
+          "deltaPct": 45.085111562750015,
+          "speedup": 0.6892505986511891
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 477.73024851416824,
+          "preferredNs": 703.8553555030828,
+          "deltaPct": 47.33321946688671,
+          "speedup": 0.678733556232884
+        }
+      ],
+      "legacyNs": 477.73024851416824,
+      "preferredNs": 697.2561898964577,
+      "deltaPct": 46.11982088827351,
+      "speedup": 0.6843698506615488,
+      "absoluteDeltaNs": 218.6312190087628
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "fallback/control",
+      "scenario": "gate_single_ack",
+      "scenarioLabel": "Single decoder: subscription ACK",
+      "bytes": 78,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 543.2058209414934,
+          "preferredNs": 752.2738362725477,
+          "deltaPct": 38.4878083538748,
+          "speedup": 0.7220852231589385
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 548.475606184393,
+          "preferredNs": 782.0923707609282,
+          "deltaPct": 42.593829505335414,
+          "speedup": 0.7012926179688463
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 545.8621663255249,
+          "preferredNs": 750.397185297146,
+          "deltaPct": 37.47008523203763,
+          "speedup": 0.727430988576232
+        }
+      ],
+      "legacyNs": 545.8621663255249,
+      "preferredNs": 752.2738362725477,
+      "deltaPct": 38.4878083538748,
+      "speedup": 0.7220852231589385,
+      "absoluteDeltaNs": 209.0680153310543
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "fallback/control",
+      "scenario": "hyperliquid_bbo_pong",
+      "scenarioLabel": "BBO decoder: pong",
+      "bytes": 18,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 175.35023321987853,
+          "preferredNs": 314.1905226475217,
+          "deltaPct": 79.17884503383914,
+          "speedup": 0.5581015994444787
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 176.12301065454986,
+          "preferredNs": 321.044796019708,
+          "deltaPct": 82.2844129376199,
+          "speedup": 0.5485932581312989
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 177.67742146220405,
+          "preferredNs": 317.1693638720353,
+          "deltaPct": 78.5085360097396,
+          "speedup": 0.5601973005623883
+        }
+      ],
+      "legacyNs": 176.12301065454986,
+      "preferredNs": 317.1693638720353,
+      "deltaPct": 79.17884503383914,
+      "speedup": 0.5581015994444787,
+      "absoluteDeltaNs": 139.49194240983127
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "fallback/control",
+      "scenario": "hyperliquid_error",
+      "scenarioLabel": "Trade decoder: business error",
+      "bytes": 52,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 637.5498307527857,
+          "preferredNs": 833.0269354190057,
+          "deltaPct": 30.660678622627934,
+          "speedup": 0.7653411956386541
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 643.7676120129197,
+          "preferredNs": 839.9450731842885,
+          "deltaPct": 30.47333502192895,
+          "speedup": 0.7664401311056606
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 645.4813332391345,
+          "preferredNs": 843.3580672160701,
+          "deltaPct": 30.655686506681246,
+          "speedup": 0.7653704379325761
+        }
+      ],
+      "legacyNs": 643.7676120129197,
+      "preferredNs": 839.9450731842885,
+      "deltaPct": 30.655686506681246,
+      "speedup": 0.7653704379325761,
+      "absoluteDeltaNs": 196.1774611713688
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "fallback/control",
+      "scenario": "hyperliquid_l2_pong",
+      "scenarioLabel": "L2 decoder: pong",
+      "bytes": 18,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 176.7216058074593,
+          "preferredNs": 316.95612274442897,
+          "deltaPct": 79.35335144575203,
+          "speedup": 0.5575585802769146
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 178.5296181550649,
+          "preferredNs": 317.77420341354195,
+          "deltaPct": 77.99522941763861,
+          "speedup": 0.5618128099678743
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 176.1651761769125,
+          "preferredNs": 316.68968648142413,
+          "deltaPct": 79.76860884434447,
+          "speedup": 0.5562706450411852
+        }
+      ],
+      "legacyNs": 176.7216058074593,
+      "preferredNs": 316.95612274442897,
+      "deltaPct": 79.35335144575203,
+      "speedup": 0.5575585802769146,
+      "absoluteDeltaNs": 140.23451693696967
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "fallback/control",
+      "scenario": "hyperliquid_pong",
+      "scenarioLabel": "Trade decoder: pong",
+      "bytes": 18,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 177.54934128177507,
+          "preferredNs": 321.8535069700531,
+          "deltaPct": 81.27552862010559,
+          "speedup": 0.5516464398764347
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 177.80865577458877,
+          "preferredNs": 323.07945162363905,
+          "deltaPct": 81.70063218587775,
+          "speedup": 0.550355817682027
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 176.933708340894,
+          "preferredNs": 318.9248785252306,
+          "deltaPct": 80.25105646390772,
+          "speedup": 0.5547817691710636
+        }
+      ],
+      "legacyNs": 177.54934128177507,
+      "preferredNs": 321.8535069700531,
+      "deltaPct": 81.27552862010559,
+      "speedup": 0.5516464398764347,
+      "absoluteDeltaNs": 144.30416568827803
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "fallback/control",
+      "scenario": "hyperliquid_positions_pong",
+      "scenarioLabel": "Positions decoder: pong",
+      "bytes": 18,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 178.62239195321786,
+          "preferredNs": 320.00018546088756,
+          "deltaPct": 79.14897564729584,
+          "speedup": 0.5581946513435699
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 183.88707734747598,
+          "preferredNs": 324.530568251569,
+          "deltaPct": 76.48361860596154,
+          "speedup": 0.5666248277879659
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 177.10976997369306,
+          "preferredNs": 317.75871178919294,
+          "deltaPct": 79.41342921759265,
+          "speedup": 0.5573718781035057
+        }
+      ],
+      "legacyNs": 178.62239195321786,
+      "preferredNs": 320.00018546088756,
+      "deltaPct": 79.14897564729584,
+      "speedup": 0.5581946513435699,
+      "absoluteDeltaNs": 140.64894181549988
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "fallback/control",
+      "scenario": "okx_ack",
+      "scenarioLabel": "Trade decoder: subscription ACK",
+      "bytes": 73,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 329.78790855883244,
+          "preferredNs": 554.840396680391,
+          "deltaPct": 68.24158262958582,
+          "speedup": 0.5943833767907903
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 335.5598502224076,
+          "preferredNs": 563.2757658102767,
+          "deltaPct": 67.8614904127952,
+          "speedup": 0.5957292512659444
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 339.6087176761344,
+          "preferredNs": 559.2306885685164,
+          "deltaPct": 64.6691205088036,
+          "speedup": 0.6072783998057107
+        }
+      ],
+      "legacyNs": 335.5598502224076,
+      "preferredNs": 559.2306885685164,
+      "deltaPct": 67.8614904127952,
+      "speedup": 0.5957292512659444,
+      "absoluteDeltaNs": 225.05248812155855
+    },
+    {
+      "group": "decode_only_fallback",
+      "traffic": "fallback",
+      "boundary": "decode-only",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "fallback/control",
+      "scenario": "okx_error",
+      "scenarioLabel": "Trade decoder: business error",
+      "bytes": 104,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 421.97185892635804,
+          "preferredNs": 676.9711380385488,
+          "deltaPct": 60.43039925956126,
+          "speedup": 0.6233232633062854
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 429.29581608635664,
+          "preferredNs": 703.4797626798836,
+          "deltaPct": 63.86830160449839,
+          "speedup": 0.6102461490163811
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 421.6274086965294,
+          "preferredNs": 686.685308114605,
+          "deltaPct": 62.86543378133507,
+          "speedup": 0.6140038292855997
+        }
+      ],
+      "legacyNs": 421.97185892635804,
+      "preferredNs": 686.685308114605,
+      "deltaPct": 62.86543378133507,
+      "speedup": 0.6140038292855997,
+      "absoluteDeltaNs": 265.05789941807564
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "public data",
+      "scenario": "binance_bbo",
+      "scenarioLabel": "UM BBO / bookTicker",
+      "bytes": 141,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 390.96878516346044,
+          "preferredNs": 213.3450575634801,
+          "deltaPct": -45.43169028845039,
+          "speedup": 1.8325654675507492
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 394.09357270055824,
+          "preferredNs": 216.03691428969978,
+          "deltaPct": -45.18131498332001,
+          "speedup": 1.8241955269370733
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 394.3610106990544,
+          "preferredNs": 216.80614161003234,
+          "deltaPct": -45.023433927781994,
+          "speedup": 1.8189568236880889
+        }
+      ],
+      "legacyNs": 394.09357270055824,
+      "preferredNs": 216.03691428969978,
+      "deltaPct": -45.18131498332001,
+      "speedup": 1.8241955269370733,
+      "absoluteDeltaNs": -177.62372759998033
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "public data",
+      "scenario": "binance_cm_snapshot",
+      "scenarioLabel": "CM partial-depth snapshot",
+      "bytes": 191,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 606.247124261723,
+          "preferredNs": 321.9203424908425,
+          "deltaPct": -46.899485439560415,
+          "speedup": 1.8832209222036618
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 617.6813857240238,
+          "preferredNs": 319.6502459906716,
+          "deltaPct": -48.249979135118494,
+          "speedup": 1.9323663706551621
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 595.3103264166971,
+          "preferredNs": 318.39536022103766,
+          "deltaPct": -46.516069671169845,
+          "speedup": 1.8697204821182647
+        }
+      ],
+      "legacyNs": 606.247124261723,
+      "preferredNs": 319.6502459906716,
+      "deltaPct": -46.899485439560415,
+      "speedup": 1.8832209222036618,
+      "absoluteDeltaNs": -284.32678177088053
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "private data",
+      "scenario": "binance_positions",
+      "scenarioLabel": "UM account positions",
+      "bytes": 183,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 779.8138681310386,
+          "preferredNs": 348.09100660717576,
+          "deltaPct": -55.362295948719506,
+          "speedup": 2.2402585913719584
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 790.8265006512572,
+          "preferredNs": 352.02246236475605,
+          "deltaPct": -55.48676453370488,
+          "speedup": 2.2465228364655445
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 775.5225864383235,
+          "preferredNs": 345.8563788958081,
+          "deltaPct": -55.40344215064151,
+          "speedup": 2.242325525162442
+        }
+      ],
+      "legacyNs": 779.8138681310386,
+      "preferredNs": 348.09100660717576,
+      "deltaPct": -55.40344215064151,
+      "speedup": 2.242325525162442,
+      "absoluteDeltaNs": -431.72286152386283
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "private data",
+      "scenario": "binance_spot_order",
+      "scenarioLabel": "Spot account order",
+      "bytes": 181,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 602.0725109575997,
+          "preferredNs": 382.34877781942527,
+          "deltaPct": -36.49456321942063,
+          "speedup": 1.5746683287214402
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 611.5846068102903,
+          "preferredNs": 383.70941096194196,
+          "deltaPct": -37.2597991039748,
+          "speedup": 1.59387439905911
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 600.1128940569527,
+          "preferredNs": 382.17556283058025,
+          "deltaPct": -36.316055426346075,
+          "speedup": 1.570254491449483
+        }
+      ],
+      "legacyNs": 602.0725109575997,
+      "preferredNs": 382.34877781942527,
+      "deltaPct": -36.49456321942063,
+      "speedup": 1.5746683287214402,
+      "absoluteDeltaNs": -219.7237331381744
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "public data",
+      "scenario": "binance_trade",
+      "scenarioLabel": "UM aggregate trade",
+      "bytes": 132,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 380.6365093649812,
+          "preferredNs": 207.42765738581812,
+          "deltaPct": -45.50505474846034,
+          "speedup": 1.8350325803322955
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 381.17814316414604,
+          "preferredNs": 209.34034760042823,
+          "deltaPct": -45.080705346140384,
+          "speedup": 1.8208536841245138
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 381.1670582559307,
+          "preferredNs": 211.72520274054733,
+          "deltaPct": -44.45343632020094,
+          "speedup": 1.8002913839360972
+        }
+      ],
+      "legacyNs": 381.1670582559307,
+      "preferredNs": 209.34034760042823,
+      "deltaPct": -45.080705346140384,
+      "speedup": 1.8208536841245138,
+      "absoluteDeltaNs": -171.8377955637178
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "binance",
+      "exchangeLabel": "Binance",
+      "channelClass": "public data",
+      "scenario": "binance_um_diff_depth",
+      "scenarioLabel": "UM incremental depth",
+      "bytes": 202,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 673.3288513935404,
+          "preferredNs": 357.8904439128123,
+          "deltaPct": -46.84760007355809,
+          "speedup": 1.8813825930417236
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 691.484180475273,
+          "preferredNs": 364.8984471953338,
+          "deltaPct": -47.229675313102504,
+          "speedup": 1.8950044479227794
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 663.6579017148641,
+          "preferredNs": 356.9830535706791,
+          "deltaPct": -46.20977876579938,
+          "speedup": 1.8590739674522574
+        }
+      ],
+      "legacyNs": 673.3288513935404,
+      "preferredNs": 357.8904439128123,
+      "deltaPct": -46.84760007355809,
+      "speedup": 1.8813825930417236,
+      "absoluteDeltaNs": -315.4384074807281
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "public data",
+      "scenario": "gate_bbo",
+      "scenarioLabel": "Futures BBO",
+      "bytes": 157,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 578.992908540086,
+          "preferredNs": 292.62938790560474,
+          "deltaPct": -49.45889948057199,
+          "speedup": 1.9785877033199935
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 582.2632382382383,
+          "preferredNs": 290.5684953921161,
+          "deltaPct": -50.09671291093473,
+          "speedup": 2.003876013648645
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 587.380719772879,
+          "preferredNs": 288.7026886196241,
+          "deltaPct": -50.849137722590555,
+          "speedup": 2.03455230216707
+        }
+      ],
+      "legacyNs": 582.2632382382383,
+      "preferredNs": 290.5684953921161,
+      "deltaPct": -50.09671291093473,
+      "speedup": 2.003876013648645,
+      "absoluteDeltaNs": -291.69474284612215
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "public data",
+      "scenario": "gate_incremental",
+      "scenarioLabel": "Futures incremental book",
+      "bytes": 178,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 684.6974259474841,
+          "preferredNs": 305.300096553773,
+          "deltaPct": -55.41094723245106,
+          "speedup": 2.242702945974625
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 693.2830198903102,
+          "preferredNs": 316.39014322386754,
+          "deltaPct": -54.36349454023465,
+          "speedup": 2.1912282501157607
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 678.1638282707269,
+          "preferredNs": 311.989457287694,
+          "deltaPct": -53.99497226455641,
+          "speedup": 2.1736754638006035
+        }
+      ],
+      "legacyNs": 684.6974259474841,
+      "preferredNs": 311.989457287694,
+      "deltaPct": -54.36349454023465,
+      "speedup": 2.1912282501157607,
+      "absoluteDeltaNs": -376.8928766664427
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "public data",
+      "scenario": "gate_snapshot",
+      "scenarioLabel": "Futures book snapshot",
+      "bytes": 193,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 819.6071257607007,
+          "preferredNs": 372.03447938446794,
+          "deltaPct": -54.608193646538616,
+          "speedup": 2.203040769545723
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 829.2462146980004,
+          "preferredNs": 371.65058125121584,
+          "deltaPct": -55.18211905416226,
+          "speedup": 2.2312523013046883
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 811.7550368550369,
+          "preferredNs": 368.062848758042,
+          "deltaPct": -54.65838435890474,
+          "speedup": 2.2054794163392195
+        }
+      ],
+      "legacyNs": 819.6071257607007,
+      "preferredNs": 371.65058125121584,
+      "deltaPct": -54.65838435890474,
+      "speedup": 2.2054794163392195,
+      "absoluteDeltaNs": -447.57264637623274
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "private data",
+      "scenario": "gate_spot_order",
+      "scenarioLabel": "Spot account order",
+      "bytes": 371,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 977.616789285363,
+          "preferredNs": 653.8025596578145,
+          "deltaPct": -33.12281797699652,
+          "speedup": 1.4952783142926598
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 955.0364863644961,
+          "preferredNs": 658.7842735042734,
+          "deltaPct": -31.01998898366235,
+          "speedup": 1.4496953324103614
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 955.856270406853,
+          "preferredNs": 648.6238207721267,
+          "deltaPct": -32.14211792573742,
+          "speedup": 1.473668156789238
+        }
+      ],
+      "legacyNs": 955.856270406853,
+      "preferredNs": 653.8025596578145,
+      "deltaPct": -32.14211792573742,
+      "speedup": 1.473668156789238,
+      "absoluteDeltaNs": -307.2324496347263
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "gate",
+      "exchangeLabel": "Gate",
+      "channelClass": "public data",
+      "scenario": "gate_trade",
+      "scenarioLabel": "Futures trades",
+      "bytes": 218,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 518.4319467095527,
+          "preferredNs": 299.9782318607014,
+          "deltaPct": -42.1373945481871,
+          "speedup": 1.7282318903402731
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 517.0616149576603,
+          "preferredNs": 311.30783525819356,
+          "deltaPct": -39.79289387326014,
+          "speedup": 1.6609335082389363
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 510.408807030385,
+          "preferredNs": 306.9236385481301,
+          "deltaPct": -39.8670958806832,
+          "speedup": 1.662983045049316
+        }
+      ],
+      "legacyNs": 517.0616149576603,
+      "preferredNs": 306.9236385481301,
+      "deltaPct": -39.8670958806832,
+      "speedup": 1.662983045049316,
+      "absoluteDeltaNs": -205.7537796994667
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "public data",
+      "scenario": "hyperliquid_bbo",
+      "scenarioLabel": "BBO",
+      "bytes": 136,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 1076.9168550107852,
+          "preferredNs": 295.23739159092486,
+          "deltaPct": -72.58494096204223,
+          "speedup": 3.6476302991558063
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 1092.645911360799,
+          "preferredNs": 297.7113782470078,
+          "deltaPct": -72.75316960860327,
+          "speedup": 3.670151667680779
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 1089.0548726132965,
+          "preferredNs": 298.9855837680491,
+          "deltaPct": -72.54632514056863,
+          "speedup": 3.6424996111457255
+        }
+      ],
+      "legacyNs": 1089.0548726132965,
+      "preferredNs": 297.7113782470078,
+      "deltaPct": -72.58494096204223,
+      "speedup": 3.6476302991558063,
+      "absoluteDeltaNs": -790.0692888452475
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "public data",
+      "scenario": "hyperliquid_l2",
+      "scenarioLabel": "L2 book (10 + 10 levels)",
+      "bytes": 759,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 5014.250077927138,
+          "preferredNs": 2020.0333961967626,
+          "deltaPct": -59.71414738389289,
+          "speedup": 2.482260980124272
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 5045.114655172414,
+          "preferredNs": 2034.5916722408028,
+          "deltaPct": -59.67204293058288,
+          "speedup": 2.479669372486895
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 4999.400263480392,
+          "preferredNs": 2011.9053146929823,
+          "deltaPct": -59.757066674786095,
+          "speedup": 2.4849083239502763
+        }
+      ],
+      "legacyNs": 5014.250077927138,
+      "preferredNs": 2020.0333961967626,
+      "deltaPct": -59.71414738389289,
+      "speedup": 2.482260980124272,
+      "absoluteDeltaNs": -2994.216681730375
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "private data",
+      "scenario": "hyperliquid_order",
+      "scenarioLabel": "Account order",
+      "bytes": 232,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 791.9054882700743,
+          "preferredNs": 393.4792646396396,
+          "deltaPct": -50.312345290193775,
+          "speedup": 2.0125723498932673
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 792.500951516599,
+          "preferredNs": 404.1495608161964,
+          "deltaPct": -49.00327122096439,
+          "speedup": 1.9609100896116558
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 781.8886367933446,
+          "preferredNs": 394.020155434536,
+          "deltaPct": -49.606614434188714,
+          "speedup": 1.984387412697345
+        }
+      ],
+      "legacyNs": 791.9054882700743,
+      "preferredNs": 394.020155434536,
+      "deltaPct": -49.606614434188714,
+      "speedup": 1.984387412697345,
+      "absoluteDeltaNs": -388.3513907004026
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "private data",
+      "scenario": "hyperliquid_positions",
+      "scenarioLabel": "Account positions",
+      "bytes": 219,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 901.687591304624,
+          "preferredNs": 408.37523567901076,
+          "deltaPct": -54.70989735057292,
+          "speedup": 2.2079879300354155
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 913.6198571117945,
+          "preferredNs": 412.40027430500606,
+          "deltaPct": -54.86084599685501,
+          "speedup": 2.215371603841594
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 905.7402500615915,
+          "preferredNs": 411.0440340909091,
+          "deltaPct": -54.61789027671481,
+          "speedup": 2.2035114852470334
+        }
+      ],
+      "legacyNs": 905.7402500615915,
+      "preferredNs": 411.0440340909091,
+      "deltaPct": -54.70989735057292,
+      "speedup": 2.2079879300354155,
+      "absoluteDeltaNs": -494.6962159706824
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "hyperliquid",
+      "exchangeLabel": "Hyperliquid",
+      "channelClass": "public data",
+      "scenario": "hyperliquid_trade",
+      "scenarioLabel": "Trades",
+      "bytes": 121,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 519.9587997667944,
+          "preferredNs": 233.2247155133334,
+          "deltaPct": -55.145539296971904,
+          "speedup": 2.229432668070158
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 522.2494182647928,
+          "preferredNs": 234.56440131570736,
+          "deltaPct": -55.08575153706008,
+          "speedup": 2.2264649509278325
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 516.8639164274837,
+          "preferredNs": 233.12490652043533,
+          "deltaPct": -54.89626977023789,
+          "speedup": 2.217111522496959
+        }
+      ],
+      "legacyNs": 519.9587997667944,
+      "preferredNs": 233.2247155133334,
+      "deltaPct": -55.08575153706008,
+      "speedup": 2.2264649509278325,
+      "absoluteDeltaNs": -286.734084253461
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "public data",
+      "scenario": "okx_bbo",
+      "scenarioLabel": "BBO / bbo-tbt",
+      "bytes": 176,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 721.5390733814379,
+          "preferredNs": 458.05051709432087,
+          "deltaPct": -36.5175727840071,
+          "speedup": 1.5752390761581871
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 744.7438670220035,
+          "preferredNs": 466.7578148126221,
+          "deltaPct": -37.32639696933124,
+          "speedup": 1.5955680727509143
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 729.6644828500358,
+          "preferredNs": 465.9553344525043,
+          "deltaPct": -36.14115180274305,
+          "speedup": 1.5659537060722541
+        }
+      ],
+      "legacyNs": 729.6644828500358,
+      "preferredNs": 465.9553344525043,
+      "deltaPct": -36.5175727840071,
+      "speedup": 1.5752390761581871,
+      "absoluteDeltaNs": -263.7091483975315
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "in-band heartbeat",
+      "scenario": "okx_heartbeat",
+      "scenarioLabel": "Books heartbeat update",
+      "bytes": 143,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 480.30427544831224,
+          "preferredNs": 274.6991794428849,
+          "deltaPct": -42.8072591720149,
+          "speedup": 1.748473644597022
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 486.29738479262676,
+          "preferredNs": 276.29053893686904,
+          "deltaPct": -43.184860215794,
+          "speedup": 1.7600942350897626
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 476.4881456273421,
+          "preferredNs": 278.68481162746224,
+          "deltaPct": -41.51275027827877,
+          "speedup": 1.7097743606648272
+        }
+      ],
+      "legacyNs": 480.30427544831224,
+      "preferredNs": 276.29053893686904,
+      "deltaPct": -42.8072591720149,
+      "speedup": 1.748473644597022,
+      "absoluteDeltaNs": -205.60509600542736
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "private data",
+      "scenario": "okx_order",
+      "scenarioLabel": "Account order",
+      "bytes": 392,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 1161.5913057714909,
+          "preferredNs": 723.345277340234,
+          "deltaPct": -37.72807408714102,
+          "speedup": 1.605860081153364
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 1164.680813707442,
+          "preferredNs": 739.0019324954269,
+          "deltaPct": -36.54897343564741,
+          "speedup": 1.5760186306612254
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 1161.7217156071383,
+          "preferredNs": 735.7456785546926,
+          "deltaPct": -36.6676486571332,
+          "speedup": 1.5789718505574344
+        }
+      ],
+      "legacyNs": 1161.7217156071383,
+      "preferredNs": 735.7456785546926,
+      "deltaPct": -36.6676486571332,
+      "speedup": 1.5789718505574344,
+      "absoluteDeltaNs": -425.9760370524457
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "public data",
+      "scenario": "okx_snapshot",
+      "scenarioLabel": "Books snapshot",
+      "bytes": 228,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 857.8323174272314,
+          "preferredNs": 535.3441775086951,
+          "deltaPct": -37.593377326436816,
+          "speedup": 1.602394036336182
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 872.5180336134454,
+          "preferredNs": 543.9063779979367,
+          "deltaPct": -37.66244856333761,
+          "speedup": 1.6041695205433961
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 866.6965135947876,
+          "preferredNs": 552.7590239410681,
+          "deltaPct": -36.22230904698167,
+          "speedup": 1.5679463854165674
+        }
+      ],
+      "legacyNs": 866.6965135947876,
+      "preferredNs": 543.9063779979367,
+      "deltaPct": -37.593377326436816,
+      "speedup": 1.602394036336182,
+      "absoluteDeltaNs": -322.48813991853626
+    },
+    {
+      "group": "decode_only_hot",
+      "traffic": "hot",
+      "boundary": "decode-only",
+      "exchange": "okx",
+      "exchangeLabel": "OKX",
+      "channelClass": "public data",
+      "scenario": "okx_trade",
+      "scenarioLabel": "Trades",
+      "bytes": 174,
+      "runs": [
+        {
+          "run": "run-01",
+          "legacyNs": 555.7480690501052,
+          "preferredNs": 331.9538466246167,
+          "deltaPct": -40.26900584791985,
+          "speedup": 1.674172704130649
+        },
+        {
+          "run": "run-02",
+          "legacyNs": 565.9911117444033,
+          "preferredNs": 341.4142812150056,
+          "deltaPct": -39.678508349229105,
+          "speedup": 1.6577839384169477
+        },
+        {
+          "run": "run-03",
+          "legacyNs": 558.5238556848063,
+          "preferredNs": 335.4998067170851,
+          "deltaPct": -39.93097997475351,
+          "speedup": 1.664751646655312
+        }
+      ],
+      "legacyNs": 558.5238556848063,
+      "preferredNs": 335.4998067170851,
+      "deltaPct": -39.93097997475351,
+      "speedup": 1.664751646655312,
+      "absoluteDeltaNs": -223.7942224254885
+    }
+  ]
+}

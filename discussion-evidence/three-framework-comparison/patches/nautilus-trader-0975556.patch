@@ -1,0 +1,120 @@
+diff --git a/crates/adapters/binance/Cargo.toml b/crates/adapters/binance/Cargo.toml
+index 8a02682..ea13bcb 100644
+--- a/crates/adapters/binance/Cargo.toml
++++ b/crates/adapters/binance/Cargo.toml
+@@ -94,6 +94,7 @@ pyo3 = { workspace = true, optional = true }
+ pyo3-stub-gen = { workspace = true, optional = true }
+ 
+ [dev-dependencies]
++nautilus-live = { workspace = true, features = ["node"] }
+ nautilus-testkit = { workspace = true, default-features = false, features = [
+   "testers",
+ ] }
+@@ -111,6 +112,26 @@ toml = { workspace = true }
+ name = "encoder"
+ harness = false
+ 
++# Run with `cargo bench -p nautilus-binance --bench usdm_agg_trade`
++[[bench]]
++name = "usdm_agg_trade"
++harness = false
++
++# Run with `cargo bench -p nautilus-binance --bench usdm_book_ticker`
++[[bench]]
++name = "usdm_book_ticker"
++harness = false
++
++# Run with `cargo bench -p nautilus-binance --bench live_pipeline`
++[[bench]]
++name = "live_pipeline"
++path = "benches/live_pipeline/main.rs"
++harness = false
++
++[[test]]
++name = "live_pipeline"
++path = "tests/live_pipeline.rs"
++
+ [[bin]]
+ name = "binance-spot-http-public"
+ path = "bin/http_public.rs"
+diff --git a/crates/adapters/hyperliquid/benches/common/mod.rs b/crates/adapters/hyperliquid/benches/common/mod.rs
+index 0b31c12..6250ff8 100644
+--- a/crates/adapters/hyperliquid/benches/common/mod.rs
++++ b/crates/adapters/hyperliquid/benches/common/mod.rs
+@@ -159,51 +159,10 @@ pub(crate) mod fixtures {
+         }]
+     }"#;
+ 
+-    pub(crate) const BOOK_L2: &str = r#"{
+-        "channel": "l2Book",
+-        "data": {
+-            "coin": "BTC",
+-            "levels": [
+-                [
+-                    {"px": "98450.5", "sz": "2.5", "n": 3},
+-                    {"px": "98449.0", "sz": "1.8", "n": 2},
+-                    {"px": "98448.0", "sz": "0.75", "n": 1},
+-                    {"px": "98447.0", "sz": "3.2", "n": 4},
+-                    {"px": "98446.0", "sz": "1.1", "n": 2},
+-                    {"px": "98445.0", "sz": "2.0", "n": 3},
+-                    {"px": "98444.0", "sz": "0.5", "n": 1},
+-                    {"px": "98443.0", "sz": "1.4", "n": 2},
+-                    {"px": "98442.0", "sz": "0.9", "n": 1},
+-                    {"px": "98441.0", "sz": "1.7", "n": 2}
+-                ],
+-                [
+-                    {"px": "98451.0", "sz": "1.5", "n": 2},
+-                    {"px": "98452.0", "sz": "2.1", "n": 3},
+-                    {"px": "98453.0", "sz": "0.9", "n": 1},
+-                    {"px": "98454.0", "sz": "1.7", "n": 2},
+-                    {"px": "98455.0", "sz": "2.3", "n": 4},
+-                    {"px": "98456.0", "sz": "0.6", "n": 1},
+-                    {"px": "98457.0", "sz": "1.2", "n": 2},
+-                    {"px": "98458.0", "sz": "0.8", "n": 1},
+-                    {"px": "98459.0", "sz": "1.5", "n": 2},
+-                    {"px": "98460.0", "sz": "2.0", "n": 3}
+-                ]
+-            ],
+-            "time": 1733833200000
+-        }
+-    }"#;
++    // Keep these byte-for-byte aligned with the Extrema cross-framework fixture.
++    pub(crate) const BOOK_L2: &str = r#"{"channel":"l2Book","data":{"coin":"BTC","levels":[[{"px":"98450.5","sz":"2.5","n":3},{"px":"98449.0","sz":"1.8","n":2},{"px":"98448.0","sz":"0.75","n":1},{"px":"98447.0","sz":"3.2","n":4},{"px":"98446.0","sz":"1.1","n":2},{"px":"98445.0","sz":"2.0","n":3},{"px":"98444.0","sz":"0.5","n":1},{"px":"98443.0","sz":"1.4","n":2},{"px":"98442.0","sz":"0.9","n":1},{"px":"98441.0","sz":"1.7","n":2}],[{"px":"98451.0","sz":"1.5","n":2},{"px":"98452.0","sz":"2.1","n":3},{"px":"98453.0","sz":"0.9","n":1},{"px":"98454.0","sz":"1.7","n":2},{"px":"98455.0","sz":"2.3","n":4},{"px":"98456.0","sz":"0.6","n":1},{"px":"98457.0","sz":"1.2","n":2},{"px":"98458.0","sz":"0.8","n":1},{"px":"98459.0","sz":"1.5","n":2},{"px":"98460.0","sz":"2.0","n":3}]],"time":1733833200000}}"#;
+ 
+-    pub(crate) const BBO: &str = r#"{
+-        "channel": "bbo",
+-        "data": {
+-            "coin": "BTC",
+-            "time": 1733833200000,
+-            "bbo": [
+-                {"px": "98450.5", "sz": "2.5", "n": 3},
+-                {"px": "98451.0", "sz": "1.5", "n": 2}
+-            ]
+-        }
+-    }"#;
++    pub(crate) const BBO: &str = r#"{"channel":"bbo","data":{"coin":"BTC","time":1733833200000,"bbo":[{"px":"98450.5","sz":"2.5","n":3},{"px":"98451.0","sz":"1.5","n":2}]}}"#;
+ 
+     pub(crate) const CANDLE: &str = r#"{
+         "channel": "candle",
+diff --git a/crates/live/Cargo.toml b/crates/live/Cargo.toml
+index d0f05f7..a280b12 100644
+--- a/crates/live/Cargo.toml
++++ b/crates/live/Cargo.toml
+@@ -140,6 +140,17 @@ ustr = { workspace = true }
+ name = "runner"
+ harness = false
+ 
++[[bench]]
++name = "tick_to_trade"
++path = "benches/tick_to_trade/main.rs"
++harness = false
++required-features = ["node"]
++
++[[test]]
++name = "tick_to_trade"
++path = "tests/tick_to_trade.rs"
++required-features = ["node"]
++
+ [[test]]
+ name = "manager"
+ path = "tests/manager.rs"

@@ -1,0 +1,67 @@
+diff --git a/barter-data/Cargo.toml b/barter-data/Cargo.toml
+index ca5ec9b..75a6189 100644
+--- a/barter-data/Cargo.toml
++++ b/barter-data/Cargo.toml
+@@ -11,7 +11,23 @@ description = "High performance & normalised WebSocket intergration for leading
+ keywords = ["trading", "backtesting", "crypto", "stocks", "investment"]
+ categories = ["accessibility", "simulation"]
+ 
++[[bench]]
++name = "binance_agg_trade"
++path = "benches/binance_agg_trade.rs"
++harness = false
++
++[[bench]]
++name = "binance_usdm_book_ticker"
++path = "benches/binance_usdm_book_ticker.rs"
++harness = false
++
++[[bench]]
++name = "gate_usdt_futures_trade"
++path = "benches/gate_usdt_futures_trade.rs"
++harness = false
++
+ [dev-dependencies]
++criterion = { workspace = true }
+ tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+ rust_decimal_macros = { workspace = true }
+ 
+diff --git a/barter/Cargo.toml b/barter/Cargo.toml
+index 4ba8aaf..190bfd0 100644
+--- a/barter/Cargo.toml
++++ b/barter/Cargo.toml
+@@ -16,6 +16,16 @@ name = "backtest"
+ path = "benches/backtest/mod.rs"
+ harness = false
+ 
++[[bench]]
++name = "tick_to_trade"
++path = "benches/tick_to_trade.rs"
++harness = false
++
++[[bench]]
++name = "live_pipeline"
++path = "benches/live_pipeline.rs"
++harness = false
++
+ [dev-dependencies]
+ rust_decimal_macros = { workspace = true }
+ serde_json = { workspace = true }
+@@ -57,4 +67,3 @@ derive_more = { workspace = true, features = ["constructor", "from", "display"]}
+ prettytable-rs = "0.10.0"
+ itertools = { workspace = true }
+ parking_lot = { workspace = true }
+-
+diff --git a/barter/benches/backtest/mod.rs b/barter/benches/backtest/mod.rs
+index adb7ffb..7b81ab5 100644
+--- a/barter/benches/backtest/mod.rs
++++ b/barter/benches/backtest/mod.rs
+@@ -181,7 +181,7 @@ fn benchmark_backtest() {
+     let args_constant = args_constant(instruments, executions);
+     let args_dynamic = args_dynamic(risk_free_return);
+ 
+-    let mut c = Criterion::default().without_plots();
++    let mut c = Criterion::default().configure_from_args().without_plots();
+ 
+     bench_backtest(&mut c, Arc::clone(&args_constant), &args_dynamic);
+     bench_backtests_concurrent(&mut c, args_constant, args_dynamic);

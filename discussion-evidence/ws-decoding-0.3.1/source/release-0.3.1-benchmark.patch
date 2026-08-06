@@ -1,0 +1,39 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 6018ddd..e2b59ee 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -92,6 +92,10 @@ model_onnx = ["dep:tract-onnx"]
+ model_zmq = ["dep:zeromq"]
+ model_runner = ["model_onnx", "model_zmq"]
+ polars = ["dep:polars"]
++bench-internal = ["lob_clients"]
++
++[dev-dependencies]
++criterion = { version = "=0.5.1", default-features = false }
+ 
+ [package.metadata.docs.rs]
+ all-features = true
+@@ -114,3 +118,8 @@ required-features = ["binance"]
+ [[example]]
+ name = "websocket_private_account_example"
+ required-features = ["binance", "okx"]
++
++[[bench]]
++name = "direct_ws_decode"
++harness = false
++required-features = ["bench-internal"]
+diff --git a/src/lib.rs b/src/lib.rs
+index 90afe0e..941d8ea 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -177,6 +177,10 @@
+ #![doc = include_str!("../docs/usage.md")]
+ pub mod errors;
+ pub mod prelude;
++
++#[cfg(feature = "bench-internal")]
++#[doc(hidden)]
++pub mod direct_benchmark;
+ pub mod arch {
+     pub mod infra_core;
+     pub mod market_assets;
