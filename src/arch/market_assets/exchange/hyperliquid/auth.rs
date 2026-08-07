@@ -5,9 +5,9 @@ use secp256k1::{Message, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha3::{Digest, Keccak256};
 
-use crate::arch::market_assets::{
-    api_general::{get_mills_timestamp, parse_json_response},
-    exchange::secret::{redact_identifier, redact_secret},
+use crate::arch::{
+    market_assets::api_general::{get_mills_timestamp, parse_json_response},
+    redaction::{redact_identifier, redact_secret},
 };
 use crate::errors::{InfraError, InfraResult};
 

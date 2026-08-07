@@ -6,9 +6,9 @@ use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
-use crate::arch::market_assets::{
-    api_general::*,
-    exchange::secret::{redact_identifier, redact_secret},
+use crate::arch::{
+    market_assets::api_general::*,
+    redaction::{redact_identifier, redact_secret},
 };
 use crate::errors::{InfraError, InfraResult};
 

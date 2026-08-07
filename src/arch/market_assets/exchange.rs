@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 pub mod prelude;
-pub(crate) mod secret;
 
 #[cfg(feature = "hyperliquid")]
 pub mod hyperliquid;

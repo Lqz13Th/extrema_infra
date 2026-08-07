@@ -37,6 +37,7 @@ use tracing::{error, info, warn};
 
 use crate::arch::{
     market_assets::market_core::Market,
+    redaction::{contains_sensitive_content, redact_secret},
     strategy_base::{
         command::{
             ack_handle::{AckHandle, AckStatus},
@@ -207,12 +208,22 @@ impl WsTaskRunner {
         ack_status: AckStatus,
     ) {
         if ws_stream.send(Message::text(msg.clone())).await.is_err() {
-            self.log(
-                LogLevel::Error,
-                &format!("Failed to send {:?}: {}", ack_status, msg),
-            );
-        } else {
-            self.log(LogLevel::Info, &format!("{:?}: {}", ack_status, msg));
+            if contains_sensitive_content(&msg) {
+                self.log(
+                    LogLevel::Error,
+                    &format!(
+                        "Failed to send {:?}: {}, {} bytes",
+                        ack_status,
+                        redact_secret(),
+                        msg.len()
+                    ),
+                );
+            } else {
+                self.log(
+                    LogLevel::Error,
+                    &format!("Failed to send {:?}: {}", ack_status, msg),
+                );
+            }
         }
 
         ack_handle.respond(ack_status);

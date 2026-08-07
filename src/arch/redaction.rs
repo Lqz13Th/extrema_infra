@@ -1,5 +1,35 @@
 pub(crate) const REDACTED_SECRET: &str = "[REDACTED]";
 
+const SENSITIVE_FIELDS: [&[u8]; 11] = [
+    b"api_key",
+    b"apikey",
+    b"access_token",
+    b"accesstoken",
+    b"secret",
+    b"signature",
+    b"passphrase",
+    b"\"auth\"",
+    b"\"key\"",
+    b"\"sign\"",
+    b"listenkey",
+];
+
+pub(crate) fn contains_sensitive_content(message: &str) -> bool {
+    SENSITIVE_FIELDS.iter().any(|field| {
+        message
+            .as_bytes()
+            .windows(field.len())
+            .any(|window| window.eq_ignore_ascii_case(field))
+    })
+}
+
+#[cfg(any(
+    test,
+    feature = "hyperliquid",
+    feature = "binance",
+    feature = "gate",
+    feature = "okx"
+))]
 pub(crate) fn redact_identifier(value: &str) -> String {
     let chars: Vec<char> = value.chars().collect();
 
