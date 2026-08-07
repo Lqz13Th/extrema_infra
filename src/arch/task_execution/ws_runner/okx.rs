@@ -3,7 +3,8 @@ use crate::arch::{
         okx_ws_msg::OkxWsData,
         schemas::ws::{
             account_bal_and_pos::WsBalAndPosOkx, account_order::WsAccountOrderOkx,
-            account_position::WsAccountPositionOkx, lob::OkxWsLobBook, trades::WsTradesOkx,
+            account_position::WsAccountPositionOkx, candles::WsCandleOkx, lob::OkxWsLobBook,
+            trades::WsTradesOkx,
         },
     },
     strategy_base::handler::task_channel::TaskEvent,
@@ -36,6 +37,14 @@ impl WsTaskRunner {
                     TaskEvent::AccPos,
                     ws_stream,
                     OkxWsData::<WsAccountPositionOkx>::decode_batch,
+                )
+                .await;
+            },
+            WsChannel::Candles(..) => {
+                self.ws_loop(
+                    TaskEvent::Candle,
+                    ws_stream,
+                    OkxWsData::<WsCandleOkx>::decode_batch,
                 )
                 .await;
             },

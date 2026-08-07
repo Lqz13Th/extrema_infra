@@ -1337,7 +1337,8 @@ impl OkxCli {
                 TradesParam::AggTrades => OKX_WS_PUB,
                 TradesParam::AllTrades => OKX_WS_BUS,
             },
-            WsChannel::Candles(_) | WsChannel::Lob(_) | WsChannel::Trades(None) => OKX_WS_PUB,
+            WsChannel::Candles(_) => OKX_WS_BUS,
+            WsChannel::Lob(_) | WsChannel::Trades(None) => OKX_WS_PUB,
             WsChannel::Other(s) if s == "instruments" || s == "funding-rate" => OKX_WS_BUS,
             _ => return Err(InfraError::Unimplemented),
         };
@@ -1363,7 +1364,10 @@ impl OkxCli {
         candle_param: &Option<CandleParam>,
         insts: Option<&[String]>,
     ) -> InfraResult<String> {
-        let interval = candle_param.as_ref().map(|p| p.as_str()).unwrap_or("1m");
+        let interval = candle_param
+            .as_ref()
+            .map(okx_candle_interval)
+            .unwrap_or("1m");
 
         let channel = format!("candle{}", interval);
 
@@ -1512,6 +1516,34 @@ mod tests {
 
             assert_eq!(value["op"], "subscribe");
             assert_eq!(value["args"][0]["channel"], expected);
+            assert_eq!(value["args"][0]["instId"], "BTC-USDT-SWAP");
+        }
+    }
+
+    #[test]
+    fn builds_okx_candle_connect_and_subscribe_messages() {
+        let cli = OkxCli::default();
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+
+        assert_eq!(
+            cli._get_public_connect_msg(&WsChannel::Candles(Some(CandleParam::OneHour)))
+                .unwrap(),
+            OKX_WS_BUS
+        );
+
+        let cases = [
+            (None, "candle1m"),
+            (Some(CandleParam::OneHour), "candle1H"),
+            (Some(CandleParam::OneDay), "candle1Dutc"),
+        ];
+
+        for (interval, expected_channel) in cases {
+            let msg = cli
+                ._get_public_sub_msg(&WsChannel::Candles(interval), Some(&insts))
+                .unwrap();
+            let value: Value = serde_json::from_str(&msg).unwrap();
+
+            assert_eq!(value["args"][0]["channel"], expected_channel);
             assert_eq!(value["args"][0]["instId"], "BTC-USDT-SWAP");
         }
     }
