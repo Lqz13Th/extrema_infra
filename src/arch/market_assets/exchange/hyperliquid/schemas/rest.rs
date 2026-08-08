@@ -5,6 +5,7 @@ pub mod candle;
 pub mod clearinghouse_state;
 pub mod funding_history;
 pub mod meta;
+pub mod non_funding_ledger;
 pub mod open_order;
 pub mod order_status;
 pub mod orderbook;

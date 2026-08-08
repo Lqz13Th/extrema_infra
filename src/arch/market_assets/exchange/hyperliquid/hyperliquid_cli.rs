@@ -37,6 +37,7 @@ use super::{
         clearinghouse_state::RestClearinghouseStateHyperliquid,
         funding_history::RestFundingHistoryHyperliquid,
         meta::RestMetaHyperliquid,
+        non_funding_ledger::RestNonFundingLedgerUpdateHyperliquid,
         open_order::RestOpenOrderHyperliquid,
         order_status::{
             RestOrderStatusHyperliquid, finalize_hyperliquid_order_history,
@@ -339,6 +340,34 @@ impl HyperliquidCli {
             .collect();
 
         Ok(data)
+    }
+
+    pub async fn get_non_funding_ledger_updates(
+        &self,
+        start_time_us: u64,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<RestNonFundingLedgerUpdateHyperliquid>> {
+        if let Some(end_time_us) = end_time_us
+            && end_time_us < start_time_us
+        {
+            return Err(InfraError::ApiCliError(format!(
+                "Hyperliquid non-funding ledger end_time_us {} is earlier than start_time_us {}",
+                end_time_us, start_time_us
+            )));
+        }
+
+        let mut body = json!({
+            "type": "userNonFundingLedgerUpdates",
+            "user": self._owner_address()?,
+            "startTime": start_time_us / 1_000,
+        });
+        if let Some(end_time_us) = end_time_us {
+            body["endTime"] = json!(end_time_us / 1_000);
+        }
+
+        let res: RestResHyperliquid<RestNonFundingLedgerUpdateHyperliquid> =
+            self._post_info_raw(&body).await?;
+        res.into_vec()
     }
 
     pub async fn withdraw3(&self, destination: &str, amount: &str) -> InfraResult<Value> {
