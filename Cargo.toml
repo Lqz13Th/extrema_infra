@@ -1,6 +1,6 @@
 [package]
 name = "extrema_infra"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 
 readme = "README.md"
@@ -26,8 +26,8 @@ path = "src/lib.rs"
 # Async runtime
 tokio = { version = "1.53.1", features = ["full"] }
 tokio-stream = { version = "0.1.19", features = ["sync"] }
-futures = "0.3.33"
-futures-util = "0.3.33"
+futures = "0.3.34"
+futures-util = "0.3.34"
 
 # HTTP / WebSocket
 reqwest = { version = "0.13.4", features = ["json", "gzip"] }
@@ -45,7 +45,7 @@ hmac = "0.13.0"
 sha2 = "0.11.0"
 sha3 = "0.12.0"
 secp256k1 = { version = "0.31.1", features = ["recovery"] }
-data-encoding = "2.11.0"
+data-encoding = "2.11.1"
 
 # TLS
 rustls = { version = "0.23.43", features = ["aws-lc-rs"] }
@@ -53,7 +53,7 @@ rustls = { version = "0.23.43", features = ["aws-lc-rs"] }
 # IPC / Model inference / Data processing
 zeromq = { version = "0.6.0", optional = true }
 tract-onnx = { version = "0.23.4", optional = true }
-polars = { version = "0.54.4", default-features = false, optional = true }
+polars = { version = "0.55.2", default-features = false, optional = true }
 
 # Logging & Tracing
 tracing = "0.1.44"
@@ -61,7 +61,7 @@ tracing-subscriber = "0.3.23"
 
 # Environment & Error handling
 dotenvy = "0.15.7"
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 
 [features]
 default = []
