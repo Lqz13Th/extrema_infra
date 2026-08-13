@@ -162,7 +162,7 @@ async fn main() -> InfraResult<()> {
     let binance_ws_candle = WsTaskInfo {
         market: Market::BinanceUmFutures,
         ws_channel: WsChannel::Candles(Some(CandleParam::OneMinute)),
-        filter_channels: false, // false for debug msg
+        filter_channels: false, // Log websocket decode failures.
         chunk: 1,               // number of websocket connections for this task
         task_base_id: None,
     };

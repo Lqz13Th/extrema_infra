@@ -311,7 +311,7 @@ async fn main() -> InfraResult<()> {
 
     // Strategy logic (signal generation, sends orders to account module)
     let strategy_logic = HFTStrategy::new();
-    // Account/order execution module (handles exchange connection + order placement)
+    // Receives execution requests and owns exchange connectivity; submission is omitted.
     let strategy_account_module = AccountModule::new();
 
     // WebSocket tasks: account order updates & market trades

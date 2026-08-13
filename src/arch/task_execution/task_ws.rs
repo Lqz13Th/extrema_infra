@@ -3,17 +3,19 @@ use crate::arch::market_assets::market_core::Market;
 /// Descriptor for a websocket relay task.
 ///
 /// The relay owns websocket IO for a market/channel pair and publishes
-/// normalized events into its task-local broadcast stream. Strategies usually react
-/// to the initial `on_ws_event` event by sending connect/login/subscribe
-/// commands through the task handle.
+/// normalized events into its task-local broadcast ring. Before every connection
+/// or reconnection cycle, it emits `on_ws_event`; the handler must repeat the
+/// required connect/login/subscribe sequence and be safe to call again.
 #[derive(Clone, Debug)]
 pub struct WsTaskInfo {
     /// Exchange or venue for this websocket task.
     pub market: Market,
     /// Stream category handled by this task.
     pub ws_channel: WsChannel,
-    /// Whether parse failures from expected non-target websocket payloads should
-    /// be ignored quietly instead of logged as parse errors.
+    /// Whether to suppress logs for all text and binary decode failures.
+    ///
+    /// When `true`, malformed target payloads are silent as well as expected
+    /// non-target messages. Failed payloads are dropped in either mode.
     pub filter_channels: bool,
     /// Number of task instances to spawn.
     pub chunk: u64,

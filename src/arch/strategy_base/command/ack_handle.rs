@@ -2,19 +2,25 @@ use tokio::sync::oneshot::Sender;
 
 /// Acknowledgement status returned by runtime tasks.
 ///
-/// Strategies can pass an expected status to
-/// `CommandHandle::send_command`. This is useful for ordered websocket control
-/// flows where the next message should only be sent after the previous command
-/// was accepted, such as connect -> login -> subscribe.
+/// Strategies can pass an expected status to [`CommandHandle::send_command`]
+/// to sequence relay commands such as connect -> login -> subscribe. An
+/// acknowledgement reports progress inside the local relay; it does not imply
+/// exchange-level authentication, subscription, or order acceptance.
+///
+/// [`CommandHandle::send_command`]: crate::arch::strategy_base::command::command_core::CommandHandle::send_command
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AckStatus {
-    /// Websocket connection command was accepted.
+    /// The websocket relay completed the connection handshake.
     WsConnect,
-    /// Websocket message command was accepted.
+    /// The relay consumed a websocket message command and attempted the write.
+    ///
+    /// The relay currently returns this status even when the socket write fails.
     WsMessage,
-    /// Websocket shutdown command was accepted.
+    /// The relay consumed a shutdown command and attempted its payload write.
+    ///
+    /// The relay currently returns this status even when the socket write fails.
     WsShutdown,
-    /// Alt task command was accepted or auto-acknowledged.
+    /// An alt task auto-acknowledged an unexpected ack-bearing command.
     AltTask,
     /// Unknown or placeholder acknowledgement.
     Unknown,

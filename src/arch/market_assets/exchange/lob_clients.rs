@@ -15,9 +15,9 @@ use crate::errors::{InfraError, InfraResult};
 
 /// Unified dispatcher for the built-in limit-order-book exchange clients.
 ///
-/// Each trait call delegates to the selected concrete client. Exchange
-/// capabilities are not uniform, so unsupported operation and market
-/// combinations return [`InfraError::Unimplemented`].
+/// Dispatcher methods delegate supported client/operation combinations to the
+/// selected concrete client. Combinations not exposed by this aggregate return
+/// [`InfraError::Unimplemented`].
 #[derive(Clone, Debug)]
 #[cfg(feature = "lob_clients")]
 pub enum LobClients {

@@ -96,10 +96,10 @@ flowchart TB
         PM["Portfolio mediator<br/>risk / constraints / OMS"]
         PLAN["Order planner<br/>slice / net / reduce-only / route"]
 
-        subgraph ORDERS["N order tasks"]
-            O1["Account A"]
-            O2["Account B"]
-            O3["Account N"]
+        subgraph ORDERS["N application order-execution modules"]
+            O1["Account A execution"]
+            O2["Account B execution"]
+            O3["Account N execution"]
         end
 
         CMD["Strategy Cmd Path<br/>optional WS order route"]
@@ -132,13 +132,13 @@ flowchart TB
     ALLOC -->|allocator intent| PM
     PM --> PLAN
 
-    PLAN -->|order instruction| O1
-    PLAN -->|order instruction| O2
-    PLAN -->|order instruction| O3
+    PLAN -->|OrderExecute via relay| O1
+    PLAN -->|OrderExecute via relay| O2
+    PLAN -->|OrderExecute via relay| O3
 
-    O1 -->|async REST order| EXS
-    O2 -->|async REST order| EXS
-    O3 -->|async REST order| EXS
+    O1 -->|application REST submission| EXS
+    O2 -->|application REST submission| EXS
+    O3 -->|application REST submission| EXS
 
     O1 -.->|WS order via command handle| CMD
     O2 -.->|WS order via command handle| CMD
@@ -148,9 +148,12 @@ flowchart TB
     ACC -.->|state feedback| PM
 ```
 
-Signal, model, allocator, and portfolio-mediator components can all be Strategy
-Modules. The runtime composes them with websocket tasks, scheduler tasks,
-model-prediction tasks, command handles, and account-bound order tasks.
+Signal, model, allocator, portfolio-mediator, and execution components can all
+be Strategy Modules. The runtime composes them with websocket tasks, scheduler
+tasks, model-prediction tasks, command handles, and order-execution relays. The
+built-in `OrderExecution` task only republishes `OrderExecute` batches to
+`on_order_execution`; an application module performs actual REST or websocket
+submission.
 
 ---
 
@@ -216,7 +219,9 @@ Enable the `model_onnx` feature, or `model_runner` / `all`, to make this backend
 - The ONNX model is loaded once during task initialization.
 - Inference requests are routed through a dedicated worker thread owned by the ONNX task.
 - Callers send an `AltTensor` feature payload and receive an `AltTensor` prediction payload.
-- For multi-output models, select a specific output with `output_index`; otherwise the runner picks the first decodable tensor output.
+- For multi-output models, select a specific output with `output_index`.
+  Otherwise, the runner prefers the first `f32` or `f64` output; if neither is
+  present, it selects the first output that can be converted to `f32`.
 
 You can initialize the runner in two ways:
 
@@ -281,18 +286,14 @@ selected client does not support return `InfraError::Unimplemented`.
 
 ---
 
-## TLS / rustls Initialization (Important)
+## TLS / rustls Initialization
 
 This framework relies on `rustls` for secure REST and WebSocket connections
 (e.g. via `reqwest` and `tokio-tungstenite`).
 
-Starting with **rustls v0.23**, the TLS crypto backend (e.g. `aws-lc-rs` or `ring`)
-**must be explicitly selected by the final binary**.
-
-### ⚠️ Required for binaries that use TLS-enabled REST/WebSocket functionality
-
-Before using any TLS-enabled functionality (REST / WebSocket),
-the executable **must install a default CryptoProvider**:
+When exactly one built-in provider feature is enabled, `rustls` 0.23 can select
+it automatically. A final binary can still install a provider explicitly before
+creating REST or websocket clients to pin the process-wide choice:
 
 ```rust
 #[tokio::main]
@@ -304,6 +305,11 @@ async fn main() {
   // start tokio runtime, env builder, etc.
 }
 ```
+
+Explicit selection is necessary when the dependency graph enables zero or
+multiple built-in providers, or when the application uses a custom provider.
+Provider installation belongs in the final binary because `rustls` allows only
+one process-wide default provider.
 
 ---
 
@@ -401,14 +407,17 @@ async fn main() -> InfraResult<()> {
 
 For a practical implementation, see the [complex strategy example](examples/complex_strategy_example.rs).
 
-- **Latency-sensitive task**  
-  - Handles order placement, cancel/replace, LOB reaction, etc.
+- **Latency-sensitive module**
+  - Receives execution requests and can implement placement, cancel/replace,
+    LOB reaction, and other application logic.
+  - The example logs relayed execution requests; exchange submission is omitted.
   - Minimal logic, no blocking, no heavy computation.
   - Samples only the data needed by the fast path.
 
 - **Supporting tasks**
-  - Order execution, feature generation, risk checks, position management, and evaluation.
-  - These tasks communicate with the latency-sensitive task through channels (**CommandEmitter** -> **OrderExecution**) and task-local state.
+  - Feature generation, risk checks, position management, and evaluation.
+  - These tasks communicate with the latency-sensitive module through channels
+    (`CommandEmitter` -> `OrderExecution` relay) and task-local state.
   - Use **AltTask** for feature extraction, sending data to a ZMQ or ONNX model runner via command handle, then generating signals to execute orders.
 
 Latency-sensitive logic can be decomposed into multiple tasks, with each task

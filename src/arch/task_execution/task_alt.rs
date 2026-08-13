@@ -26,6 +26,10 @@ pub enum AltTaskType {
     #[cfg(any(feature = "model_onnx", feature = "model_zmq"))]
     ModelPreds(ModelRunner),
     /// Periodic scheduler task.
+    ///
+    /// The duration must be greater than zero. After the task's approximately
+    /// five-second startup delay, the first tick is immediate; later ticks use
+    /// the configured duration.
     TimeScheduler(Duration),
 }
 
