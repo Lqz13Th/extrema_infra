@@ -1,20 +1,18 @@
 use std::sync::Arc;
 use tracing::info;
 
-use crate::{
-    arch::{
-        infra_core::{env_core::EnvCore, env_mediator::EnvMediator},
-        strategy_base::{
-            handler::task_channel::TaskChannels,
-            hlist_core::{HCons, HNil},
-            strategy_group::InnerStrategyGroup,
-            strategy_module::InnerStrategyModule,
-        },
-        task_execution::{TaskInfo, TaskKey},
-        traits::strategy::Strategy,
+use crate::arch::{
+    infra_core::{env_core::EnvCore, env_mediator::EnvMediator},
+    strategy_base::{
+        handler::task_channel::TaskChannels,
+        hlist_core::{HCons, HNil},
+        strategy_group::InnerStrategyGroup,
+        strategy_module::InnerStrategyModule,
     },
-    errors::{InfraError, InfraResult},
+    task_execution::{TaskInfo, TaskKey},
+    traits::strategy::Strategy,
 };
+use crate::errors::{InfraError, InfraResult};
 
 /// Builder for an `extrema_infra` runtime.
 ///
