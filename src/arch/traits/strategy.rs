@@ -228,59 +228,59 @@ pub trait EventHandler {
     /// Receives model prediction tensors from a model task.
     ///
     /// Model tasks emit this after receiving `TaskCommand::FeatInput` and
-    /// finishing inference. Registering the model task makes `EnvBuilder`
-    /// provide its default prediction channel.
+    /// finishing inference. The concrete model task publishes the result into
+    /// its task-local broadcast ring.
     fn on_preds(&mut self, _msg: InfraMsg<AltTensor>) -> impl Future<Output = ()> + Send {
         ready(())
     }
 
     /// Receives periodic scheduler ticks.
     ///
-    /// Scheduler tasks emit [`AltScheduleEvent`] at their configured
-    /// `Duration`. Use `msg.task_id` to distinguish multiple timers.
+    /// Scheduler tasks emit [`AltScheduleEvent`]. After task startup, their first
+    /// tick is immediate and later ticks use the configured `Duration`. Use
+    /// `msg.task_id` to distinguish multiple timers.
     fn on_schedule(&mut self, _msg: InfraMsg<AltScheduleEvent>) -> impl Future<Output = ()> + Send {
         ready(())
     }
 
     /// Receives generic websocket-task lifecycle/control events.
     ///
-    /// Websocket tasks emit this before waiting for the initial
-    /// `TaskCommand::WsConnect`. Strategies commonly implement this callback to
-    /// connect, authenticate, and subscribe the relay.
+    /// Websocket tasks emit this before every connection or reconnection cycle
+    /// while waiting for `TaskCommand::WsConnect`. Implementations should be
+    /// safe to call repeatedly and must reconnect, authenticate, and subscribe
+    /// the relay for each cycle.
     fn on_ws_event(&mut self, _msg: InfraMsg<WsTaskInfo>) -> impl Future<Output = ()> + Send {
         ready(())
     }
 
     /// Receives normalized public trade batches.
     ///
-    /// Emitted by websocket relays configured with [`WsChannel::Trades`].
-    /// Registering the task makes `EnvBuilder` provide its default trade
-    /// channel.
+    /// A concrete websocket task configured with [`WsChannel::Trades`] publishes
+    /// each batch into its task-local broadcast ring.
     fn on_trade(&mut self, _msg: InfraMsg<Vec<WsTrade>>) -> impl Future<Output = ()> + Send {
         ready(())
     }
 
     /// Receives normalized order book updates.
     ///
-    /// Emitted by exchange relays that implement [`WsChannel::Lob`] routing and
-    /// publish into the inferred default LOB channel.
+    /// A concrete exchange task that implements [`WsChannel::Lob`] routing
+    /// publishes each update into its task-local broadcast ring.
     fn on_lob(&mut self, _msg: InfraMsg<Vec<WsLob>>) -> impl Future<Output = ()> + Send {
         ready(())
     }
 
     /// Receives normalized market-by-order order book updates.
     ///
-    /// Emitted by exchange relays that implement [`WsChannel::LobMbo`] routing
-    /// and publish into the inferred default MBO channel.
+    /// A concrete exchange task that implements [`WsChannel::LobMbo`] routing
+    /// publishes each update into its task-local broadcast ring.
     fn on_lob_mbo(&mut self, _msg: InfraMsg<Vec<WsLobMbo>>) -> impl Future<Output = ()> + Send {
         ready(())
     }
 
     /// Receives normalized candle batches.
     ///
-    /// Emitted by websocket relays configured with [`WsChannel::Candles`].
-    /// Registering the task makes `EnvBuilder` provide its default candle
-    /// channel.
+    /// A concrete websocket task configured with [`WsChannel::Candles`]
+    /// publishes each batch into its task-local broadcast ring.
     fn on_candle(&mut self, _msg: InfraMsg<Vec<WsCandle>>) -> impl Future<Output = ()> + Send {
         ready(())
     }

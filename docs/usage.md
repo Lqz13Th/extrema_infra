@@ -178,10 +178,13 @@ let env = EnvBuilder::new()
 
 Common `AltTaskType` values:
 
-- `TimeScheduler(Duration)`: periodic ticks delivered to `on_schedule`.
+- `TimeScheduler(Duration)`: the duration must be greater than zero. After the
+  task's approximately five-second startup delay, the first `on_schedule`
+  callback is immediate; later callbacks use the configured duration.
 - `InstIntent`: instrument or portfolio target intents delivered to
   `on_inst_intent`.
-- `OrderExecution`: order batches delivered to `on_order_execution`.
+- `OrderExecution`: relays order batches to `on_order_execution`; the receiving
+  application module implements actual exchange submission.
 - `ModelPreds(ModelRunner::Zmq(..))`: external model process integration.
   Enable `model_zmq`, `model_runner`, or `all`, to make this variant available.
 - `ModelPreds(ModelRunner::Onnx(..))`: in-process ONNX inference. Enable
@@ -193,10 +196,12 @@ to `on_preds`.
 
 ## Public Websocket Task
 
-A public market-data strategy typically receives a `WsTaskInfo` startup event,
-uses the command handle to connect and subscribe, then consumes normalized
-events such as trades or candles. LOB updates are available only for exchange
-relays that implement `WsChannel::Lob` routing.
+A public market-data strategy receives a `WsTaskInfo` event before each
+connection or reconnection cycle, uses the command handle to connect and
+subscribe, then consumes normalized events such as trades or candles. The
+handler must be safe to call repeatedly and must repeat the full initialization
+sequence each time. LOB updates are available only for exchange relays that
+implement `WsChannel::Lob` routing.
 
 ```rust,ignore
 use extrema_infra::prelude::*;
@@ -236,9 +241,9 @@ impl EventHandler for MyPublicWsModule {
 }
 ```
 
-The strategy owns the connect and subscribe sequence. In practice, the
-`on_ws_event` handler finds the websocket handle, sends `TaskCommand::WsConnect`,
-then sends exchange login/subscription messages as needed:
+The strategy owns the connect and subscribe sequence. The Binance UM example
+below uses its URL-only target with `TaskCommand::WsConnect`, then sends exchange
+login/subscription messages as needed:
 
 ```rust,ignore
 async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
@@ -290,6 +295,11 @@ async fn on_ws_event(&mut self, msg: InfraMsg<WsTaskInfo>) {
         .await;
 }
 ```
+
+URL-only clients use `get_*_connect_msg` with `TaskCommand::WsConnect`. Clients
+that require HTTP upgrade metadata, currently including Gate Futures, use
+`get_*_connect_target` with `TaskCommand::WsConnectWithTarget`; the string form
+cannot carry headers.
 
 ## Private Account Websocket Task
 
@@ -444,8 +454,9 @@ reduce receivers and wakeups, but do not reduce publisher ring capacity.
 
 ## TLS Setup
 
-If the binary uses REST or websocket clients, install a `rustls` crypto provider
-before creating those clients:
+When exactly one built-in provider feature is enabled, `rustls` 0.23 can select
+it automatically. A final binary can still install a provider explicitly before
+creating REST or websocket clients to pin the process-wide choice:
 
 ```rust,no_run
 rustls::crypto::aws_lc_rs::default_provider()
@@ -453,8 +464,10 @@ rustls::crypto::aws_lc_rs::default_provider()
     .expect("failed to install rustls crypto provider");
 ```
 
-This belongs in the final binary, not inside library code, because `rustls`
-allows only one process-wide default provider.
+Explicit selection is necessary when the dependency graph enables zero or
+multiple built-in providers, or when the application uses a custom provider.
+It belongs in the final binary, not library code, because `rustls` allows only
+one process-wide default provider.
 
 ## Reference Patterns
 

@@ -168,7 +168,11 @@ pub trait LobWebsocket: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
-    /// Builds or returns a public websocket connection target.
+    /// Returns a public websocket endpoint using the URL-only string form.
+    ///
+    /// This form cannot carry HTTP upgrade headers. Use
+    /// [`LobWebsocket::get_public_connect_target`] when the venue requires
+    /// connection metadata.
     fn get_public_connect_msg(
         &self,
         _channel: &WsChannel,
@@ -186,7 +190,11 @@ pub trait LobWebsocket: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
-    /// Returns the private websocket endpoint using the legacy string form.
+    /// Returns a private websocket endpoint using the URL-only string form.
+    ///
+    /// This form cannot carry HTTP upgrade headers. Use
+    /// [`LobWebsocket::get_private_connect_target`] when the venue requires
+    /// connection metadata.
     fn get_private_connect_msg(
         &self,
         _channel: &WsChannel,
