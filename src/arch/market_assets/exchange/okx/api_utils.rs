@@ -38,7 +38,7 @@ pub fn get_okx_timestamp() -> String {
     let seconds = now.as_secs();
     let millis = now.subsec_millis();
 
-    format!("{}.{}", seconds, millis)
+    format!("{}.{:03}", seconds, millis)
 }
 
 pub fn cli_perp_to_okx_inst(symbol: &str) -> String {
