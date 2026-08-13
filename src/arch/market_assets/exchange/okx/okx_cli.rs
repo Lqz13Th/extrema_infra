@@ -549,7 +549,7 @@ impl OkxCli {
     pub async fn get_current_lead_traders(
         &self,
         inst_type: Option<InstrumentType>,
-    ) -> InfraResult<Vec<CurrentLeadtrader>> {
+    ) -> InfraResult<Vec<RestLeadtraderOkx>> {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
@@ -578,19 +578,13 @@ impl OkxCli {
             )
             .await?;
 
-        let data: Vec<CurrentLeadtrader> = res
-            .into_vec()?
-            .into_iter()
-            .map(CurrentLeadtrader::from)
-            .collect();
-
-        Ok(data)
+        res.into_vec()
     }
 
     pub async fn get_public_lead_traders(
         &self,
-        query: PubLeadTraderQuery,
-    ) -> InfraResult<PubLeadtraderInfo> {
+        query: OkxPublicLeadTradersReq,
+    ) -> InfraResult<RestPubLeadTradersOkx> {
         let inst_type_str = match query.inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
@@ -649,7 +643,7 @@ impl OkxCli {
                 "No public lead traders data returned".into(),
             ))?;
 
-        Ok(PubLeadtraderInfo::from(data))
+        Ok(data)
     }
 
     pub async fn get_public_lead_trader_stats(
@@ -657,7 +651,7 @@ impl OkxCli {
         unique_code: &str,
         last_days: u64,
         inst_type: Option<InstrumentType>,
-    ) -> InfraResult<Vec<PubLeadtraderStats>> {
+    ) -> InfraResult<Vec<RestPubLeadTraderStatsOkx>> {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
@@ -677,13 +671,7 @@ impl OkxCli {
         let res: RestResOkx<RestPubLeadTraderStatsOkx> =
             parse_json_response("Okx public_lead_trader_stats", response).await?;
 
-        let data = res
-            .into_vec()?
-            .into_iter()
-            .map(PubLeadtraderStats::from)
-            .collect();
-
-        Ok(data)
+        res.into_vec()
     }
 
     pub async fn get_lead_trader_subpositions(
@@ -691,7 +679,7 @@ impl OkxCli {
         unique_code: &str,
         inst_type: Option<InstrumentType>,
         limit: Option<u32>,
-    ) -> InfraResult<Vec<LeadtraderSubposition>> {
+    ) -> InfraResult<Vec<RestSubPositionOkx>> {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
@@ -715,13 +703,7 @@ impl OkxCli {
         let res: RestResOkx<RestSubPositionOkx> =
             parse_json_response("Okx lead_trader_subpositions", response).await?;
 
-        let data = res
-            .into_vec()?
-            .into_iter()
-            .map(LeadtraderSubposition::from)
-            .collect();
-
-        Ok(data)
+        res.into_vec()
     }
 
     pub async fn get_lead_trader_subpositions_history(
@@ -731,7 +713,7 @@ impl OkxCli {
         limit: Option<u32>,
         before: Option<&str>,
         after: Option<&str>,
-    ) -> InfraResult<Vec<LeadtraderSubpositionHistory>> {
+    ) -> InfraResult<Vec<RestSubPositionHistoryOkx>> {
         let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
             InstrumentType::Spot => "SPOT",
             InstrumentType::Futures => "FUTURES",
@@ -761,13 +743,7 @@ impl OkxCli {
         let res: RestResOkx<RestSubPositionHistoryOkx> =
             parse_json_response("Okx lead_trader_subpositions_history", response).await?;
 
-        let data: Vec<LeadtraderSubpositionHistory> = res
-            .into_vec()?
-            .into_iter()
-            .map(LeadtraderSubpositionHistory::from)
-            .collect();
-
-        Ok(data)
+        res.into_vec()
     }
 
     pub async fn get_funding_rate_info(

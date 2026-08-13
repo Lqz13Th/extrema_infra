@@ -1,9 +1,5 @@
 use serde::Deserialize;
 
-use crate::arch::market_assets::{
-    api_general::get_micros_timestamp, exchange::okx::api_utils::CurrentLeadtrader,
-};
-
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestLeadtraderOkx {
@@ -19,16 +15,4 @@ pub struct RestLeadtraderOkx {
     pub todayPnl: String,
     pub uniqueCode: String,
     pub upl: String,
-}
-impl From<RestLeadtraderOkx> for CurrentLeadtrader {
-    fn from(d: RestLeadtraderOkx) -> Self {
-        CurrentLeadtrader {
-            timestamp: get_micros_timestamp(),
-            unique_code: d.uniqueCode,
-            nick_name: d.nickName,
-            margin: d.margin.parse().unwrap_or_default(),
-            copy_pnl: d.copyTotalPnl.parse().unwrap_or_default(),
-            copy_amount: d.copyTotalAmt.parse().unwrap_or_default(),
-        }
-    }
 }

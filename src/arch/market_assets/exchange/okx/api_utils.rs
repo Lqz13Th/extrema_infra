@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::json;
 use tracing::error;
 
@@ -92,6 +92,64 @@ pub fn okx_inst_to_cli(symbol: &str) -> String {
     }
 }
 
+pub(crate) fn de_okx_inst<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    String::deserialize(deserializer).map(|inst| okx_inst_to_cli(&inst))
+}
+
+pub(crate) fn de_okx_instrument_type<'de, D>(deserializer: D) -> Result<InstrumentType, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(
+        match String::deserialize(deserializer)?
+            .to_ascii_uppercase()
+            .as_str()
+        {
+            "SPOT" => InstrumentType::Spot,
+            "SWAP" => InstrumentType::Perpetual,
+            "FUTURES" => InstrumentType::Futures,
+            "OPTION" | "OPTIONS" => InstrumentType::Options,
+            _ => InstrumentType::Unknown,
+        },
+    )
+}
+
+pub(crate) fn de_okx_margin_mode<'de, D>(deserializer: D) -> Result<MarginMode, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(
+        match String::deserialize(deserializer)?
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "cross" => MarginMode::Cross,
+            "isolated" => MarginMode::Isolated,
+            _ => MarginMode::Unknown,
+        },
+    )
+}
+
+pub(crate) fn de_okx_position_side<'de, D>(deserializer: D) -> Result<PositionSide, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(
+        match String::deserialize(deserializer)?
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "long" => PositionSide::Long,
+            "short" => PositionSide::Short,
+            "net" => PositionSide::Both,
+            _ => PositionSide::Unknown,
+        },
+    )
+}
+
 pub fn okx_preopen_inst(symbol: &str) -> Option<(InstrumentType, String)> {
     let (inst_type, inst) = symbol.strip_prefix("LISTING-")?.split_once('-')?;
     if !inst.contains('-') {
@@ -124,7 +182,7 @@ pub fn okx_candle_interval(interval: &CandleParam) -> &str {
 /// Query parameters for retrieving public lead traders from OKX.
 /// All fields are optional and can be used to filter or paginate results.
 #[derive(Clone, Debug, Default)]
-pub struct PubLeadTraderQuery {
+pub struct OkxPublicLeadTradersReq {
     /// Instrument type: Spot / Perpetual / Option
     pub inst_type: Option<InstrumentType>,
     /// Sorting type: "overview" / "pnl" / "aum" / "win_ratio" / "pnl_ratio" / "current_copy_trader_pnl".
@@ -147,85 +205,6 @@ pub struct PubLeadTraderQuery {
     pub page: Option<u64>,
     /// Number of records per page
     pub limit: Option<u64>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct LeadtraderSubposition {
-    pub timestamp: u64,
-    pub unique_code: String,
-    pub inst: String,
-    pub subpos_id: String,
-    pub pos_side: PositionSide,
-    pub margin_mode: MarginMode,
-    pub leverage: f64,
-    pub open_ts: u64,
-    pub open_avg_price: f64,
-    pub size: f64,
-    pub ins_type: InstrumentType,
-    pub margin: f64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct LeadtraderSubpositionHistory {
-    pub timestamp: u64,
-    pub unique_code: String,
-    pub inst: String,
-    pub subpos_id: String,
-    pub pos_side: PositionSide,
-    pub margin_mode: MarginMode,
-    pub ins_type: InstrumentType,
-    pub leverage: f64,
-    pub size: f64,
-    pub margin: f64,
-    pub open_ts: u64,
-    pub open_avg_price: f64,
-    pub close_ts: u64,
-    pub close_avg_price: f64,
-    pub pnl: f64,
-    pub pnl_ratio: f64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct CurrentLeadtrader {
-    pub timestamp: u64,
-    pub unique_code: String,
-    pub nick_name: String,
-    pub margin: f64,
-    pub copy_pnl: f64,
-    pub copy_amount: f64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PubLeadtraderInfo {
-    pub data_version: u64,
-    pub total_page: u64,
-    pub pub_leadtraders: Vec<PubLeadtrader>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PubLeadtrader {
-    pub unique_code: String,
-    pub nick_name: String,
-    pub aum: f64,
-    pub copy_state: u64,
-    pub copy_trader_num: u64,
-    pub max_copy_trader_num: u64,
-    pub accum_copy_trader_num: u64,
-    pub lead_days: u64,
-    pub win_ratio: f64,
-    pub pnl_ratio: f64,
-    pub pnl: f64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PubLeadtraderStats {
-    pub timestamp: u64,
-    pub win_ratio: f64,
-    pub profit_days: u64,
-    pub loss_days: f64,
-    pub invest_amount: f64,
-    pub avg_sub_pos_national: f64,
-    pub current_copy_trader_pnl: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
