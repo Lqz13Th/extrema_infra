@@ -12,10 +12,10 @@ use tract_onnx::prelude::{
     tvec,
 };
 
-use crate::{
-    arch::{strategy_base::handler::alt_events::AltTensor, task_execution::task_general::LogLevel},
-    errors::{InfraError, InfraResult},
+use crate::arch::{
+    strategy_base::handler::alt_events::AltTensor, task_execution::task_general::LogLevel,
 };
+use crate::errors::{InfraError, InfraResult};
 
 use super::AltTaskRunner;
 

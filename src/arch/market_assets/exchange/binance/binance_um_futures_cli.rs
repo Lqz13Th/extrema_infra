@@ -419,84 +419,6 @@ impl BinanceUmCli {
         Ok(candles)
     }
 
-    async fn _get_candles(
-        &self,
-        inst: &str,
-        interval: CandleParam,
-        limit: Option<u32>,
-        start_time_us: Option<u64>,
-        end_time_us: Option<u64>,
-    ) -> InfraResult<Vec<CandleData>> {
-        let mut params = vec![
-            format!("symbol={}", cli_perp_to_pure_uppercase(inst)),
-            format!("interval={}", interval.as_str()),
-        ];
-        if let Some(limit) = limit {
-            params.push(format!("limit={limit}"));
-        }
-        if let Some(start_time_us) = start_time_us {
-            params.push(format!("startTime={}", start_time_us / 1_000));
-        }
-        if let Some(end_time_us) = end_time_us {
-            params.push(format!("endTime={}", end_time_us / 1_000));
-        }
-
-        let url = format!(
-            "{}{}?{}",
-            BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_KLINES,
-            params.join("&")
-        );
-
-        let response = self.client.get(url).send().await?;
-        let res: RestResBinance<RestCandleBinanceUM> =
-            parse_json_response("BinanceUmFutures candles", response).await?;
-
-        let mut data: Vec<CandleData> = res
-            .into_vec()?
-            .into_iter()
-            .map(|entry| entry.into_candle_data(inst))
-            .collect();
-        data.sort_by_key(|candle| candle.timestamp);
-
-        Ok(data)
-    }
-
-    async fn _get_orderbook(
-        &self,
-        inst: &str,
-        inst_type: InstrumentType,
-        depth: usize,
-    ) -> InfraResult<OrderBookData> {
-        if inst_type != InstrumentType::Perpetual {
-            return Err(InfraError::ApiCliError(format!(
-                "Binance UM orderbook supports perpetual instruments only, got {:?}",
-                inst_type
-            )));
-        }
-
-        let mut params = vec![format!("symbol={}", cli_perp_to_pure_uppercase(inst))];
-        if depth > 0 {
-            params.push(format!("limit={}", binance_um_orderbook_limit(depth)?));
-        }
-
-        let url = format!(
-            "{}{}?{}",
-            BINANCE_UM_FUTURES_BASE_URL,
-            BINANCE_UM_FUTURES_DEPTH,
-            params.join("&")
-        );
-        let response = self.client.get(url).send().await?;
-        let res: RestResBinance<RestOrderBookBinanceUM> =
-            parse_json_response("BinanceUmFutures orderbook", response).await?;
-
-        res.into_vec()?
-            .into_iter()
-            .next()
-            .map(|entry| entry.into_orderbook_data(inst))
-            .ok_or_else(|| InfraError::ApiCliError("No Binance UM orderbook data returned".into()))
-    }
-
     pub async fn get_premium_index(
         &self,
         inst: Option<&str>,
@@ -634,6 +556,84 @@ impl BinanceUmCli {
             .collect();
 
         Ok(data)
+    }
+
+    async fn _get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        let mut params = vec![
+            format!("symbol={}", cli_perp_to_pure_uppercase(inst)),
+            format!("interval={}", interval.as_str()),
+        ];
+        if let Some(limit) = limit {
+            params.push(format!("limit={limit}"));
+        }
+        if let Some(start_time_us) = start_time_us {
+            params.push(format!("startTime={}", start_time_us / 1_000));
+        }
+        if let Some(end_time_us) = end_time_us {
+            params.push(format!("endTime={}", end_time_us / 1_000));
+        }
+
+        let url = format!(
+            "{}{}?{}",
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_KLINES,
+            params.join("&")
+        );
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestCandleBinanceUM> =
+            parse_json_response("BinanceUmFutures candles", response).await?;
+
+        let mut data: Vec<CandleData> = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| entry.into_candle_data(inst))
+            .collect();
+        data.sort_by_key(|candle| candle.timestamp);
+
+        Ok(data)
+    }
+
+    async fn _get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        if inst_type != InstrumentType::Perpetual {
+            return Err(InfraError::ApiCliError(format!(
+                "Binance UM orderbook supports perpetual instruments only, got {:?}",
+                inst_type
+            )));
+        }
+
+        let mut params = vec![format!("symbol={}", cli_perp_to_pure_uppercase(inst))];
+        if depth > 0 {
+            params.push(format!("limit={}", binance_um_orderbook_limit(depth)?));
+        }
+
+        let url = format!(
+            "{}{}?{}",
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_DEPTH,
+            params.join("&")
+        );
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestOrderBookBinanceUM> =
+            parse_json_response("BinanceUmFutures orderbook", response).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .map(|entry| entry.into_orderbook_data(inst))
+            .ok_or_else(|| InfraError::ApiCliError("No Binance UM orderbook data returned".into()))
     }
 
     async fn _get_tickers(

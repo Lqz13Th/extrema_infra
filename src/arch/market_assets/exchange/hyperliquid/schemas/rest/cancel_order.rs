@@ -1,12 +1,9 @@
 use serde::Deserialize;
 
-use crate::{
-    arch::market_assets::{
-        api_data::account_data::OrderAckData, api_general::get_micros_timestamp,
-        base_data::OrderStatus,
-    },
-    errors::{InfraError, InfraResult},
+use crate::arch::market_assets::{
+    api_data::account_data::OrderAckData, api_general::get_micros_timestamp, base_data::OrderStatus,
 };
+use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct RestCancelAckHyperliquid {

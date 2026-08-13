@@ -7,10 +7,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::arch::market_assets::base_data::{
-    MarginMode, OrderSide, OrderType, PositionSide, TimeInForce,
+use crate::arch::{
+    market_assets::base_data::{MarginMode, OrderSide, OrderType, PositionSide, TimeInForce},
+    task_execution::task_ws::CandleParam,
 };
-use crate::arch::task_execution::task_ws::CandleParam;
 use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -378,6 +378,59 @@ impl HyperliquidCli {
             .await
     }
 
+    pub async fn get_perps_at_open_interest_cap(&self) -> InfraResult<Vec<String>> {
+        let body = json!({
+            "type": "perpsAtOpenInterestCap",
+            "dex": self._perp_dex(),
+        });
+        let res: RestResHyperliquid<String> = self._post_info_raw(&body).await?;
+        res.into_vec()
+    }
+
+    pub async fn set_leverage(
+        &self,
+        inst: &str,
+        leverage: u32,
+        margin_mode: MarginMode,
+    ) -> InfraResult<()> {
+        if leverage == 0 {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid leverage must be greater than 0".into(),
+            ));
+        }
+
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        if !is_hyperliquid_cli_perp_inst(&normalized_inst) {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid set_leverage supports perpetual instruments only".into(),
+            ));
+        }
+        self._ensure_perp_quote_matches(&normalized_inst)?;
+
+        let action = HyperliquidUpdateLeverageAction {
+            kind: "updateLeverage",
+            asset: self._inst_to_asset_id(&normalized_inst)?,
+            is_cross: match margin_mode {
+                MarginMode::Cross => true,
+                MarginMode::Isolated => false,
+                MarginMode::Unknown => {
+                    return Err(InfraError::ApiCliError(
+                        "Unknown margin mode for Hyperliquid set_leverage".into(),
+                    ));
+                },
+            },
+            leverage,
+        };
+
+        self.auth
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_exchange_action_raw::<Value, _>(&self.client, &action)
+            .await?;
+
+        Ok(())
+    }
+
     async fn _get_candles(
         &self,
         inst: &str,
@@ -443,59 +496,6 @@ impl HyperliquidCli {
             ))?;
 
         Ok(book.into_orderbook_data(inst, depth))
-    }
-
-    pub async fn get_perps_at_open_interest_cap(&self) -> InfraResult<Vec<String>> {
-        let body = json!({
-            "type": "perpsAtOpenInterestCap",
-            "dex": self._perp_dex(),
-        });
-        let res: RestResHyperliquid<String> = self._post_info_raw(&body).await?;
-        res.into_vec()
-    }
-
-    pub async fn set_leverage(
-        &self,
-        inst: &str,
-        leverage: u32,
-        margin_mode: MarginMode,
-    ) -> InfraResult<()> {
-        if leverage == 0 {
-            return Err(InfraError::ApiCliError(
-                "Hyperliquid leverage must be greater than 0".into(),
-            ));
-        }
-
-        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
-        if !is_hyperliquid_cli_perp_inst(&normalized_inst) {
-            return Err(InfraError::ApiCliError(
-                "Hyperliquid set_leverage supports perpetual instruments only".into(),
-            ));
-        }
-        self._ensure_perp_quote_matches(&normalized_inst)?;
-
-        let action = HyperliquidUpdateLeverageAction {
-            kind: "updateLeverage",
-            asset: self._inst_to_asset_id(&normalized_inst)?,
-            is_cross: match margin_mode {
-                MarginMode::Cross => true,
-                MarginMode::Isolated => false,
-                MarginMode::Unknown => {
-                    return Err(InfraError::ApiCliError(
-                        "Unknown margin mode for Hyperliquid set_leverage".into(),
-                    ));
-                },
-            },
-            leverage,
-        };
-
-        self.auth
-            .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_exchange_action_raw::<Value, _>(&self.client, &action)
-            .await?;
-
-        Ok(())
     }
 
     async fn _get_instrument_info(

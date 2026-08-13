@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::arch::market_assets::api_general::de_micros_from_int;
+
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct RestAssetDepositHistoryOkx {
@@ -19,8 +21,8 @@ pub struct RestAssetDepositHistoryOkx {
     pub areaCodeTo: String,
     #[serde(default)]
     pub txId: String,
-    #[serde(default)]
-    pub ts: String,
+    #[serde(default, deserialize_with = "de_micros_from_int")]
+    pub ts: u64,
     #[serde(default)]
     pub state: String,
     #[serde(default)]

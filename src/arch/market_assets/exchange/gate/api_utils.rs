@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tracing::{error, warn};
 
-use crate::arch::market_assets::{api_general::get_seconds_timestamp, base_data::SUBSCRIBE_LOWER};
-use crate::arch::task_execution::task_ws::LobFrequency;
+use crate::arch::{
+    market_assets::{api_general::get_seconds_timestamp, base_data::SUBSCRIBE_LOWER},
+    task_execution::task_ws::LobFrequency,
+};
 use crate::errors::{InfraError, InfraResult};
 
 pub const GATE_CHANNEL_ID_EXTRA_KEY: &str = "gate_channel_id";
