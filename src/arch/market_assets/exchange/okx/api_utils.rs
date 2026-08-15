@@ -179,6 +179,127 @@ pub fn okx_candle_interval(interval: &CandleParam) -> &str {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OkxOpenOrdersReq {
+    pub inst_type: Option<String>,
+    pub inst_family: Option<String>,
+    pub inst_id: Option<String>,
+    pub ord_type: Option<String>,
+    pub state: Option<String>,
+    pub after: Option<String>,
+    pub before: Option<String>,
+    pub limit: Option<u32>,
+}
+
+impl OkxOpenOrdersReq {
+    pub(crate) fn to_query_body(&self) -> String {
+        let mut parts = Vec::new();
+
+        if let Some(value) = self.inst_type.as_deref() {
+            parts.push(format!("instType={value}"));
+        }
+        if let Some(value) = self.inst_family.as_deref() {
+            parts.push(format!("instFamily={value}"));
+        }
+        if let Some(value) = self.inst_id.as_deref() {
+            parts.push(format!("instId={value}"));
+        }
+        if let Some(value) = self.ord_type.as_deref() {
+            parts.push(format!("ordType={value}"));
+        }
+        if let Some(value) = self.state.as_deref() {
+            parts.push(format!("state={value}"));
+        }
+        if let Some(value) = self.after.as_deref() {
+            parts.push(format!("after={value}"));
+        }
+        if let Some(value) = self.before.as_deref() {
+            parts.push(format!("before={value}"));
+        }
+        if let Some(value) = self.limit {
+            parts.push(format!("limit={value}"));
+        }
+
+        parts.join("&")
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OkxOrderHistoryReq {
+    pub inst_type: String,
+    pub inst_family: Option<String>,
+    pub inst_id: Option<String>,
+    pub ord_type: Option<String>,
+    pub state: Option<String>,
+    pub category: Option<String>,
+    pub after: Option<String>,
+    pub before: Option<String>,
+    pub begin: Option<u64>,
+    pub end: Option<u64>,
+    pub limit: Option<u32>,
+}
+
+impl OkxOrderHistoryReq {
+    pub(crate) fn to_query_body(&self) -> String {
+        let mut parts = vec![format!("instType={}", self.inst_type)];
+
+        if let Some(value) = self.inst_family.as_deref() {
+            parts.push(format!("instFamily={value}"));
+        }
+        if let Some(value) = self.inst_id.as_deref() {
+            parts.push(format!("instId={value}"));
+        }
+        if let Some(value) = self.ord_type.as_deref() {
+            parts.push(format!("ordType={value}"));
+        }
+        if let Some(value) = self.state.as_deref() {
+            parts.push(format!("state={value}"));
+        }
+        if let Some(value) = self.category.as_deref() {
+            parts.push(format!("category={value}"));
+        }
+        if let Some(value) = self.after.as_deref() {
+            parts.push(format!("after={value}"));
+        }
+        if let Some(value) = self.before.as_deref() {
+            parts.push(format!("before={value}"));
+        }
+        if let Some(value) = self.begin {
+            parts.push(format!("begin={value}"));
+        }
+        if let Some(value) = self.end {
+            parts.push(format!("end={value}"));
+        }
+        if let Some(value) = self.limit {
+            parts.push(format!("limit={value}"));
+        }
+
+        parts.join("&")
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OkxOrderReq {
+    pub inst_id: String,
+    pub ord_id: Option<String>,
+    pub cl_ord_id: Option<String>,
+}
+
+impl OkxOrderReq {
+    pub(crate) fn to_query_body(&self) -> String {
+        let mut parts = vec![format!("instId={}", self.inst_id)];
+
+        if let Some(value) = self.ord_id.as_deref() {
+            parts.push(format!("ordId={value}"));
+        }
+        if let Some(value) = self.cl_ord_id.as_deref() {
+            parts.push(format!("clOrdId={value}"));
+        }
+
+        parts.join("&")
+    }
+}
+
 /// Query parameters for retrieving public lead traders from OKX.
 /// All fields are optional and can be used to filter or paginate results.
 #[derive(Clone, Debug, Default)]
@@ -430,5 +551,60 @@ mod tests {
             Some((InstrumentType::Perpetual, "SLX-USDT-SWAP".into()))
         );
         assert_eq!(okx_preopen_inst("SLX-USDT"), None);
+    }
+
+    #[test]
+    fn builds_open_orders_native_query() {
+        let req = OkxOpenOrdersReq {
+            inst_type: Some("SWAP".into()),
+            inst_family: Some("BTC-USDT".into()),
+            inst_id: Some("BTC-USDT-SWAP".into()),
+            ord_type: Some("limit,post_only".into()),
+            state: Some("live".into()),
+            after: Some("100".into()),
+            before: Some("200".into()),
+            limit: Some(50),
+        };
+
+        assert_eq!(
+            req.to_query_body(),
+            "instType=SWAP&instFamily=BTC-USDT&instId=BTC-USDT-SWAP&ordType=limit,post_only&state=live&after=100&before=200&limit=50"
+        );
+    }
+
+    #[test]
+    fn builds_order_history_native_query() {
+        let req = OkxOrderHistoryReq {
+            inst_type: "SWAP".into(),
+            inst_family: Some("BTC-USDT".into()),
+            inst_id: Some("BTC-USDT-SWAP".into()),
+            ord_type: Some("limit".into()),
+            state: Some("filled".into()),
+            category: Some("twap".into()),
+            after: Some("100".into()),
+            before: Some("200".into()),
+            begin: Some(1_720_000_000_000),
+            end: Some(1_720_000_060_000),
+            limit: Some(25),
+        };
+
+        assert_eq!(
+            req.to_query_body(),
+            "instType=SWAP&instFamily=BTC-USDT&instId=BTC-USDT-SWAP&ordType=limit&state=filled&category=twap&after=100&before=200&begin=1720000000000&end=1720000060000&limit=25"
+        );
+    }
+
+    #[test]
+    fn builds_order_detail_native_query() {
+        let req = OkxOrderReq {
+            inst_id: "BTC-USDT-SWAP".into(),
+            ord_id: Some("12345".into()),
+            cl_ord_id: Some("entry-1".into()),
+        };
+
+        assert_eq!(
+            req.to_query_body(),
+            "instId=BTC-USDT-SWAP&ordId=12345&clOrdId=entry-1"
+        );
     }
 }
