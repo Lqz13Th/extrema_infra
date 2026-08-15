@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde_json::json;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tracing::error;
 
 use crate::arch::{
