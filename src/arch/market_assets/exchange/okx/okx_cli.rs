@@ -220,6 +220,91 @@ impl OkxCli {
         Ok(msg.to_string())
     }
 
+    pub async fn get_open_orders_raw(
+        &self,
+        req: OkxOpenOrdersReq,
+    ) -> InfraResult<Vec<RestOrderHistoryOkx>> {
+        let body = req.to_query_body();
+        let res: RestResOkx<RestOrderHistoryOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_TRADE_ORDERS_PENDING,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_order_history_raw(
+        &self,
+        req: OkxOrderHistoryReq,
+    ) -> InfraResult<Vec<RestOrderHistoryOkx>> {
+        if req.inst_type.trim().is_empty() {
+            return Err(InfraError::ApiCliError(
+                "OKX order history requires instType".into(),
+            ));
+        }
+
+        let body = req.to_query_body();
+        let res: RestResOkx<RestOrderHistoryOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_TRADE_ORDERS_HISTORY,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_order_raw(&self, req: OkxOrderReq) -> InfraResult<Vec<RestOrderHistoryOkx>> {
+        if req.inst_id.trim().is_empty() {
+            return Err(InfraError::ApiCliError(
+                "OKX order detail requires instId".into(),
+            ));
+        }
+        let has_ord_id = req
+            .ord_id
+            .as_deref()
+            .is_some_and(|id| !id.trim().is_empty());
+        let has_cl_ord_id = req
+            .cl_ord_id
+            .as_deref()
+            .is_some_and(|id| !id.trim().is_empty());
+        if !has_ord_id && !has_cl_ord_id {
+            return Err(InfraError::ApiCliError(
+                "OKX order detail requires ordId or clOrdId".into(),
+            ));
+        }
+
+        let body = req.to_query_body();
+        let res: RestResOkx<RestOrderHistoryOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_TRADE_ORDER,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
     pub async fn get_account_config(&self) -> InfraResult<Vec<RestAccountConfigOkx>> {
         let res: RestResOkx<RestAccountConfigOkx> = self
             .api_key
@@ -1197,12 +1282,16 @@ impl OkxCli {
         let mut after = None;
 
         loop {
-            let page_data = self
-                ._get_open_orders_page(inst, page_limit, after.as_deref())
-                .await?;
-            let page_len = page_data.len();
-            let next_after = page_data.last().map(|order| order.order_id.clone());
-            data.extend(page_data);
+            let req = OkxOpenOrdersReq {
+                inst_id: Some(cli_perp_to_okx_inst(inst)),
+                after: after.clone(),
+                limit: Some(page_limit),
+                ..Default::default()
+            };
+            let page = self.get_open_orders_raw(req).await?;
+            let page_len = page.len();
+            let next_after = page.last().map(|order| order.ordId.clone());
+            data.extend(page.into_iter().map(OrderDetailData::from));
 
             if let Some(limit) = limit
                 && data.len() >= limit as usize
@@ -1225,39 +1314,6 @@ impl OkxCli {
         Ok(data)
     }
 
-    async fn _get_open_orders_page(
-        &self,
-        inst: &str,
-        limit: u32,
-        after: Option<&str>,
-    ) -> InfraResult<Vec<OrderDetailData>> {
-        let mut query = format!("instId={}&limit={limit}", cli_perp_to_okx_inst(inst));
-        if let Some(after) = after {
-            query.push_str(&format!("&after={after}"));
-        }
-
-        let res: RestResOkx<RestOrderHistoryOkx> = self
-            .api_key
-            .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_request(
-                &self.client,
-                RequestMethod::Get,
-                query,
-                OKX_BASE_URL,
-                OKX_TRADE_ORDERS_PENDING,
-            )
-            .await?;
-
-        let data = res
-            .into_vec()?
-            .into_iter()
-            .map(OrderDetailData::from)
-            .collect();
-
-        Ok(data)
-    }
-
     async fn _get_order_history(
         &self,
         inst: &str,
@@ -1267,42 +1323,26 @@ impl OkxCli {
         order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
         let okx_inst = cli_perp_to_okx_inst(inst);
-        let mut query = format!("instId={}", okx_inst);
-        let endpoint = if let Some(order_id) = order_id {
-            query.push_str(&format!("&ordId={}", order_id));
-            OKX_TRADE_ORDER
+        let raw = if let Some(order_id) = order_id {
+            self.get_order_raw(OkxOrderReq {
+                inst_id: okx_inst,
+                ord_id: Some(order_id.into()),
+                cl_ord_id: None,
+            })
+            .await?
         } else {
-            query.push_str("&instType=SWAP");
-            if let Some(start_time_us) = start_time_us {
-                query.push_str(&format!("&begin={}", micros_to_millis(start_time_us)));
-            }
-            if let Some(end_time_us) = end_time_us {
-                query.push_str(&format!("&end={}", micros_to_millis(end_time_us)));
-            }
-            if let Some(limit) = limit {
-                query.push_str(&format!("&limit={}", limit));
-            }
-            OKX_TRADE_ORDERS_HISTORY
+            self.get_order_history_raw(OkxOrderHistoryReq {
+                inst_type: "SWAP".into(),
+                inst_id: Some(okx_inst),
+                begin: start_time_us.map(micros_to_millis),
+                end: end_time_us.map(micros_to_millis),
+                limit,
+                ..Default::default()
+            })
+            .await?
         };
 
-        let res: RestResOkx<RestOrderHistoryOkx> = self
-            .api_key
-            .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_request(
-                &self.client,
-                RequestMethod::Get,
-                query,
-                OKX_BASE_URL,
-                endpoint,
-            )
-            .await?;
-
-        let data: Vec<OrderDetailData> = res
-            .into_vec()?
-            .into_iter()
-            .map(OrderDetailData::from)
-            .collect();
+        let data = raw.into_iter().map(OrderDetailData::from).collect();
 
         Ok(data)
     }
