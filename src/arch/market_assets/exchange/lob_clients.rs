@@ -4,7 +4,7 @@ use super::prelude::*;
 use crate::arch::{
     market_assets::{
         api_data::{account_data::*, price_data::*, utils_data::*},
-        api_general::OrderParams,
+        api_general::{CancelOrderParams, OrderParams},
         base_data::InstrumentType,
     },
     strategy_base::command::command_core::WsConnectTarget,
@@ -178,6 +178,13 @@ impl LobPrivateRest for LobClients {
         }
     }
 
+    async fn place_orders(&self, order_params: Vec<OrderParams>) -> InfraResult<Vec<OrderAckData>> {
+        match self {
+            LobClients::BinanceUm(c) => c.place_orders(order_params).await,
+            _ => Err(InfraError::Unimplemented),
+        }
+    }
+
     async fn cancel_order(
         &self,
         inst: &str,
@@ -194,6 +201,16 @@ impl LobPrivateRest for LobClients {
             LobClients::GateSpot(c) => c.cancel_order(inst, order_id, cli_order_id).await,
             LobClients::GateUni(c) => c.cancel_order(inst, order_id, cli_order_id).await,
             LobClients::Okx(c) => c.cancel_order(inst, order_id, cli_order_id).await,
+        }
+    }
+
+    async fn cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        match self {
+            LobClients::BinanceUm(c) => c.cancel_orders(cancel_params).await,
+            _ => Err(InfraError::Unimplemented),
         }
     }
 

@@ -30,6 +30,7 @@ pub const BINANCE_UM_FUTURES_ACCOUNT_INFO: &str = "/fapi/v3/account";
 pub const BINANCE_UM_FUTURES_BALANCE_INFO: &str = "/fapi/v3/balance";
 pub const BINANCE_UM_FUTURES_PLACE_ORDER_INFO: &str = "/fapi/v1/order";
 pub const BINANCE_UM_FUTURES_CANCEL_ORDER: &str = "/fapi/v1/order";
+pub const BINANCE_UM_FUTURES_BATCH_ORDERS: &str = "/fapi/v1/batchOrders";
 pub const BINANCE_UM_FUTURES_OPEN_ORDERS: &str = "/fapi/v1/openOrders";
 pub const BINANCE_UM_FUTURES_CHANGE_LEVERAGE: &str = "/fapi/v1/leverage";
 pub const BINANCE_UM_FUTURES_POSITION_MODE: &str = "/fapi/v1/positionSide/dual";

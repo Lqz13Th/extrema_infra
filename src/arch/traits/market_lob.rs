@@ -3,7 +3,7 @@ use std::future::{Future, ready};
 use crate::arch::{
     market_assets::{
         api_data::{account_data::*, price_data::*, utils_data::*},
-        api_general::OrderParams,
+        api_general::{CancelOrderParams, OrderParams},
         base_data::InstrumentType,
     },
     strategy_base::command::command_core::WsConnectTarget,
@@ -90,6 +90,14 @@ pub trait LobPrivateRest: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
+    /// Places multiple orders through one exchange-native batch request.
+    fn place_orders(
+        &self,
+        _order_params: Vec<OrderParams>,
+    ) -> impl Future<Output = InfraResult<Vec<OrderAckData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
     /// Cancels one order by exchange order id or client order id.
     fn cancel_order(
         &self,
@@ -97,6 +105,14 @@ pub trait LobPrivateRest: Send + Sync {
         _order_id: Option<&str>,
         _cli_order_id: Option<&str>,
     ) -> impl Future<Output = InfraResult<OrderAckData>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Cancels multiple orders through one exchange-native batch request.
+    fn cancel_orders(
+        &self,
+        _cancel_params: Vec<CancelOrderParams>,
+    ) -> impl Future<Output = InfraResult<Vec<OrderAckData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
 

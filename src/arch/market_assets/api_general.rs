@@ -305,6 +305,13 @@ impl OrderParams {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CancelOrderParams {
+    pub inst: String,
+    pub order_id: Option<String>,
+    pub cli_order_id: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
