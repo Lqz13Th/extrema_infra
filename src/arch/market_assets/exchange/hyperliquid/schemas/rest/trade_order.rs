@@ -35,34 +35,51 @@ pub struct RestOrderFilledHyperliquid {
 
 impl From<RestOrderAckHyperliquid> for OrderAckData {
     fn from(d: RestOrderAckHyperliquid) -> Self {
-        match d.statuses.into_iter().next() {
-            Some(RestOrderStatusHyperliquid::Resting { resting }) => OrderAckData {
+        d.into_order_acks()
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| OrderAckData {
+                timestamp: get_micros_timestamp(),
+                order_status: OrderStatus::Unknown,
+                order_id: String::new(),
+                cli_order_id: None,
+                msg: None,
+            })
+    }
+}
+
+impl RestOrderAckHyperliquid {
+    pub fn into_order_acks(self) -> Vec<OrderAckData> {
+        self.statuses
+            .into_iter()
+            .map(RestOrderStatusHyperliquid::into_order_ack)
+            .collect()
+    }
+}
+
+impl RestOrderStatusHyperliquid {
+    fn into_order_ack(self) -> OrderAckData {
+        match self {
+            Self::Resting { resting } => OrderAckData {
                 timestamp: get_micros_timestamp(),
                 order_status: OrderStatus::Live,
                 order_id: resting.oid.to_string(),
                 cli_order_id: None,
                 msg: None,
             },
-            Some(RestOrderStatusHyperliquid::Filled { filled }) => OrderAckData {
+            Self::Filled { filled } => OrderAckData {
                 timestamp: get_micros_timestamp(),
                 order_status: OrderStatus::Filled,
                 order_id: filled.oid.to_string(),
                 cli_order_id: None,
                 msg: None,
             },
-            Some(RestOrderStatusHyperliquid::Error { error }) => OrderAckData {
+            Self::Error { error } => OrderAckData {
                 timestamp: get_micros_timestamp(),
                 order_status: OrderStatus::Rejected,
                 order_id: String::new(),
                 cli_order_id: None,
                 msg: Some(error),
-            },
-            None => OrderAckData {
-                timestamp: get_micros_timestamp(),
-                order_status: OrderStatus::Unknown,
-                order_id: String::new(),
-                cli_order_id: None,
-                msg: None,
             },
         }
     }

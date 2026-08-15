@@ -11,8 +11,8 @@ use crate::arch::{
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
-            OrderParams, candle_interval_millis, get_micros_timestamp, get_mills_timestamp,
-            parse_json_response,
+            CancelOrderParams, OrderParams, candle_interval_millis, get_micros_timestamp,
+            get_mills_timestamp, parse_json_response,
         },
         base_data::{InstrumentType, MarginMode},
     },
@@ -121,6 +121,10 @@ impl LobPrivateRest for HyperliquidCli {
         self._place_order(order_params).await
     }
 
+    async fn place_orders(&self, order_params: Vec<OrderParams>) -> InfraResult<Vec<OrderAckData>> {
+        self._place_orders(order_params).await
+    }
+
     async fn cancel_order(
         &self,
         inst: &str,
@@ -128,6 +132,13 @@ impl LobPrivateRest for HyperliquidCli {
         cli_order_id: Option<&str>,
     ) -> InfraResult<OrderAckData> {
         self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
+    async fn cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        self._cancel_orders(cancel_params).await
     }
 
     async fn get_open_orders(
@@ -657,6 +668,62 @@ impl HyperliquidCli {
         Ok(data)
     }
 
+    async fn _place_orders(
+        &self,
+        order_params: Vec<OrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if order_params.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let builder = hyperliquid_builder_fee_from_extra(&order_params[0].extra)?;
+        let mut orders = Vec::with_capacity(order_params.len());
+        for order in &order_params {
+            order.validate_side_and_type()?;
+            if hyperliquid_builder_fee_from_extra(&order.extra)? != builder {
+                return Err(InfraError::ApiCliError(
+                    "Hyperliquid batch place requires one builder fee".into(),
+                ));
+            }
+
+            let mut order = order.clone();
+            order.inst = self._inst_to_asset_id(&order.inst)?.to_string();
+            orders.push(hyperliquid_order_from_params(order)?);
+        }
+
+        let action = HyperliquidOrderAction {
+            kind: "order",
+            orders,
+            grouping: HYPERLIQUID_GROUPING_NA,
+            builder,
+        };
+        let res: RestResHyperliquid<RestOrderAckHyperliquid> = self
+            .auth
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_exchange_action_raw(&self.client, &action)
+            .await?;
+
+        let responds = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid batch order ack data returned".into(),
+            ))?;
+        if responds.statuses.len() != order_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "Hyperliquid batch place returned {} result(s) for {} order(s)",
+                responds.statuses.len(),
+                order_params.len()
+            )));
+        }
+
+        let data = responds.into_order_acks();
+
+        Ok(data)
+    }
+
     async fn _cancel_order(
         &self,
         inst: &str,
@@ -720,6 +787,97 @@ impl HyperliquidCli {
                 "No Hyperliquid cancel ack data returned".into(),
             ))?
             .into_cancel_ack(returned_order_id, returned_cli_order_id)?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if cancel_params.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let by_order_id = if cancel_params[0].order_id.is_some() {
+            true
+        } else if cancel_params[0].cli_order_id.is_some() {
+            false
+        } else {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid cancel_orders requires order_id or cli_order_id".into(),
+            ));
+        };
+        if cancel_params.iter().any(|cancel| {
+            (cancel.order_id.is_none() && cancel.cli_order_id.is_none())
+                || cancel.order_id.is_some() != by_order_id
+        }) {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid batch cancel cannot mix order_id and cli_order_id".into(),
+            ));
+        }
+
+        let mut returned_ids = Vec::with_capacity(cancel_params.len());
+        let action = if by_order_id {
+            let mut cancels = Vec::with_capacity(cancel_params.len());
+            for cancel in &cancel_params {
+                let order_id = cancel.order_id.as_deref().unwrap_or_default();
+                let order_id = order_id.parse::<u64>().map_err(|_| {
+                    InfraError::ApiCliError(format!(
+                        "Invalid Hyperliquid order_id, expected u64 string: {order_id}"
+                    ))
+                })?;
+                cancels.push(HyperliquidCancelByOidRequest {
+                    asset: self._inst_to_asset_id(&cancel.inst)?,
+                    order_id,
+                });
+                returned_ids.push((cancel.order_id.clone(), cancel.cli_order_id.clone()));
+            }
+            HyperliquidCancelAction::ByOid { cancels }
+        } else {
+            let mut cancels = Vec::with_capacity(cancel_params.len());
+            for cancel in &cancel_params {
+                let cloid = normalize_hyperliquid_cloid(
+                    cancel.cli_order_id.as_deref().unwrap_or_default(),
+                )?;
+                cancels.push(HyperliquidCancelByCloidRequest {
+                    asset: self._inst_to_asset_id(&cancel.inst)?,
+                    cloid: cloid.clone(),
+                });
+                returned_ids.push((None, Some(cloid)));
+            }
+            HyperliquidCancelAction::ByCloid { cancels }
+        };
+
+        let res: RestResHyperliquid<RestCancelAckHyperliquid> = self
+            .auth
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_exchange_action_raw(&self.client, &action)
+            .await?;
+        let responds = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid batch cancel ack data returned".into(),
+            ))?;
+        if responds.statuses.len() != cancel_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "Hyperliquid batch cancel returned {} result(s) for {} order(s)",
+                responds.statuses.len(),
+                cancel_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = responds
+            .statuses
+            .into_iter()
+            .zip(returned_ids)
+            .map(|(status, (order_id, cli_order_id))| {
+                status.into_cancel_ack(order_id, cli_order_id)
+            })
+            .collect();
 
         Ok(data)
     }

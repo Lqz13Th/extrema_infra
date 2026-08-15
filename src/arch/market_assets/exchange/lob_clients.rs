@@ -180,6 +180,7 @@ impl LobPrivateRest for LobClients {
 
     async fn place_orders(&self, order_params: Vec<OrderParams>) -> InfraResult<Vec<OrderAckData>> {
         match self {
+            LobClients::Hyperliquid(c) => c.place_orders(order_params).await,
             LobClients::BinanceUm(c) => c.place_orders(order_params).await,
             LobClients::GateFutures(c) => c.place_orders(order_params).await,
             LobClients::Okx(c) => c.place_orders(order_params).await,
@@ -211,6 +212,7 @@ impl LobPrivateRest for LobClients {
         cancel_params: Vec<CancelOrderParams>,
     ) -> InfraResult<Vec<OrderAckData>> {
         match self {
+            LobClients::Hyperliquid(c) => c.cancel_orders(cancel_params).await,
             LobClients::BinanceUm(c) => c.cancel_orders(cancel_params).await,
             LobClients::GateFutures(c) => c.cancel_orders(cancel_params).await,
             LobClients::Okx(c) => c.cancel_orders(cancel_params).await,

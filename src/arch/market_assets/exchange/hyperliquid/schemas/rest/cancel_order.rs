@@ -30,21 +30,29 @@ impl RestCancelAckHyperliquid {
             .ok_or(InfraError::ApiCliError(
                 "No Hyperliquid cancel ack status returned".into(),
             ))?;
-        let (order_status, msg) = match status {
-            RestCancelStatusHyperliquid::Status(status) if status == "success" => {
-                (OrderStatus::Canceled, None)
-            },
-            RestCancelStatusHyperliquid::Status(status) => (OrderStatus::Rejected, Some(status)),
-            RestCancelStatusHyperliquid::Error { error } => (OrderStatus::Rejected, Some(error)),
+        Ok(status.into_cancel_ack(order_id, cli_order_id))
+    }
+}
+
+impl RestCancelStatusHyperliquid {
+    pub fn into_cancel_ack(
+        self,
+        order_id: Option<String>,
+        cli_order_id: Option<String>,
+    ) -> OrderAckData {
+        let (order_status, msg) = match self {
+            Self::Status(status) if status == "success" => (OrderStatus::Canceled, None),
+            Self::Status(status) => (OrderStatus::Rejected, Some(status)),
+            Self::Error { error } => (OrderStatus::Rejected, Some(error)),
         };
 
-        Ok(OrderAckData {
+        OrderAckData {
             timestamp: get_micros_timestamp(),
             order_status,
             order_id: order_id.unwrap_or_default(),
             cli_order_id,
             msg,
-        })
+        }
     }
 }
 
