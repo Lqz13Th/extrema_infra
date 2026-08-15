@@ -38,9 +38,12 @@ use super::{
         premium_index::RestPremiumIndexBinanceUM,
         symbol_config::RestSymbolConfigBinanceUM,
         ticker::RestTickerBinanceUM,
-        trade_order::RestOrderAckBinanceUM,
+        trade_order::{RestBatchOrderAckBinanceUM, RestOrderAckBinanceUM},
     },
 };
+
+const BINANCE_UM_BATCH_PLACE_LIMIT: usize = 5;
+const BINANCE_UM_BATCH_CANCEL_LIMIT: usize = 10;
 
 #[derive(Clone, Debug)]
 pub struct BinanceUmCli {
@@ -115,6 +118,10 @@ impl LobPrivateRest for BinanceUmCli {
         self._place_order(order_params).await
     }
 
+    async fn place_orders(&self, order_params: Vec<OrderParams>) -> InfraResult<Vec<OrderAckData>> {
+        self._place_orders(order_params).await
+    }
+
     async fn cancel_order(
         &self,
         inst: &str,
@@ -122,6 +129,13 @@ impl LobPrivateRest for BinanceUmCli {
         cli_order_id: Option<&str>,
     ) -> InfraResult<OrderAckData> {
         self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
+    async fn cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        self._cancel_orders(cancel_params).await
     }
 
     async fn get_open_orders(
@@ -784,6 +798,55 @@ impl BinanceUmCli {
         Ok(data)
     }
 
+    async fn _place_orders(
+        &self,
+        order_params: Vec<OrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if order_params.is_empty() {
+            return Ok(Vec::new());
+        }
+        if order_params.len() > BINANCE_UM_BATCH_PLACE_LIMIT {
+            return Err(InfraError::ApiCliError(format!(
+                "Binance UM batch place supports at most {BINANCE_UM_BATCH_PLACE_LIMIT} orders"
+            )));
+        }
+
+        let orders = order_params
+            .iter()
+            .map(RestBatchOrderParamsBinanceUM::try_from)
+            .collect::<InfraResult<Vec<_>>>()?;
+        let query_string = format!("batchOrders={}", serde_json::to_string(&orders)?);
+        let res: RestResBinance<RestBatchOrderAckBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_BATCH_ORDERS,
+            )
+            .await?;
+
+        let response = res.into_vec()?;
+        if response.len() != order_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "Binance UM batch place returned {} result(s) for {} order(s)",
+                response.len(),
+                order_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = response
+            .into_iter()
+            .zip(order_params)
+            .map(|(ack, order)| ack.into_order_ack(None, order.client_order_id))
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _cancel_order(
         &self,
         inst: &str,
@@ -825,6 +888,104 @@ impl BinanceUmCli {
             .ok_or(InfraError::ApiCliError(
                 "No Binance UM cancel ack data returned".into(),
             ))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if cancel_params.is_empty() {
+            return Ok(Vec::new());
+        }
+        if cancel_params.len() > BINANCE_UM_BATCH_CANCEL_LIMIT {
+            return Err(InfraError::ApiCliError(format!(
+                "Binance UM batch cancel supports at most {BINANCE_UM_BATCH_CANCEL_LIMIT} orders"
+            )));
+        }
+
+        let symbol = cli_perp_to_pure_uppercase(&cancel_params[0].inst);
+        let by_order_id = if cancel_params[0].order_id.is_some() {
+            true
+        } else if cancel_params[0].cli_order_id.is_some() {
+            false
+        } else {
+            return Err(InfraError::ApiCliError(
+                "Binance UM cancel_orders requires order_id or cli_order_id".into(),
+            ));
+        };
+
+        for cancel in &cancel_params {
+            if cli_perp_to_pure_uppercase(&cancel.inst) != symbol {
+                return Err(InfraError::ApiCliError(
+                    "Binance UM batch cancel requires one instrument".into(),
+                ));
+            }
+            if cancel.order_id.is_none() && cancel.cli_order_id.is_none() {
+                return Err(InfraError::ApiCliError(
+                    "Binance UM cancel_orders requires order_id or cli_order_id".into(),
+                ));
+            }
+            if cancel.order_id.is_some() != by_order_id {
+                return Err(InfraError::ApiCliError(
+                    "Binance UM batch cancel cannot mix order_id and cli_order_id".into(),
+                ));
+            }
+        }
+
+        let query_string = if by_order_id {
+            let ids = cancel_params
+                .iter()
+                .map(|cancel| {
+                    let order_id = cancel.order_id.as_deref().unwrap_or_default();
+                    order_id.parse::<u64>().map_err(|_| {
+                        InfraError::ApiCliError(format!("Invalid Binance UM order_id: {order_id}"))
+                    })
+                })
+                .collect::<InfraResult<Vec<_>>>()?;
+            format!(
+                "symbol={symbol}&orderIdList={}",
+                serde_json::to_string(&ids)?
+            )
+        } else {
+            let ids = cancel_params
+                .iter()
+                .map(|cancel| cancel.cli_order_id.as_deref().unwrap_or_default())
+                .collect::<Vec<_>>();
+            format!(
+                "symbol={symbol}&origClientOrderIdList={}",
+                serde_json::to_string(&ids)?
+            )
+        };
+
+        let res: RestResBinance<RestBatchOrderAckBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Delete,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_BATCH_ORDERS,
+            )
+            .await?;
+
+        let response = res.into_vec()?;
+        if response.len() != cancel_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "Binance UM batch cancel returned {} result(s) for {} order(s)",
+                response.len(),
+                cancel_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = response
+            .into_iter()
+            .zip(cancel_params)
+            .map(|(ack, cancel)| ack.into_order_ack(cancel.order_id, cancel.cli_order_id))
+            .collect();
 
         Ok(data)
     }

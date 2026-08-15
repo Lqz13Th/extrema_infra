@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde_json::json;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tracing::error;
 
 use crate::arch::{
@@ -44,21 +44,7 @@ use super::{
 };
 
 const OPEN_ORDERS_PAGE_LIMIT: u32 = 100;
-
-fn create_okx_cli_with_key(
-    keys: HashMap<String, OkxKey>,
-    shared_client: Arc<Client>,
-) -> HashMap<String, OkxCli> {
-    keys.into_iter()
-        .map(|(id, key)| {
-            let cli = OkxCli {
-                client: shared_client.clone(),
-                api_key: Some(key),
-            };
-            (id, cli)
-        })
-        .collect()
-}
+const OKX_BATCH_ORDER_LIMIT: usize = 20;
 
 #[derive(Clone, Debug)]
 pub struct OkxCli {
@@ -129,6 +115,10 @@ impl LobPrivateRest for OkxCli {
         self._place_order(order_params).await
     }
 
+    async fn place_orders(&self, order_params: Vec<OrderParams>) -> InfraResult<Vec<OrderAckData>> {
+        self._place_orders(order_params).await
+    }
+
     async fn cancel_order(
         &self,
         inst: &str,
@@ -136,6 +126,13 @@ impl LobPrivateRest for OkxCli {
         cli_order_id: Option<&str>,
     ) -> InfraResult<OrderAckData> {
         self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
+    async fn cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        self._cancel_orders(cancel_params).await
     }
 
     async fn get_open_orders(
@@ -1158,6 +1155,50 @@ impl OkxCli {
         Ok(data)
     }
 
+    async fn _place_orders(
+        &self,
+        order_params: Vec<OrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if order_params.is_empty() {
+            return Ok(Vec::new());
+        }
+        if order_params.len() > OKX_BATCH_ORDER_LIMIT {
+            return Err(InfraError::ApiCliError(format!(
+                "OKX batch place supports at most {OKX_BATCH_ORDER_LIMIT} orders"
+            )));
+        }
+
+        let orders = order_params
+            .iter()
+            .map(RestBatchOrderParamsOkx::try_from)
+            .collect::<InfraResult<Vec<_>>>()?;
+        let res: RestResOkx<RestOrderAckOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                serde_json::to_string(&orders)?,
+                OKX_BASE_URL,
+                OKX_TRADE_BATCH_ORDERS,
+            )
+            .await?;
+
+        let responds = res.into_batch_vec()?;
+        if responds.len() != order_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "OKX batch place returned {} result(s) for {} order(s)",
+                responds.len(),
+                order_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = responds.into_iter().map(OrderAckData::from).collect();
+
+        Ok(data)
+    }
+
     async fn _cancel_order(
         &self,
         inst: &str,
@@ -1199,6 +1240,53 @@ impl OkxCli {
             .ok_or(InfraError::ApiCliError(
                 "No OKX cancel ack data returned".into(),
             ))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if cancel_params.is_empty() {
+            return Ok(Vec::new());
+        }
+        if cancel_params.len() > OKX_BATCH_ORDER_LIMIT {
+            return Err(InfraError::ApiCliError(format!(
+                "OKX batch cancel supports at most {OKX_BATCH_ORDER_LIMIT} orders"
+            )));
+        }
+
+        let orders = cancel_params
+            .iter()
+            .map(RestBatchCancelOrderParamsOkx::try_from)
+            .collect::<InfraResult<Vec<_>>>()?;
+        let res: RestResOkx<RestOrderAckOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                serde_json::to_string(&orders)?,
+                OKX_BASE_URL,
+                OKX_TRADE_CANCEL_BATCH_ORDERS,
+            )
+            .await?;
+
+        let responds = res.into_batch_vec()?;
+        if responds.len() != cancel_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "OKX batch cancel returned {} result(s) for {} order(s)",
+                responds.len(),
+                cancel_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = responds
+            .into_iter()
+            .map(RestOrderAckOkx::into_cancel_ack)
+            .collect();
 
         Ok(data)
     }

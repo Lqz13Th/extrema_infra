@@ -27,3 +27,20 @@ impl<T: std::fmt::Debug> IntoInfraVec<T> for RestResOkx<T> {
         Ok(self.data.unwrap_or_default())
     }
 }
+
+impl<T: std::fmt::Debug> RestResOkx<T> {
+    pub fn into_batch_vec(self) -> InfraResult<Vec<T>> {
+        if !matches!(self.code.as_str(), "0" | "1" | "2") {
+            warn!(
+                "OKX REST batch error {}: {:?}, data: {:?}",
+                self.code, self.msg, self.data
+            );
+            return Err(InfraError::ApiCliError(format!(
+                "OKX REST batch error (code={}): {:?}",
+                self.code, self.msg
+            )));
+        }
+
+        Ok(self.data.unwrap_or_default())
+    }
+}

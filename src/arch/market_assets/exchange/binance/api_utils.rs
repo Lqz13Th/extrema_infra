@@ -5,7 +5,10 @@ use std::{collections::HashMap, sync::Arc};
 use tracing::warn;
 
 use crate::arch::{
-    market_assets::base_data::SUBSCRIBE,
+    market_assets::{
+        api_general::OrderParams,
+        base_data::{OrderSide, OrderType, PositionSide, SUBSCRIBE, TimeInForce},
+    },
     task_execution::task_ws::{LobFrequency, LobParam},
 };
 use crate::errors::{InfraError, InfraResult};
@@ -16,6 +19,77 @@ use super::api_key::BinanceKey;
 #[derive(Debug, Deserialize)]
 pub struct BinanceListenKey {
     pub listenKey: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RestBatchOrderParamsBinanceUM {
+    symbol: String,
+    side: &'static str,
+    #[serde(rename = "type")]
+    order_type: &'static str,
+    quantity: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    price: Option<String>,
+    #[serde(rename = "reduceOnly", skip_serializing_if = "Option::is_none")]
+    reduce_only: Option<&'static str>,
+    #[serde(rename = "positionSide", skip_serializing_if = "Option::is_none")]
+    position_side: Option<&'static str>,
+    #[serde(rename = "timeInForce", skip_serializing_if = "Option::is_none")]
+    time_in_force: Option<&'static str>,
+    #[serde(rename = "newClientOrderId", skip_serializing_if = "Option::is_none")]
+    client_order_id: Option<String>,
+    #[serde(flatten)]
+    extra: HashMap<String, String>,
+}
+
+impl TryFrom<&OrderParams> for RestBatchOrderParamsBinanceUM {
+    type Error = InfraError;
+
+    fn try_from(order: &OrderParams) -> Result<Self, Self::Error> {
+        order.validate_side_and_type()?;
+
+        Ok(Self {
+            symbol: cli_perp_to_pure_uppercase(&order.inst),
+            side: match order.side {
+                OrderSide::BUY => "BUY",
+                OrderSide::SELL => "SELL",
+                OrderSide::Unknown => unreachable!("validated above"),
+            },
+            order_type: match order.order_type {
+                OrderType::Limit => "LIMIT",
+                OrderType::Market => "MARKET",
+                OrderType::PostOnly => "POST_ONLY",
+                OrderType::Fok => "FOK",
+                OrderType::Ioc => "IOC",
+                OrderType::Unknown => unreachable!("validated above"),
+            },
+            quantity: order.size.clone(),
+            price: order.price.clone(),
+            reduce_only: order
+                .reduce_only
+                .map(|reduce_only| if reduce_only { "true" } else { "false" }),
+            position_side: order
+                .position_side
+                .as_ref()
+                .map(|position_side| match position_side {
+                    PositionSide::Long => "LONG",
+                    PositionSide::Short => "SHORT",
+                    PositionSide::Both | PositionSide::Unknown => "BOTH",
+                }),
+            time_in_force: order
+                .time_in_force
+                .as_ref()
+                .map(|time_in_force| match time_in_force {
+                    TimeInForce::GTC => "GTC",
+                    TimeInForce::IOC => "IOC",
+                    TimeInForce::FOK => "FOK",
+                    TimeInForce::GTD => "GTD",
+                    TimeInForce::Unknown => "GTC",
+                }),
+            client_order_id: order.client_order_id.clone(),
+            extra: order.extra.clone(),
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -835,5 +909,36 @@ mod tests {
         };
 
         assert!(req.to_query_string().is_err());
+    }
+
+    #[test]
+    fn builds_binance_um_order_request() {
+        let order = OrderParams {
+            inst: "BTC_USDT_PERP".into(),
+            side: OrderSide::SELL,
+            size: "2".into(),
+            order_type: OrderType::Limit,
+            price: Some("100".into()),
+            reduce_only: Some(true),
+            position_side: Some(PositionSide::Both),
+            time_in_force: Some(TimeInForce::GTC),
+            client_order_id: Some("batch-one".into()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            serde_json::to_value(RestBatchOrderParamsBinanceUM::try_from(&order).unwrap()).unwrap(),
+            json!({
+                "symbol": "BTCUSDT",
+                "side": "SELL",
+                "type": "LIMIT",
+                "quantity": "2",
+                "price": "100",
+                "reduceOnly": "true",
+                "positionSide": "BOTH",
+                "timeInForce": "GTC",
+                "newClientOrderId": "batch-one",
+            })
+        );
     }
 }

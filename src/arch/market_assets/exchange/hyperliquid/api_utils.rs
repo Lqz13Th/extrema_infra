@@ -413,7 +413,7 @@ pub struct HyperliquidCancelByCloidRequest {
     pub cloid: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct HyperliquidBuilderFee {
     pub b: String,
     pub f: u32,
