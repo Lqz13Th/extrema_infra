@@ -5,7 +5,10 @@ use serde_json::{Value, json};
 use tracing::{error, warn};
 
 use crate::arch::{
-    market_assets::{api_general::get_seconds_timestamp, base_data::SUBSCRIBE_LOWER},
+    market_assets::{
+        api_general::{CancelOrderParams, OrderParams, get_seconds_timestamp},
+        base_data::{OrderSide, OrderType, SUBSCRIBE_LOWER},
+    },
     task_execution::task_ws::LobFrequency,
 };
 use crate::errors::{InfraError, InfraResult};
@@ -14,6 +17,125 @@ pub const GATE_CHANNEL_ID_EXTRA_KEY: &str = "gate_channel_id";
 pub const GATE_CHANNEL_ID_HEADER: &str = "X-Gate-Channel-Id";
 pub const GATE_SIZE_DECIMAL_HEADER: &str = "X-Gate-Size-Decimal";
 pub const GATE_SIZE_DECIMAL_HEADER_VALUE: &str = "1";
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RestBatchOrderParamsGateFutures {
+    contract: String,
+    size: String,
+    price: String,
+    tif: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reduce_only: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    #[serde(flatten)]
+    extra: HashMap<String, String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct GateFuturesBatchOrderParams {
+    pub settle: String,
+    pub channel_id: Option<String>,
+    pub order: RestBatchOrderParamsGateFutures,
+}
+
+impl TryFrom<&OrderParams> for GateFuturesBatchOrderParams {
+    type Error = InfraError;
+
+    fn try_from(order: &OrderParams) -> Result<Self, Self::Error> {
+        order.validate_side_and_type()?;
+
+        let mut extra = order.extra.clone();
+        let channel_id = take_gate_channel_id(&mut extra)?;
+        let settle = extra
+            .remove("settle")
+            .unwrap_or_else(|| infer_settle_from_inst(&order.inst));
+
+        let size = order.size.trim();
+        if size.is_empty() {
+            return Err(InfraError::ApiCliError("Invalid order size".into()));
+        }
+        let size = size.trim_start_matches(['+', '-']);
+        if size.is_empty() {
+            return Err(InfraError::ApiCliError("Invalid order size".into()));
+        }
+        let size = match order.side {
+            OrderSide::BUY => size.to_string(),
+            OrderSide::SELL => format!("-{size}"),
+            OrderSide::Unknown => unreachable!("validated above"),
+        };
+
+        let (price, tif) = match order.order_type {
+            OrderType::Market => ("0".into(), "ioc"),
+            OrderType::Limit => (
+                order.price.clone().ok_or(InfraError::ApiCliError(
+                    "Price required for limit order".into(),
+                ))?,
+                "gtc",
+            ),
+            OrderType::PostOnly => (
+                order.price.clone().ok_or(InfraError::ApiCliError(
+                    "Price required for limit order".into(),
+                ))?,
+                "poc",
+            ),
+            OrderType::Fok => (
+                order.price.clone().ok_or(InfraError::ApiCliError(
+                    "Price required for limit order".into(),
+                ))?,
+                "fok",
+            ),
+            OrderType::Ioc => (
+                order.price.clone().ok_or(InfraError::ApiCliError(
+                    "Price required for limit order".into(),
+                ))?,
+                "ioc",
+            ),
+            OrderType::Unknown => unreachable!("validated above"),
+        };
+
+        Ok(Self {
+            settle,
+            channel_id,
+            order: RestBatchOrderParamsGateFutures {
+                contract: cli_perp_to_gate_inst(&order.inst),
+                size,
+                price,
+                tif,
+                reduce_only: order.reduce_only,
+                text: order.client_order_id.as_deref().map(normalize_gate_text),
+                extra,
+            },
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct GateFuturesBatchCancelParams {
+    pub settle: String,
+    pub order_id: String,
+}
+
+impl TryFrom<&CancelOrderParams> for GateFuturesBatchCancelParams {
+    type Error = InfraError;
+
+    fn try_from(cancel: &CancelOrderParams) -> Result<Self, Self::Error> {
+        let order_id = match (&cancel.order_id, &cancel.cli_order_id) {
+            (Some(order_id), _) => order_id.clone(),
+            (None, Some(client_order_id)) => normalize_gate_text(client_order_id),
+            (None, None) => {
+                return Err(InfraError::ApiCliError(
+                    "Gate Futures cancel_orders requires order_id or cli_order_id".into(),
+                ));
+            },
+        };
+
+        Ok(Self {
+            settle: infer_settle_from_inst(&cancel.inst),
+            order_id,
+        })
+    }
+}
 
 pub(crate) fn value_to_order_id(value: Option<&Value>) -> Option<String> {
     match value {

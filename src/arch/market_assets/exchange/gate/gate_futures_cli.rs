@@ -11,8 +11,8 @@ use crate::arch::{
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
-            OrderParams, RequestMethod, get_seconds_timestamp, micros_to_seconds,
-            parse_json_response, value_to_f64,
+            CancelOrderParams, OrderParams, RequestMethod, get_seconds_timestamp,
+            micros_to_seconds, parse_json_response, value_to_f64,
         },
         base_data::{InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER},
     },
@@ -31,14 +31,22 @@ use super::{
     config_assets::*,
     gate_rest_msg::RestResGate,
     schemas::futures_rest::{
-        account_position::RestAccountPosGateFutures, candle::RestCandleGateFutures,
-        contract_futures::RestContractGateFutures, funding_rate::RestFundingRateGateFutures,
-        order::RestFuturesOrderGateFutures, order_history::RestFuturesOrderHistoryGateFutures,
-        orderbook::RestOrderBookGateFutures, ticker::RestTickerGateFutures,
+        account_position::RestAccountPosGateFutures,
+        candle::RestCandleGateFutures,
+        contract_futures::RestContractGateFutures,
+        funding_rate::RestFundingRateGateFutures,
+        order::{
+            RestBatchCancelOrderGateFutures, RestBatchOrderGateFutures, RestFuturesOrderGateFutures,
+        },
+        order_history::RestFuturesOrderHistoryGateFutures,
+        orderbook::RestOrderBookGateFutures,
+        ticker::RestTickerGateFutures,
     },
 };
 
 const OPEN_ORDERS_PAGE_LIMIT: u32 = 100;
+const GATE_FUTURES_BATCH_PLACE_LIMIT: usize = 10;
+const GATE_FUTURES_BATCH_CANCEL_LIMIT: usize = 20;
 
 #[derive(Clone, Debug)]
 pub struct GateFuturesCli {
@@ -113,6 +121,10 @@ impl LobPrivateRest for GateFuturesCli {
         self._place_order(order_params).await
     }
 
+    async fn place_orders(&self, order_params: Vec<OrderParams>) -> InfraResult<Vec<OrderAckData>> {
+        self._place_orders(order_params).await
+    }
+
     async fn cancel_order(
         &self,
         inst: &str,
@@ -120,6 +132,13 @@ impl LobPrivateRest for GateFuturesCli {
         cli_order_id: Option<&str>,
     ) -> InfraResult<OrderAckData> {
         self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
+    async fn cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        self._cancel_orders(cancel_params).await
     }
 
     async fn get_open_orders(
@@ -671,6 +690,73 @@ impl GateFuturesCli {
         Ok(data)
     }
 
+    async fn _place_orders(
+        &self,
+        order_params: Vec<OrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if order_params.is_empty() {
+            return Ok(Vec::new());
+        }
+        if order_params.len() > GATE_FUTURES_BATCH_PLACE_LIMIT {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate Futures batch place supports at most {GATE_FUTURES_BATCH_PLACE_LIMIT} orders"
+            )));
+        }
+
+        let orders = order_params
+            .iter()
+            .map(GateFuturesBatchOrderParams::try_from)
+            .collect::<InfraResult<Vec<_>>>()?;
+        let settle = orders[0].settle.clone();
+        let channel_id = orders[0].channel_id.clone();
+        if orders
+            .iter()
+            .any(|order| order.settle != settle || order.channel_id != channel_id)
+        {
+            return Err(InfraError::ApiCliError(
+                "Gate Futures batch place requires one settle and channel id".into(),
+            ));
+        }
+
+        let endpoint = GATE_FUTURES_BATCH_ORDERS.replace("{settle}", &settle);
+        let body = serde_json::to_string(
+            &orders
+                .into_iter()
+                .map(|order| order.order)
+                .collect::<Vec<_>>(),
+        )?;
+        let res: RestResGate<RestBatchOrderGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_post_request_with_channel_id(
+                &self.client,
+                None,
+                Some(&body),
+                GATE_BASE_URL,
+                &endpoint,
+                channel_id.as_deref(),
+            )
+            .await?;
+
+        let responds = res.into_vec()?;
+        if responds.len() != order_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate Futures batch place returned {} result(s) for {} order(s)",
+                responds.len(),
+                order_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = responds
+            .into_iter()
+            .zip(order_params)
+            .map(|(ack, order)| ack.into_order_ack(order.client_order_id))
+            .collect();
+
+        Ok(data)
+    }
+
     async fn _cancel_order(
         &self,
         inst: &str,
@@ -713,6 +799,69 @@ impl GateFuturesCli {
             .ok_or(InfraError::ApiCliError(
                 "No Gate Futures cancel ack data returned".into(),
             ))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if cancel_params.is_empty() {
+            return Ok(Vec::new());
+        }
+        if cancel_params.len() > GATE_FUTURES_BATCH_CANCEL_LIMIT {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate Futures batch cancel supports at most {GATE_FUTURES_BATCH_CANCEL_LIMIT} orders"
+            )));
+        }
+
+        let orders = cancel_params
+            .iter()
+            .map(GateFuturesBatchCancelParams::try_from)
+            .collect::<InfraResult<Vec<_>>>()?;
+        let settle = orders[0].settle.clone();
+        if orders.iter().any(|order| order.settle != settle) {
+            return Err(InfraError::ApiCliError(
+                "Gate Futures batch cancel requires one settle".into(),
+            ));
+        }
+
+        let endpoint = GATE_FUTURES_BATCH_CANCEL_ORDERS.replace("{settle}", &settle);
+        let body = serde_json::to_string(
+            &orders
+                .into_iter()
+                .map(|order| order.order_id)
+                .collect::<Vec<_>>(),
+        )?;
+        let res: RestResGate<RestBatchCancelOrderGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&body),
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let responds = res.into_vec()?;
+        if responds.len() != cancel_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate Futures batch cancel returned {} result(s) for {} order(s)",
+                responds.len(),
+                cancel_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = responds
+            .into_iter()
+            .zip(cancel_params)
+            .map(|(ack, cancel)| ack.into_order_ack(cancel.cli_order_id))
+            .collect();
 
         Ok(data)
     }
