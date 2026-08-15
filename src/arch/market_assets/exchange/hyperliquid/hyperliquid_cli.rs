@@ -1008,6 +1008,7 @@ impl HyperliquidCli {
         };
 
         let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        let raw_coin = self._inst_to_trade_coin(inst)?;
         let perp_quote = if is_hyperliquid_cli_perp_inst(&normalized_inst) {
             Some(hyperliquid_cli_perp_quote(&normalized_inst)?)
         } else {
@@ -1020,7 +1021,12 @@ impl HyperliquidCli {
         let data: Vec<OrderDetailData> = res
             .into_vec()?
             .into_iter()
-            .map(|order| order.into_order_detail_data(perp_quote.as_deref()))
+            .filter(|order| order.order.coin == raw_coin)
+            .map(|order| {
+                let mut data = order.into_order_detail_data(perp_quote.as_deref());
+                data.inst.clone_from(&normalized_inst);
+                data
+            })
             .collect();
 
         finalize_hyperliquid_order_history(
