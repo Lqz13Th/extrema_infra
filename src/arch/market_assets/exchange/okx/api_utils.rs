@@ -1,12 +1,115 @@
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
 use tracing::error;
 
 use crate::arch::{
-    market_assets::base_data::{InstrumentType, MarginMode, PositionSide, SUBSCRIBE_LOWER},
+    market_assets::{
+        api_general::{CancelOrderParams, OrderParams},
+        base_data::{
+            InstrumentType, MarginMode, OrderSide, OrderType, PositionSide, SUBSCRIBE_LOWER,
+        },
+    },
     task_execution::task_ws::CandleParam,
 };
-use crate::errors::InfraResult;
+use crate::errors::{InfraError, InfraResult};
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RestBatchOrderParamsOkx {
+    #[serde(rename = "instId")]
+    inst_id: String,
+    side: &'static str,
+    #[serde(rename = "sz")]
+    size: String,
+    #[serde(rename = "ordType")]
+    order_type: &'static str,
+    #[serde(rename = "px", skip_serializing_if = "Option::is_none")]
+    price: Option<String>,
+    #[serde(rename = "reduceOnly", skip_serializing_if = "Option::is_none")]
+    reduce_only: Option<bool>,
+    #[serde(rename = "tdMode", skip_serializing_if = "Option::is_none")]
+    margin_mode: Option<&'static str>,
+    #[serde(rename = "posSide", skip_serializing_if = "Option::is_none")]
+    position_side: Option<&'static str>,
+    #[serde(rename = "clOrdId", skip_serializing_if = "Option::is_none")]
+    client_order_id: Option<String>,
+    #[serde(flatten)]
+    extra: HashMap<String, String>,
+}
+
+impl TryFrom<&OrderParams> for RestBatchOrderParamsOkx {
+    type Error = InfraError;
+
+    fn try_from(order: &OrderParams) -> Result<Self, Self::Error> {
+        order.validate_side_and_type()?;
+
+        Ok(Self {
+            inst_id: cli_perp_to_okx_inst(&order.inst),
+            side: match order.side {
+                OrderSide::BUY => "buy",
+                OrderSide::SELL => "sell",
+                OrderSide::Unknown => unreachable!("validated above"),
+            },
+            size: order.size.clone(),
+            order_type: match order.order_type {
+                OrderType::Limit => "limit",
+                OrderType::Market => "market",
+                OrderType::PostOnly => "post_only",
+                OrderType::Fok => "fok",
+                OrderType::Ioc => "ioc",
+                OrderType::Unknown => unreachable!("validated above"),
+            },
+            price: order.price.clone(),
+            reduce_only: order.reduce_only,
+            margin_mode: order
+                .margin_mode
+                .as_ref()
+                .map(|margin_mode| match margin_mode {
+                    MarginMode::Isolated => "isolated",
+                    MarginMode::Cross => "cross",
+                    MarginMode::Unknown => "isolated",
+                }),
+            position_side: order
+                .position_side
+                .as_ref()
+                .map(|position_side| match position_side {
+                    PositionSide::Long => "long",
+                    PositionSide::Short => "short",
+                    PositionSide::Both | PositionSide::Unknown => "net",
+                }),
+            client_order_id: order.client_order_id.clone(),
+            extra: order.extra.clone(),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RestBatchCancelOrderParamsOkx {
+    #[serde(rename = "instId")]
+    inst_id: String,
+    #[serde(rename = "ordId", skip_serializing_if = "Option::is_none")]
+    order_id: Option<String>,
+    #[serde(rename = "clOrdId", skip_serializing_if = "Option::is_none")]
+    client_order_id: Option<String>,
+}
+
+impl TryFrom<&CancelOrderParams> for RestBatchCancelOrderParamsOkx {
+    type Error = InfraError;
+
+    fn try_from(cancel: &CancelOrderParams) -> Result<Self, Self::Error> {
+        if cancel.order_id.is_none() && cancel.cli_order_id.is_none() {
+            return Err(InfraError::ApiCliError(
+                "OKX cancel_orders requires order_id or cli_order_id".into(),
+            ));
+        }
+
+        Ok(Self {
+            inst_id: cli_perp_to_okx_inst(&cancel.inst),
+            order_id: cancel.order_id.clone(),
+            client_order_id: cancel.cli_order_id.clone(),
+        })
+    }
+}
 
 pub fn ws_subscribe_msg_okx(channel: &str, insts: Option<&[String]>) -> String {
     let args: Vec<_> = match insts {
