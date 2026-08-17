@@ -258,13 +258,17 @@ where
     T: DeserializeOwned,
 {
     let status = response.status();
-    let mut bytes = response
+    let bytes = response
         .bytes()
         .await
-        .map_err(|e| InfraError::Msg(format!("[{label}] body read failed: {e}")))?
-        .to_vec();
+        .map_err(|e| InfraError::Msg(format!("[{label}] body read failed: {e}")))?;
 
-    simd_json::from_slice::<T>(&mut bytes).map_err(|e| {
+    let mut bytes = match bytes.try_into_mut() {
+        Ok(bytes) => bytes,
+        Err(bytes) => bytes.as_ref().into(),
+    };
+
+    simd_json::from_slice::<T>(bytes.as_mut()).map_err(|e| {
         let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(500)]);
         InfraError::Msg(format!(
             "[{label}] JSON parse failed status={status} body={preview:?} err={e}"
