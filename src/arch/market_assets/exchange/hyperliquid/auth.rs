@@ -11,7 +11,13 @@ use crate::arch::{
 };
 use crate::errors::{InfraError, InfraResult};
 
-use super::{api_utils::HyperliquidWithdraw3Action, config_assets::*};
+use super::{
+    api_utils::{
+        HyperliquidSendToEvmWithDataAction, HyperliquidSendToEvmWithDataParams,
+        HyperliquidWithdraw3Action,
+    },
+    config_assets::*,
+};
 
 pub fn read_hyperliquid_env_auth() -> InfraResult<HyperliquidAuth> {
     let _ = dotenvy::dotenv();
@@ -87,6 +93,20 @@ where
     vault_address: Option<&'a str>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+struct HyperliquidUserSignedExchangeRequest<'a, A>
+where
+    A: Serialize,
+{
+    action: &'a A,
+    nonce: u64,
+    signature: HyperliquidSignature,
+    #[serde(rename = "vaultAddress")]
+    vault_address: Option<&'a str>,
+    #[serde(rename = "expiresAfter")]
+    expires_after: Option<u64>,
+}
+
 impl HyperliquidAuth {
     pub async fn send_withdraw3_raw<T>(
         &self,
@@ -136,6 +156,66 @@ impl HyperliquidAuth {
         action: &HyperliquidWithdraw3Action,
     ) -> InfraResult<HyperliquidSignature> {
         let digest = withdraw3_eip712_digest(action)?;
+        let secret_key = parse_secret_key(self.owner_private_key.as_deref().ok_or_else(|| {
+            InfraError::EnvVarMissing("HYPERLIQUID_WITHDRAW_PRIVATE_KEY".into())
+        })?)?;
+        sign_digest(&secret_key, &digest)
+    }
+
+    pub async fn send_to_evm_with_data_raw<T>(
+        &self,
+        client: &Client,
+        params: HyperliquidSendToEvmWithDataParams,
+    ) -> InfraResult<T>
+    where
+        T: DeserializeOwned + Send + std::fmt::Debug,
+    {
+        let nonce = get_mills_timestamp();
+        let action = HyperliquidSendToEvmWithDataAction {
+            kind: "sendToEvmWithData",
+            hyperliquid_chain: HYPERLIQUID_MAINNET_CHAIN.to_string(),
+            signature_chain_id: HYPERLIQUID_DEFAULT_SIGNATURE_CHAIN_ID.to_string(),
+            token: params.token,
+            amount: params.amount,
+            source_dex: params.source_dex,
+            destination_recipient: normalize_evm_address(&params.destination_recipient)?,
+            address_encoding: "hex",
+            destination_chain_id: params.destination_chain_id,
+            gas_limit: params.gas_limit,
+            data: normalize_hex_data(&params.data)?,
+            nonce,
+        };
+        let signature = self.sign_send_to_evm_with_data_action(&action)?;
+        let body = HyperliquidUserSignedExchangeRequest {
+            action: &action,
+            nonce,
+            signature,
+            vault_address: None,
+            expires_after: None,
+        };
+        let body_string = serde_json::to_string(&body).map_err(|e| {
+            InfraError::ApiCliError(format!(
+                "Serialize Hyperliquid sendToEvmWithData body failed: {}",
+                e
+            ))
+        })?;
+        let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_EXCHANGE].concat();
+
+        let response = client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await?;
+
+        parse_json_response("Hyperliquid POST sendToEvmWithData", response).await
+    }
+
+    pub(crate) fn sign_send_to_evm_with_data_action(
+        &self,
+        action: &HyperliquidSendToEvmWithDataAction,
+    ) -> InfraResult<HyperliquidSignature> {
+        let digest = send_to_evm_with_data_eip712_digest(action)?;
         let secret_key = parse_secret_key(self.owner_private_key.as_deref().ok_or_else(|| {
             InfraError::EnvVarMissing("HYPERLIQUID_WITHDRAW_PRIVATE_KEY".into())
         })?)?;
@@ -251,6 +331,45 @@ fn withdraw3_eip712_digest(action: &HyperliquidWithdraw3Action) -> InfraResult<[
     Ok(keccak256(&digest_input))
 }
 
+fn send_to_evm_with_data_eip712_digest(
+    action: &HyperliquidSendToEvmWithDataAction,
+) -> InfraResult<[u8; 32]> {
+    let domain_type_hash = keccak256(
+        b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+    );
+    let mut domain = Vec::with_capacity(32 * 5);
+    domain.extend(domain_type_hash);
+    domain.extend(keccak256(b"HyperliquidSignTransaction"));
+    domain.extend(keccak256(b"1"));
+    domain.extend(u256_bytes(parse_hex_u64(&action.signature_chain_id)?));
+    domain.extend(address_to_word([0u8; 20]));
+    let domain_separator = keccak256(&domain);
+
+    let type_hash = keccak256(
+        b"HyperliquidTransaction:SendToEvmWithData(string hyperliquidChain,string token,string amount,string sourceDex,string destinationRecipient,string addressEncoding,uint32 destinationChainId,uint64 gasLimit,bytes data,uint64 nonce)",
+    );
+    let data = decode_hex(&action.data)?;
+    let mut payload = Vec::with_capacity(32 * 11);
+    payload.extend(type_hash);
+    payload.extend(keccak256(action.hyperliquid_chain.as_bytes()));
+    payload.extend(keccak256(action.token.as_bytes()));
+    payload.extend(keccak256(action.amount.as_bytes()));
+    payload.extend(keccak256(action.source_dex.as_bytes()));
+    payload.extend(keccak256(action.destination_recipient.as_bytes()));
+    payload.extend(keccak256(action.address_encoding.as_bytes()));
+    payload.extend(u256_bytes(u64::from(action.destination_chain_id)));
+    payload.extend(u256_bytes(action.gas_limit));
+    payload.extend(keccak256(&data));
+    payload.extend(u256_bytes(action.nonce));
+    let struct_hash = keccak256(&payload);
+
+    let mut digest_input = Vec::with_capacity(66);
+    digest_input.extend(b"\x19\x01");
+    digest_input.extend(domain_separator);
+    digest_input.extend(struct_hash);
+    Ok(keccak256(&digest_input))
+}
+
 fn eip712_agent_digest(agent: &HyperliquidAgent) -> InfraResult<[u8; 32]> {
     let domain_type_hash = keccak256(
         b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
@@ -338,6 +457,11 @@ fn parse_bytes32(hex_string: &str) -> InfraResult<[u8; 32]> {
 
 fn normalize_evm_address(address: &str) -> InfraResult<String> {
     let bytes = parse_address_bytes(address)?;
+    Ok(format!("0x{}", HEXLOWER.encode(&bytes)))
+}
+
+fn normalize_hex_data(data: &str) -> InfraResult<String> {
+    let bytes = decode_hex(data)?;
     Ok(format!("0x{}", HEXLOWER.encode(&bytes)))
 }
 
@@ -457,5 +581,61 @@ mod tests {
             "0x58b1411a775938b83e29182e8ef74975f9054c8e97ebf5ec2dc8d51bfc893881"
         );
         assert_eq!(signature.v, 28);
+    }
+
+    #[test]
+    fn signs_send_to_evm_with_data_like_live_request() {
+        let auth = HyperliquidAuth {
+            owner_address: "0x5e9ee1089755c3435139848e47e6635505d5a13a".to_string(),
+            agent_private_key:
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                    .to_string(),
+            owner_private_key: Some(
+                "0x0123456789012345678901234567890123456789012345678901234567890123".to_string(),
+            ),
+            vault_address: None,
+        };
+        let action = HyperliquidSendToEvmWithDataAction {
+            kind: "sendToEvmWithData",
+            hyperliquid_chain: HYPERLIQUID_MAINNET_CHAIN.to_string(),
+            signature_chain_id: HYPERLIQUID_DEFAULT_SIGNATURE_CHAIN_ID.to_string(),
+            token: "USDC".to_string(),
+            amount: "0.3".to_string(),
+            source_dex: "spot".to_string(),
+            destination_recipient: "0x41b92ff49b859401b56cf0fed31bbdf8149eced7".to_string(),
+            address_encoding: "hex",
+            destination_chain_id: 3,
+            gas_limit: 200_000,
+            data: "0x".to_string(),
+            nonce: 1_787_028_633_431,
+        };
+
+        let signature = auth.sign_send_to_evm_with_data_action(&action).unwrap();
+        assert_eq!(
+            signature.r,
+            "0xe4f489741b946d9a2dcc78377899ef25cb6f0122916beefccb6122de91d86157"
+        );
+        assert_eq!(
+            signature.s,
+            "0x46e11cf2964af984963a7340ea613545cafc80a89c58e8b2ad7619d5baa29c70"
+        );
+        assert_eq!(signature.v, 27);
+
+        let action_json = serde_json::to_value(&action).unwrap();
+        assert_eq!(action_json["type"], "sendToEvmWithData");
+        assert_eq!(action_json["destinationChainId"], 3);
+        assert_eq!(action_json["gasLimit"], 200_000);
+        assert_eq!(action_json["data"], "0x");
+    }
+
+    #[test]
+    fn normalizes_send_to_evm_hex_fields() {
+        assert_eq!(
+            normalize_evm_address("0x41B92fF49B859401B56cF0fEd31BBdf8149EceD7").unwrap(),
+            "0x41b92ff49b859401b56cf0fed31bbdf8149eced7"
+        );
+        assert_eq!(normalize_hex_data("0x").unwrap(), "0x");
+        assert_eq!(normalize_hex_data("0x0102").unwrap(), "0x0102");
+        assert!(normalize_hex_data("0xzz").is_err());
     }
 }

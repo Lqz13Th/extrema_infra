@@ -389,6 +389,17 @@ impl HyperliquidCli {
             .await
     }
 
+    pub async fn send_to_evm_with_data(
+        &self,
+        params: HyperliquidSendToEvmWithDataParams,
+    ) -> InfraResult<Value> {
+        self.auth
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_to_evm_with_data_raw(&self.client, params)
+            .await
+    }
+
     pub async fn get_perps_at_open_interest_cap(&self) -> InfraResult<Vec<String>> {
         let body = json!({
             "type": "perpsAtOpenInterestCap",

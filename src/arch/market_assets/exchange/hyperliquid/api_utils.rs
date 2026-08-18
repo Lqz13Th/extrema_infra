@@ -442,6 +442,41 @@ pub struct HyperliquidWithdraw3Action {
     pub hyperliquid_chain: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct HyperliquidSendToEvmWithDataParams {
+    pub token: String,
+    pub amount: String,
+    pub source_dex: String,
+    pub destination_recipient: String,
+    pub destination_chain_id: u32,
+    pub gas_limit: u64,
+    pub data: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct HyperliquidSendToEvmWithDataAction {
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    #[serde(rename = "hyperliquidChain")]
+    pub hyperliquid_chain: String,
+    #[serde(rename = "signatureChainId")]
+    pub signature_chain_id: String,
+    pub token: String,
+    pub amount: String,
+    #[serde(rename = "sourceDex")]
+    pub source_dex: String,
+    #[serde(rename = "destinationRecipient")]
+    pub destination_recipient: String,
+    #[serde(rename = "addressEncoding")]
+    pub address_encoding: &'static str,
+    #[serde(rename = "destinationChainId")]
+    pub destination_chain_id: u32,
+    #[serde(rename = "gasLimit")]
+    pub gas_limit: u64,
+    pub data: String,
+    pub nonce: u64,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct HyperliquidOrderRequest {
     #[serde(rename = "a")]
