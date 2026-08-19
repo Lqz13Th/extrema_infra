@@ -1160,15 +1160,25 @@ impl HyperliquidCli {
             );
         }
 
-        let subscription_type = hyperliquid_lob_subscription_type(lob_param)?;
+        let (subscription_type, fast) = hyperliquid_lob_subscription(lob_param)?;
         let inst = insts.first().expect("checked non-empty insts");
         let coin = self._inst_to_trade_coin(inst)?;
+        let subscription = if fast {
+            json!({
+                "type": subscription_type,
+                "coin": coin,
+                "fast": true,
+            })
+        } else {
+            json!({
+                "type": subscription_type,
+                "coin": coin,
+            })
+        };
+
         Ok(json!({
             "method": "subscribe",
-            "subscription": {
-                "type": subscription_type,
-                "coin": coin.to_string(),
-            }
+            "subscription": subscription,
         })
         .to_string())
     }
