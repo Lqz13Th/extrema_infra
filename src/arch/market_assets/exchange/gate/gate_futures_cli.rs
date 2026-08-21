@@ -52,6 +52,7 @@ const GATE_FUTURES_BATCH_CANCEL_LIMIT: usize = 20;
 pub struct GateFuturesCli {
     pub client: Arc<Client>,
     pub api_key: Option<GateKey>,
+    public_settles: Vec<String>,
 }
 
 impl Default for GateFuturesCli {
@@ -212,7 +213,13 @@ impl GateFuturesCli {
         Self {
             client: shared_client,
             api_key: None,
+            public_settles: vec!["usdt".into(), "btc".into()],
         }
+    }
+
+    pub fn with_public_settles(mut self, settles: &[&str]) -> Self {
+        self.public_settles = settles.iter().map(|settle| (*settle).into()).collect();
+        self
     }
 
     pub fn ws_subscribe_private(&self, channel: &str) -> InfraResult<String> {
@@ -463,7 +470,7 @@ impl GateFuturesCli {
     ) -> InfraResult<Vec<TickerData>> {
         let mut data: Vec<TickerData> = Vec::new();
 
-        for settle in ["usdt", "btc"] {
+        for settle in &self.public_settles {
             let endpoint = GATE_FUTURES_TICKERS.replace("{settle}", settle);
             let url = [GATE_BASE_URL, &endpoint].concat();
 
@@ -579,7 +586,7 @@ impl GateFuturesCli {
     ) -> InfraResult<Vec<InstrumentInfo>> {
         let mut data: Vec<InstrumentInfo> = Vec::new();
 
-        for settle in ["usdt", "btc"] {
+        for settle in &self.public_settles {
             let contracts = self._get_futures_contracts(settle, None, None).await?;
             data.extend(contracts.into_iter().map(InstrumentInfo::from));
         }
@@ -592,7 +599,7 @@ impl GateFuturesCli {
 
         let now_secs = get_seconds_timestamp();
 
-        for settle in ["usdt", "btc"] {
+        for settle in &self.public_settles {
             let contracts = self._get_futures_contracts(settle, None, None).await?;
             data.extend(
                 contracts
