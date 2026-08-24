@@ -353,6 +353,18 @@ impl HyperliquidCli {
         Ok(data)
     }
 
+    pub async fn get_perp_meta_raw(&self) -> InfraResult<RestMetaHyperliquid> {
+        let body = json!({ "type": "meta", "dex": self._perp_dex() });
+        let res: RestResHyperliquid<RestMetaHyperliquid> = self._post_info_raw(&body).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid perpetual instrument info returned".into(),
+            ))
+    }
+
     pub async fn get_non_funding_ledger_updates(
         &self,
         start_time_us: u64,
@@ -539,21 +551,9 @@ impl HyperliquidCli {
     async fn _get_perp_instrument_info_with_quote(
         &self,
     ) -> InfraResult<(Vec<InstrumentInfo>, String)> {
-        let meta = self._get_perp_meta().await?;
+        let meta = self.get_perp_meta_raw().await?;
         let quote = self._perp_quote_from_meta(&meta).await?;
         Ok((meta.into_instrument_info(&quote), quote))
-    }
-
-    async fn _get_perp_meta(&self) -> InfraResult<RestMetaHyperliquid> {
-        let body = json!({ "type": "meta", "dex": self._perp_dex() });
-        let res: RestResHyperliquid<RestMetaHyperliquid> = self._post_info_raw(&body).await?;
-
-        res.into_vec()?
-            .into_iter()
-            .next()
-            .ok_or(InfraError::ApiCliError(
-                "No Hyperliquid perpetual instrument info returned".into(),
-            ))
     }
 
     async fn _get_spot_meta(&self) -> InfraResult<RestSpotMetaHyperliquid> {
