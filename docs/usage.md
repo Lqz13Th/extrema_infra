@@ -326,6 +326,13 @@ Useful callbacks:
 - `on_acc_order`: private order updates.
 - `on_acc_bal_pos`: balance and position updates.
 - `on_acc_pos`: position-only updates.
+- `on_ws_other`: raw JSON frames from exchange-specific
+  `WsChannel::Other(...)` tasks.
+
+The relay preserves the complete top-level JSON frame and a local receive
+timestamp. Exchange-specific code can then decode fields such as Hyperliquid's
+`channel: "post"` and `data.id`; the relay-level `AckStatus::WsMessage` still
+means only that the text frame was written locally.
 
 Exchange clients normally need API-key initialization in `Strategy::initialize`
 before private websocket login messages are built. Credentials and login flows

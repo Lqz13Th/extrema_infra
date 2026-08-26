@@ -14,7 +14,7 @@ use crate::arch::{
     },
 };
 
-use super::{WsStream, WsTaskRunner};
+use super::{WsStream, WsTaskRunner, ws_decode::decode_raw_ws};
 
 impl WsTaskRunner {
     pub(super) async fn ws_channel_hyperliquid(&mut self, ws_stream: &mut WsStream) {
@@ -58,6 +58,10 @@ impl WsTaskRunner {
                     HyperliquidWsData::<WsLobHyperliquid>::decode_l2_book,
                 )
                 .await;
+            },
+            WsChannel::Other(_) => {
+                self.ws_loop(TaskEvent::WsOther, ws_stream, decode_raw_ws)
+                    .await;
             },
             c => {
                 self.log(

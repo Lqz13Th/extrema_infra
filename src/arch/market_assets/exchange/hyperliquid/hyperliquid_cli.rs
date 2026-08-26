@@ -1063,6 +1063,9 @@ impl HyperliquidCli {
     fn _get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
         match channel {
             WsChannel::AccountOrders | WsChannel::AccountPositions => Ok(HYPERLIQUID_WS.into()),
+            WsChannel::Other(channel) if channel == HYPERLIQUID_ORDER_ACTION_CHANNEL => {
+                Ok(HYPERLIQUID_WS.into())
+            },
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -1082,26 +1085,35 @@ impl HyperliquidCli {
     }
 
     fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        let user = self._owner_address()?;
-
         match channel {
-            WsChannel::AccountOrders => Ok(json!({
-                "method": "subscribe",
-                "subscription": {
-                    "type": "orderUpdates",
-                    "user": user,
-                }
-            })
-            .to_string()),
-            WsChannel::AccountPositions => Ok(json!({
-                "method": "subscribe",
-                "subscription": {
-                    "type": "clearinghouseState",
-                    "user": user,
-                    "dex": self._perp_dex(),
-                }
-            })
-            .to_string()),
+            WsChannel::AccountOrders => {
+                let user = self._owner_address()?;
+                Ok(json!({
+                    "method": "subscribe",
+                    "subscription": {
+                        "type": "orderUpdates",
+                        "user": user,
+                    }
+                })
+                .to_string())
+            },
+            WsChannel::AccountPositions => {
+                let user = self._owner_address()?;
+                Ok(json!({
+                    "method": "subscribe",
+                    "subscription": {
+                        "type": "clearinghouseState",
+                        "user": user,
+                        "dex": self._perp_dex(),
+                    }
+                })
+                .to_string())
+            },
+            WsChannel::Other(channel) if channel == HYPERLIQUID_ORDER_ACTION_CHANNEL => Err(
+                InfraError::ApiCliError(
+                    "Hyperliquid order-action websocket uses post messages and does not require a subscription".into(),
+                ),
+            ),
             _ => Err(InfraError::Unimplemented),
         }
     }

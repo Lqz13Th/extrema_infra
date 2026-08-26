@@ -13,7 +13,8 @@
 //!   strategy module or several independent modules in the same runtime.
 //! - [`EventHandler`] contains async callbacks for schedule ticks, model
 //!   predictions, order execution intents, trades, LOB updates, candles, and
-//!   private account updates. All callbacks default to no-op.
+//!   private account updates, and raw exchange-specific websocket frames. All
+//!   callbacks default to no-op.
 //! - [`CommandEmitter`] gives a strategy access to task command handles after
 //!   the runtime has prepared those tasks.
 //! - [`TaskInfo`] declares work that the runtime owns, such as [`AltTaskInfo`]
@@ -48,10 +49,10 @@
 //!
 //! [`EventHandler`] is the inbound event surface. Its methods are callbacks:
 //! `on_schedule`, `on_trade`, `on_candle`, `on_acc_pos`, `on_inst_intent`,
-//! `on_order_execution`, and so on. Every callback defaults to no-op, so modules
-//! stay narrow and only implement the events that matter to them. Modules
-//! receive every registered task by default; explicit task bindings avoid
-//! receiver creation and wakeups for unrelated tasks.
+//! `on_order_execution`, `on_ws_other`, and so on. Every callback defaults to
+//! no-op, so modules stay narrow and only implement the events that matter to
+//! them. Modules receive every registered task by default; explicit task
+//! bindings avoid receiver creation and wakeups for unrelated tasks.
 //!
 //! [`CommandEmitter`] is the outbound command surface. After tasks are prepared,
 //! the runtime supplies a [`CommandRegistry`]. Strategy modules store that

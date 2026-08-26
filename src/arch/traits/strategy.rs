@@ -4,7 +4,7 @@ use crate::arch::{
     strategy_base::{
         command::command_core::{CommandHandle, CommandRegistry},
         handler::{
-            events::{InfraMsg, alt_events::*, lob_events::*},
+            events::{InfraMsg, alt_events::*, lob_events::*, ws_events::*},
             task_channel::TaskChannels,
         },
     },
@@ -314,6 +314,18 @@ pub trait EventHandler {
     fn on_acc_pos(
         &mut self,
         _msg: InfraMsg<Vec<WsAccPosition>>,
+    ) -> impl Future<Output = ()> + Send {
+        ready(())
+    }
+
+    /// Receives raw JSON frames from an exchange-specific websocket task.
+    ///
+    /// This callback is emitted for [`WsChannel::Other`] tasks. The infra
+    /// layer preserves the complete frame and does not interpret exchange-
+    /// specific fields such as order ids or status values.
+    fn on_ws_other(
+        &mut self,
+        _msg: InfraMsg<Vec<WsOtherMessage>>,
     ) -> impl Future<Output = ()> + Send {
         ready(())
     }

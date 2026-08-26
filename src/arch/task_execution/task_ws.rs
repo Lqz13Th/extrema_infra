@@ -44,6 +44,11 @@ pub enum WsChannel {
     /// Public market-by-order order book stream.
     LobMbo,
     /// Exchange-specific or custom stream.
+    ///
+    /// The relay preserves complete JSON frames for this channel and emits
+    /// them through `EventHandler::on_ws_other`. For example, Hyperliquid
+    /// order actions use `Other("hyperliquid_order_actions")` and do not
+    /// require a subscription message.
     Other(String),
 }
 
