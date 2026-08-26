@@ -9,6 +9,7 @@ use crate::arch::{
     strategy_base::handler::events::{
         alt_events::{AltIntent, AltOrder, AltScheduleEvent, AltTensor},
         lob_events::{WsAccBalPos, WsAccOrder, WsAccPosition, WsCandle, WsLob, WsLobMbo, WsTrade},
+        ws_events::WsOtherMessage,
     },
     task_execution::{
         TaskKey,
@@ -52,6 +53,7 @@ pub(crate) enum TaskEvent {
     AccOrder(InfraMsg<Vec<WsAccOrder>>),
     AccBalPos(InfraMsg<Vec<WsAccBalPos>>),
     AccPos(InfraMsg<Vec<WsAccPosition>>),
+    WsOther(InfraMsg<Vec<WsOtherMessage>>),
 }
 
 pub(crate) struct TaskReceiver {

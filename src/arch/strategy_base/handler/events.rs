@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 pub mod alt_events;
 pub mod lob_events;
+pub mod ws_events;
 
 pub use alt_events::*;
 pub use lob_events::*;
+pub use ws_events::*;
 
 /// Message envelope published by one runtime task.
 #[derive(Clone, Debug)]

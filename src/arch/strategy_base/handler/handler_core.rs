@@ -50,6 +50,7 @@ where
         TaskEvent::AccOrder(msg) => strategy.on_acc_order(msg).await,
         TaskEvent::AccBalPos(msg) => strategy.on_acc_bal_pos(msg).await,
         TaskEvent::AccPos(msg) => strategy.on_acc_pos(msg).await,
+        TaskEvent::WsOther(msg) => strategy.on_ws_other(msg).await,
     }
 }
 

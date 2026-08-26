@@ -7,6 +7,7 @@ use crate::arch::{
             alt_events::*,
             lob_events::*,
             task_channel::{InfraMsg, TaskChannels},
+            ws_events::*,
         },
     },
     task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
@@ -147,6 +148,12 @@ where
     async fn on_acc_pos(&mut self, msg: InfraMsg<Vec<WsAccPosition>>) {
         let fut_head = self.head.on_acc_pos(msg.clone());
         let fut_tail = self.tail.on_acc_pos(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_ws_other(&mut self, msg: InfraMsg<Vec<WsOtherMessage>>) {
+        let fut_head = self.head.on_ws_other(msg.clone());
+        let fut_tail = self.tail.on_ws_other(msg);
         tokio::join!(fut_head, fut_tail);
     }
 }
