@@ -1530,7 +1530,7 @@ impl OkxCli {
     ) -> InfraResult<String> {
         let channel = match trades_param {
             Some(TradesParam::AggTrades) | None => "trades",
-            Some(TradesParam::AllTrades) => "tradesAll",
+            Some(TradesParam::AllTrades) => "trades-all",
         };
 
         Ok(ws_subscribe_msg_okx(channel, insts))
@@ -1620,6 +1620,28 @@ mod tests {
 
             assert_eq!(value["op"], "subscribe");
             assert_eq!(value["args"][0]["channel"], expected);
+            assert_eq!(value["args"][0]["instId"], "BTC-USDT-SWAP");
+        }
+    }
+
+    #[test]
+    fn builds_okx_trade_connect_and_subscribe_messages() {
+        let cli = OkxCli::default();
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+        let cases = [
+            (TradesParam::AggTrades, OKX_WS_PUB, "trades"),
+            (TradesParam::AllTrades, OKX_WS_BUS, "trades-all"),
+        ];
+
+        for (param, expected_url, expected_channel) in cases {
+            let channel = WsChannel::Trades(Some(param));
+            assert_eq!(cli._get_public_connect_msg(&channel).unwrap(), expected_url);
+
+            let msg = cli._get_public_sub_msg(&channel, Some(&insts)).unwrap();
+            let value: Value = serde_json::from_str(&msg).unwrap();
+
+            assert_eq!(value["op"], "subscribe");
+            assert_eq!(value["args"][0]["channel"], expected_channel);
             assert_eq!(value["args"][0]["instId"], "BTC-USDT-SWAP");
         }
     }

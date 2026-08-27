@@ -500,6 +500,8 @@ pub struct HyperliquidOrderRequest {
     reduce_only: bool,
     #[serde(rename = "t")]
     order_type: HyperliquidOrderTypeRequest,
+    #[serde(rename = "c", skip_serializing_if = "Option::is_none")]
+    cloid: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -556,6 +558,11 @@ pub fn hyperliquid_order_from_params(
 
     let reduce_only = order_params.reduce_only.unwrap_or(false);
     let size = normalize_hyperliquid_num_str(&order_params.size);
+    let cloid = order_params
+        .client_order_id
+        .as_deref()
+        .map(normalize_hyperliquid_cloid)
+        .transpose()?;
 
     let (price, tif) = match order_params.order_type {
         OrderType::Market => {
@@ -595,6 +602,7 @@ pub fn hyperliquid_order_from_params(
         order_type: HyperliquidOrderTypeRequest::Limit {
             limit: HyperliquidLimitOrderRequest { tif },
         },
+        cloid,
     })
 }
 
@@ -757,5 +765,58 @@ mod tests {
                 }]
             })
         );
+    }
+
+    #[test]
+    fn serializes_order_cloid_from_client_order_id() {
+        let request = hyperliquid_order_from_params(OrderParams {
+            inst: "120007".into(),
+            side: OrderSide::BUY,
+            size: "0.0004000".into(),
+            order_type: OrderType::PostOnly,
+            price: Some("29570.00".into()),
+            client_order_id: Some("0xABCDEF0123456789ABCDEF0123456789".into()),
+            ..Default::default()
+        })
+        .unwrap();
+
+        assert_eq!(
+            serde_json::to_value(request).unwrap(),
+            json!({
+                "a": 120007,
+                "b": true,
+                "p": "29570",
+                "s": "0.0004",
+                "r": false,
+                "t": {"limit": {"tif": "Alo"}},
+                "c": "0xabcdef0123456789abcdef0123456789"
+            })
+        );
+    }
+
+    #[test]
+    fn omits_absent_order_cloid_and_rejects_invalid_cloid() {
+        let request = hyperliquid_order_from_params(OrderParams {
+            inst: "120007".into(),
+            side: OrderSide::SELL,
+            size: "0.0004".into(),
+            order_type: OrderType::Limit,
+            price: Some("29570".into()),
+            ..Default::default()
+        })
+        .unwrap();
+        let value = serde_json::to_value(request).unwrap();
+        assert!(value.get("c").is_none());
+
+        let invalid = hyperliquid_order_from_params(OrderParams {
+            inst: "120007".into(),
+            side: OrderSide::BUY,
+            size: "0.0004".into(),
+            order_type: OrderType::PostOnly,
+            price: Some("29570".into()),
+            client_order_id: Some("probe-1".into()),
+            ..Default::default()
+        });
+        assert!(invalid.is_err());
     }
 }
