@@ -13,3 +13,5 @@ pub mod perp_dexs;
 pub mod spot_clearinghouse_state;
 pub mod spot_meta;
 pub mod trade_order;
+pub mod user_fees;
+pub mod user_rate_limit;

@@ -48,6 +48,8 @@ use super::{
         spot_clearinghouse_state::RestSpotClearinghouseStateHyperliquid,
         spot_meta::RestSpotMetaHyperliquid,
         trade_order::RestOrderAckHyperliquid,
+        user_fees::RestUserFeesHyperliquid,
+        user_rate_limit::RestUserRateLimitHyperliquid,
     },
 };
 
@@ -362,6 +364,37 @@ impl HyperliquidCli {
             .next()
             .ok_or(InfraError::ApiCliError(
                 "No Hyperliquid perpetual instrument info returned".into(),
+            ))
+    }
+
+    pub async fn get_user_rate_limit(&self) -> InfraResult<RestUserRateLimitHyperliquid> {
+        let body = json!({
+            "type": "userRateLimit",
+            "user": self._owner_address()?,
+        });
+        let res: RestResHyperliquid<RestUserRateLimitHyperliquid> =
+            self._post_info_raw(&body).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid user rate limit returned".into(),
+            ))
+    }
+
+    pub async fn get_user_fees(&self) -> InfraResult<RestUserFeesHyperliquid> {
+        let body = json!({
+            "type": "userFees",
+            "user": self._owner_address()?,
+        });
+        let res: RestResHyperliquid<RestUserFeesHyperliquid> = self._post_info_raw(&body).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid user fees returned".into(),
             ))
     }
 

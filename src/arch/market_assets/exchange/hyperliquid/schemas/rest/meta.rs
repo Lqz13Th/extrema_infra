@@ -22,6 +22,12 @@ pub struct RestMetaUniverseHyperliquid {
     pub onlyIsolated: Option<bool>,
     pub isDelisted: Option<bool>,
     pub marginMode: Option<String>,
+    #[serde(default)]
+    pub growthMode: Option<String>,
+    #[serde(default)]
+    pub deployerFeeScale: Option<String>,
+    #[serde(default)]
+    pub lastFeeScaleChangeTime: Option<String>,
 }
 
 impl RestMetaHyperliquid {
@@ -62,5 +68,33 @@ impl RestMetaUniverseHyperliquid {
                 InstrumentStatus::Live
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_hip3_fee_metadata() {
+        let meta: RestMetaHyperliquid = serde_json::from_value(serde_json::json!({
+            "universe": [{
+                "name": "xyz:XYZ100",
+                "szDecimals": 3,
+                "maxLeverage": 20,
+                "growthMode": "enabled",
+                "deployerFeeScale": "1.0",
+                "lastFeeScaleChangeTime": "2025-11-23T17:37:10.033211662"
+            }]
+        }))
+        .unwrap();
+
+        let xyz100 = &meta.universe[0];
+        assert_eq!(xyz100.growthMode.as_deref(), Some("enabled"));
+        assert_eq!(xyz100.deployerFeeScale.as_deref(), Some("1.0"));
+        assert_eq!(
+            xyz100.lastFeeScaleChangeTime.as_deref(),
+            Some("2025-11-23T17:37:10.033211662")
+        );
     }
 }
