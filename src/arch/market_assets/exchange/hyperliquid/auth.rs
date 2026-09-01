@@ -1,7 +1,7 @@
 use data_encoding::HEXLOWER;
 use reqwest::Client;
 use rmp_serde::to_vec_named;
-use secp256k1::{Message, Secp256k1, SecretKey};
+use secp256k1::{Message, SecretKey, ecdsa::RecoverableSignature};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha3::{Digest, Keccak256};
 
@@ -404,16 +404,15 @@ fn eip712_agent_digest(agent: &HyperliquidAgent) -> InfraResult<[u8; 32]> {
 }
 
 fn sign_digest(secret_key: &SecretKey, digest: &[u8; 32]) -> InfraResult<HyperliquidSignature> {
-    let secp = Secp256k1::new();
     let message = Message::from_digest(*digest);
-    let signature = secp.sign_ecdsa_recoverable(message, secret_key);
+    let signature = RecoverableSignature::sign_ecdsa_recoverable(message, secret_key);
     let (recid, compact) = signature.serialize_compact();
     let (r, s) = compact.split_at(32);
 
     Ok(HyperliquidSignature {
         r: format!("0x{}", HEXLOWER.encode(r)),
         s: format!("0x{}", HEXLOWER.encode(s)),
-        v: i32::from(recid) as u64 + 27,
+        v: u64::from(recid.to_u8()) + 27,
     })
 }
 
@@ -423,7 +422,7 @@ fn parse_secret_key(secret: &str) -> InfraResult<SecretKey> {
     let key_bytes: [u8; 32] = bytes
         .try_into()
         .map_err(|_| InfraError::ApiCliError(format!("Invalid secret key length: {}", len)))?;
-    SecretKey::from_byte_array(key_bytes)
+    SecretKey::from_secret_bytes(key_bytes)
         .map_err(|e| InfraError::ApiCliError(format!("Invalid secret key: {}", e)))
 }
 
