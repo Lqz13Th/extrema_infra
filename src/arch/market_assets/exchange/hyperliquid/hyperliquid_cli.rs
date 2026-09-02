@@ -489,12 +489,14 @@ impl HyperliquidCli {
             leverage,
         };
 
-        self.auth
+        let res: RestResHyperliquid<Value> = self
+            .auth
             .as_ref()
             .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_exchange_action_raw::<Value, _>(&self.client, &action)
+            .send_signed_exchange_action_raw(&self.client, &action)
             .await?;
 
+        res.into_vec()?;
         Ok(())
     }
 
