@@ -25,7 +25,7 @@ use tokio::{
     sync::{broadcast, mpsc},
     time::{Duration, error::Elapsed, sleep, timeout},
 };
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async_with_config};
 use tungstenite::{
     Bytes, Error,
     client::IntoClientRequest,
@@ -81,10 +81,12 @@ impl WsTaskRunner {
             request.headers_mut().insert(header_name, header_value);
         }
 
-        let (ws_stream, _) = connect_async(request).await.map_err(|e| {
-            error!("WebSocket connection failed: {:?}", e);
-            InfraError::WebSocket(Box::new(e))
-        })?;
+        let (ws_stream, _) = connect_async_with_config(request, None, true)
+            .await
+            .map_err(|e| {
+                error!("WebSocket connection failed: {:?}", e);
+                InfraError::WebSocket(Box::new(e))
+            })?;
         Ok(ws_stream)
     }
     async fn handle_ws_msg<WsData, Decode>(
