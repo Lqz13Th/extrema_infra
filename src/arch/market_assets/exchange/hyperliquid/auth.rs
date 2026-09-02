@@ -348,7 +348,7 @@ fn send_to_evm_with_data_eip712_digest(
     let type_hash = keccak256(
         b"HyperliquidTransaction:SendToEvmWithData(string hyperliquidChain,string token,string amount,string sourceDex,string destinationRecipient,string addressEncoding,uint32 destinationChainId,uint64 gasLimit,bytes data,uint64 nonce)",
     );
-    let data = decode_hex(&action.data)?;
+    let data = decode_hex(&action.data, "Hyperliquid calldata")?;
     let mut payload = Vec::with_capacity(32 * 11);
     payload.extend(type_hash);
     payload.extend(keccak256(action.hyperliquid_chain.as_bytes()));
@@ -417,7 +417,7 @@ fn sign_digest(secret_key: &SecretKey, digest: &[u8; 32]) -> InfraResult<Hyperli
 }
 
 fn parse_secret_key(secret: &str) -> InfraResult<SecretKey> {
-    let bytes = decode_hex(secret)?;
+    let bytes = decode_hex(secret, "Hyperliquid private key")?;
     let len = bytes.len();
     let key_bytes: [u8; 32] = bytes
         .try_into()
@@ -427,7 +427,7 @@ fn parse_secret_key(secret: &str) -> InfraResult<SecretKey> {
 }
 
 fn parse_address_bytes(address: &str) -> InfraResult<[u8; 20]> {
-    let bytes = decode_hex(address)?;
+    let bytes = decode_hex(address, "Hyperliquid address")?;
     if bytes.len() != 20 {
         return Err(InfraError::ApiCliError(format!(
             "Invalid Hyperliquid address length: {}",
@@ -441,7 +441,7 @@ fn parse_address_bytes(address: &str) -> InfraResult<[u8; 20]> {
 }
 
 fn parse_bytes32(hex_string: &str) -> InfraResult<[u8; 32]> {
-    let bytes = decode_hex(hex_string)?;
+    let bytes = decode_hex(hex_string, "Hyperliquid bytes32")?;
     if bytes.len() != 32 {
         return Err(InfraError::ApiCliError(format!(
             "Invalid Hyperliquid bytes32 length: {}",
@@ -460,34 +460,39 @@ fn normalize_evm_address(address: &str) -> InfraResult<String> {
 }
 
 fn normalize_hex_data(data: &str) -> InfraResult<String> {
-    let bytes = decode_hex(data)?;
+    let bytes = decode_hex(data, "Hyperliquid calldata")?;
     Ok(format!("0x{}", HEXLOWER.encode(&bytes)))
 }
 
-fn decode_hex(input: &str) -> InfraResult<Vec<u8>> {
+fn decode_hex(input: &str, field: &'static str) -> InfraResult<Vec<u8>> {
     let cleaned = input.trim_start_matches("0x");
-    let normalized = if cleaned.len().is_multiple_of(2) {
-        cleaned.to_string()
-    } else {
-        format!("0{}", cleaned)
-    };
+    let bytes = cleaned.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len().div_ceil(2));
+    let mut offset = 0;
 
-    let mut out = Vec::with_capacity(normalized.len() / 2);
-    for chunk in normalized.as_bytes().chunks(2) {
-        out.push((hex_value(chunk[0], input)? << 4) | hex_value(chunk[1], input)?);
+    if !bytes.len().is_multiple_of(2) {
+        out.push(hex_value(bytes[0], field, 0)?);
+        offset = 1;
+    }
+
+    while offset < bytes.len() {
+        out.push(
+            (hex_value(bytes[offset], field, offset)? << 4)
+                | hex_value(bytes[offset + 1], field, offset + 1)?,
+        );
+        offset += 2;
     }
 
     Ok(out)
 }
 
-fn hex_value(b: u8, input: &str) -> InfraResult<u8> {
+fn hex_value(b: u8, field: &'static str, offset: usize) -> InfraResult<u8> {
     match b {
         b'0'..=b'9' => Ok(b - b'0'),
         b'a'..=b'f' => Ok(b - b'a' + 10),
         b'A'..=b'F' => Ok(b - b'A' + 10),
         _ => Err(InfraError::ApiCliError(format!(
-            "Invalid hex string: {}",
-            input
+            "{field}: non-hex digit at offset {offset}"
         ))),
     }
 }
@@ -635,6 +640,12 @@ mod tests {
         );
         assert_eq!(normalize_hex_data("0x").unwrap(), "0x");
         assert_eq!(normalize_hex_data("0x0102").unwrap(), "0x0102");
-        assert!(normalize_hex_data("0xzz").is_err());
+        assert_eq!(normalize_hex_data("0xabc").unwrap(), "0x0abc");
+        assert!(
+            normalize_hex_data("0x1z2")
+                .unwrap_err()
+                .to_string()
+                .contains("Hyperliquid calldata: non-hex digit at offset 1")
+        );
     }
 }
