@@ -474,20 +474,20 @@ fn decode_hex(input: &str) -> InfraResult<Vec<u8>> {
 
     let mut out = Vec::with_capacity(normalized.len() / 2);
     for chunk in normalized.as_bytes().chunks(2) {
-        out.push((hex_value(chunk[0], input)? << 4) | hex_value(chunk[1], input)?);
+        out.push((hex_value(chunk[0])? << 4) | hex_value(chunk[1])?);
     }
 
     Ok(out)
 }
 
-fn hex_value(b: u8, input: &str) -> InfraResult<u8> {
+fn hex_value(b: u8) -> InfraResult<u8> {
     match b {
         b'0'..=b'9' => Ok(b - b'0'),
         b'a'..=b'f' => Ok(b - b'a' + 10),
         b'A'..=b'F' => Ok(b - b'A' + 10),
         _ => Err(InfraError::ApiCliError(format!(
             "Invalid hex string: {}",
-            input
+            redact_secret()
         ))),
     }
 }
