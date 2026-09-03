@@ -17,6 +17,8 @@ pub struct RestAccountPosGateFutures {
     pub mark_price: Option<Value>,
     pub initial_margin: Option<Value>,
     pub lever: Option<Value>,
+    /// ADL rank: 1 is highest, 5 is lowest, and 6 means no position or liquidation.
+    pub adl_ranking: Option<u8>,
     pub update_time: Option<Value>,
 }
 
