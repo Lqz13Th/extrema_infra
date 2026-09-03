@@ -19,6 +19,7 @@ pub mod ct_public_lead_traders;
 pub mod ct_public_subpositions_history;
 pub mod funding_rate;
 pub mod funding_rate_history;
+pub mod mark_price;
 pub mod market_ticker;
 pub mod order_history;
 pub mod orderbook;

@@ -7,7 +7,7 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{OrderAckData, OrderDetailData, PositionData},
-            price_data::{CandleData, OrderBookData, TickerData},
+            price_data::{CandleData, MarkPriceData, OrderBookData, TickerData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
@@ -70,6 +70,14 @@ impl LobPublicRest for GateFuturesCli {
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        self._get_mark_prices(insts, inst_type).await
     }
 
     async fn get_candles(
@@ -494,6 +502,17 @@ impl GateFuturesCli {
         res.into_vec()
     }
 
+    pub async fn get_tickers_raw(&self, settle: &str) -> InfraResult<Vec<RestTickerGateFutures>> {
+        let endpoint = GATE_FUTURES_TICKERS.replace("{settle}", settle);
+        let url = [GATE_BASE_URL, &endpoint].concat();
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestTickerGateFutures> =
+            parse_json_response("GateFutures tickers", response).await?;
+
+        res.into_vec()
+    }
+
     async fn _get_tickers(
         &self,
         insts: Option<&[String]>,
@@ -502,21 +521,38 @@ impl GateFuturesCli {
         let mut data: Vec<TickerData> = Vec::new();
 
         for settle in &self.public_settles {
-            let endpoint = GATE_FUTURES_TICKERS.replace("{settle}", settle);
-            let url = [GATE_BASE_URL, &endpoint].concat();
-
-            let response = self.client.get(url).send().await?;
-            let res: RestResGate<RestTickerGateFutures> =
-                parse_json_response("GateFutures tickers", response).await?;
-
             data.extend(
-                res.into_vec()?
+                self.get_tickers_raw(settle)
+                    .await?
                     .into_iter()
                     .filter(|t| match insts {
                         Some(list) => list.contains(&gate_fut_inst_to_cli(&t.contract)),
                         None => true,
                     })
                     .map(TickerData::from),
+            );
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        let mut data: Vec<MarkPriceData> = Vec::new();
+
+        for settle in &self.public_settles {
+            data.extend(
+                self.get_tickers_raw(settle)
+                    .await?
+                    .into_iter()
+                    .filter(|t| match insts {
+                        Some(list) => list.contains(&gate_fut_inst_to_cli(&t.contract)),
+                        None => true,
+                    })
+                    .map(MarkPriceData::from),
             );
         }
 

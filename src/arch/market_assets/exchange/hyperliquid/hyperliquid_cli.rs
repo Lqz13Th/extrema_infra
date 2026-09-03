@@ -7,7 +7,7 @@ use crate::arch::{
     market_assets::{
         api_data::{
             account_data::{BalanceData, OrderAckData, OrderDetailData, PositionData},
-            price_data::{CandleData, OrderBookData, TickerData},
+            price_data::{CandleData, MarkPriceData, OrderBookData, TickerData},
             utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
         },
         api_general::{
@@ -75,6 +75,14 @@ impl LobPublicRest for HyperliquidCli {
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        self._get_mark_prices(insts, inst_type).await
     }
 
     async fn get_candles(
@@ -280,7 +288,7 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<FundingRateData>> {
         let target_inst = normalize_funding_inst_filter(inst)?;
 
-        let ctxs = self._get_meta_and_asset_ctxs().await?;
+        let ctxs = self.get_perp_meta_and_asset_ctxs_raw().await?;
         let quote = self._perp_quote_from_meta(&ctxs.0).await?;
         let data = ctxs
             .into_funding_rate_data(&quote)?
@@ -300,7 +308,7 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<FundingRateInfo>> {
         let target_inst = normalize_funding_inst_filter(inst)?;
 
-        let ctxs = self._get_meta_and_asset_ctxs().await?;
+        let ctxs = self.get_perp_meta_and_asset_ctxs_raw().await?;
         let quote = self._perp_quote_from_meta(&ctxs.0).await?;
         let data = ctxs
             .into_funding_rate_info(&quote)?
@@ -364,6 +372,22 @@ impl HyperliquidCli {
             .next()
             .ok_or(InfraError::ApiCliError(
                 "No Hyperliquid perpetual instrument info returned".into(),
+            ))
+    }
+
+    pub async fn get_perp_meta_and_asset_ctxs_raw(
+        &self,
+    ) -> InfraResult<RestMetaAndAssetCtxsHyperliquid> {
+        let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
+            ._post_info_raw(&json!({ "type": "metaAndAssetCtxs", "dex": self._perp_dex() }))
+            .await?;
+
+        ctxs_res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Hyperliquid metaAndAssetCtxs returned".into(),
             ))
     }
 
@@ -498,6 +522,31 @@ impl HyperliquidCli {
 
         res.into_vec()?;
         Ok(())
+    }
+
+    async fn _get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        if inst_type.unwrap_or(InstrumentType::Perpetual) != InstrumentType::Perpetual {
+            return Err(InfraError::ApiCliError(
+                "Hyperliquid mark price supports perpetual instruments only".into(),
+            ));
+        }
+
+        let ctxs = self.get_perp_meta_and_asset_ctxs_raw().await?;
+        let quote = self._perp_quote_from_meta(&ctxs.0).await?;
+        let data = ctxs
+            .into_perp_mark_price_data(&quote)?
+            .into_iter()
+            .filter(|entry| match insts {
+                Some(list) => list.contains(&entry.inst),
+                None => true,
+            })
+            .collect();
+
+        Ok(data)
     }
 
     async fn _get_candles(
@@ -1009,7 +1058,7 @@ impl HyperliquidCli {
             ))?;
 
         let normalized_insts = normalize_inst_filters(insts);
-        let ctxs = self._get_meta_and_asset_ctxs().await?;
+        let ctxs = self.get_perp_meta_and_asset_ctxs_raw().await?;
         let quote = self._perp_quote_from_meta(&ctxs.0).await?;
         let mark_px_by_coin = ctxs.into_perp_mark_px_by_coin()?;
 
@@ -1417,20 +1466,6 @@ impl HyperliquidCli {
         parse_json_response(&label, response).await
     }
 
-    async fn _get_meta_and_asset_ctxs(&self) -> InfraResult<RestMetaAndAssetCtxsHyperliquid> {
-        let ctxs_res: RestResHyperliquid<RestMetaAndAssetCtxsHyperliquid> = self
-            ._post_info_raw(&json!({ "type": "metaAndAssetCtxs", "dex": self._perp_dex() }))
-            .await?;
-
-        ctxs_res
-            .into_vec()?
-            .into_iter()
-            .next()
-            .ok_or(InfraError::ApiCliError(
-                "No Hyperliquid metaAndAssetCtxs returned".into(),
-            ))
-    }
-
     fn _inst_to_asset_id(&self, inst: &str) -> InfraResult<u32> {
         let normalized_inst = normalize_hyperliquid_cli_inst(inst);
         let index = self
@@ -1468,5 +1503,20 @@ impl HyperliquidCli {
         } else {
             hyperliquid_index_to_asset_id(InstrumentType::Spot, index)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn rejects_spot_mark_price_request() {
+        let cli = HyperliquidCli::default();
+
+        assert!(matches!(
+            cli.get_mark_prices(None, Some(InstrumentType::Spot)).await,
+            Err(InfraError::ApiCliError(_))
+        ));
     }
 }
