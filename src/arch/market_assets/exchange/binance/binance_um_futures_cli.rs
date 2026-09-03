@@ -26,6 +26,7 @@ use super::{
         account_balance::RestAccountBalBinanceUM,
         account_config::RestAccountConfigBinanceUM,
         account_position_risk::RestAccountPosRiskBinanceUM,
+        adl_quantile::RestPositionAdlQuantileBinanceUM,
         candle::RestCandleBinanceUM,
         exchange_info::RestExchangeInfoBinanceUM,
         funding_rate::RestFundingRateBinanceUM,
@@ -380,6 +381,28 @@ impl BinanceUmCli {
                 query_string.as_deref(),
                 BINANCE_UM_FUTURES_BASE_URL,
                 BINANCE_UM_FUTURES_SYMBOL_CONFIG,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_position_adl_quantiles(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<RestPositionAdlQuantileBinanceUM>> {
+        let query_string = inst.map(|s| format!("symbol={}", cli_perp_to_pure_uppercase(s)));
+
+        let res: RestResBinance<RestPositionAdlQuantileBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query_string.as_deref(),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_POSITION_ADL_QUANTILE,
             )
             .await?;
 
