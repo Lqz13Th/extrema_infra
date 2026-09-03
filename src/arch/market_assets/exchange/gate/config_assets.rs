@@ -34,6 +34,7 @@ pub const GATE_UNI_SUB_ACCOUNTS: &str = "/api/v4/sub_accounts";
 pub const GATE_FUTURES_CONTRACTS: &str = "/api/v4/futures/{settle}/contracts";
 pub const GATE_FUTURES_CONTRACT: &str = "/api/v4/futures/{settle}/contracts/{contract}";
 pub const GATE_FUTURES_TICKERS: &str = "/api/v4/futures/{settle}/tickers";
+pub const GATE_FUTURES_ADL_RISK_STATES: &str = "/api/v4/futures/{settle}/adl_risk_states";
 pub const GATE_FUTURES_CANDLESTICKS: &str = "/api/v4/futures/{settle}/candlesticks";
 pub const GATE_FUTURES_ORDER_BOOK: &str = "/api/v4/futures/{settle}/order_book";
 pub const GATE_FUTURES_PREMIUM_INDEX: &str = "/api/v4/futures/{settle}/premium_index";
@@ -54,6 +55,7 @@ pub const GATE_WS_FUTURES_CANDLES: &str = "futures.candlesticks";
 pub const GATE_WS_FUTURES_BOOK_TICKER: &str = "futures.book_ticker";
 pub const GATE_WS_FUTURES_ORDER_BOOK: &str = "futures.order_book";
 pub const GATE_WS_FUTURES_ORDER_BOOK_UPDATE: &str = "futures.order_book_update";
+pub const GATE_WS_FUTURES_ADL_WARNING: &str = "futures.adl_warning";
 
 /// Delivery REST endpoints
 pub const GATE_DELIVERY_CONTRACTS: &str = "/api/v4/delivery/{settle}/contracts";

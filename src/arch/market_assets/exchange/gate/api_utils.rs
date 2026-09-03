@@ -8,6 +8,10 @@ use crate::arch::{
     market_assets::{
         api_general::{CancelOrderParams, OrderParams, get_seconds_timestamp},
         base_data::{OrderSide, OrderType, SUBSCRIBE_LOWER},
+        exchange::gate::{
+            config_assets::GATE_WS_FUTURES_ADL_WARNING, gate_ws_msg::GateWsData,
+            schemas::futures_ws::adl_warning::WsAdlWarningGateFutures,
+        },
     },
     task_execution::task_ws::LobFrequency,
 };
@@ -154,6 +158,30 @@ pub fn ws_subscribe_msg_gate_futures(channel: &str, payload: Vec<String>) -> Str
     });
 
     msg.to_string()
+}
+
+pub fn ws_subscribe_adl_warning_msg_gate_futures(insts: Option<&[String]>) -> InfraResult<String> {
+    let payload = match insts {
+        Some(list) if !list.is_empty() => gate_contracts_from_insts(insts)?,
+        _ => vec!["!all".into()],
+    };
+
+    Ok(ws_subscribe_msg_gate_futures(
+        GATE_WS_FUTURES_ADL_WARNING,
+        payload,
+    ))
+}
+
+/// Decodes one raw `futures.adl_warning` frame delivered through `on_ws_other`.
+///
+/// Subscription acknowledgements and other event frames decode to an empty
+/// vector. The `all` snapshot and `update` frames both decode to their entries.
+pub fn parse_ws_adl_warning_gate(raw_json: &str) -> InfraResult<Vec<WsAdlWarningGateFutures>> {
+    match GateWsData::<WsAdlWarningGateFutures>::decode_batch(raw_json.as_bytes())? {
+        GateWsData::Channel(batch) => Ok(batch.result),
+        GateWsData::Single(single) => Ok(vec![single.result]),
+        GateWsData::Event(_) => Ok(Vec::new()),
+    }
 }
 
 pub fn gate_fut_inst_to_cli(symbol: &str) -> String {

@@ -9,6 +9,10 @@ use crate::arch::{
         base_data::{
             InstrumentType, MarginMode, OrderSide, OrderType, PositionSide, SUBSCRIBE_LOWER,
         },
+        exchange::okx::{
+            config_assets::OKX_WS_ADL_WARNING, okx_ws_msg::OkxWsData,
+            schemas::ws::adl_warning::WsAdlWarningOkx,
+        },
     },
     task_execution::task_ws::CandleParam,
 };
@@ -133,6 +137,42 @@ pub fn ws_subscribe_msg_okx(channel: &str, insts: Option<&[String]>) -> String {
     subscribe_msg.to_string()
 }
 
+pub fn ws_subscribe_adl_warning_msg_okx(insts: Option<&[String]>) -> String {
+    let args: Vec<_> = match insts {
+        Some(list) => list
+            .iter()
+            .map(|inst| {
+                json!({
+                    "channel": OKX_WS_ADL_WARNING,
+                    "instType": "SWAP",
+                    "instFamily": cli_perp_to_okx_inst_family(inst),
+                })
+            })
+            .collect(),
+        None => vec![json!({ "channel": OKX_WS_ADL_WARNING, "instType": "SWAP" })],
+    };
+
+    let subscribe_msg = json!({
+        "op": SUBSCRIBE_LOWER,
+        "args": args
+    });
+
+    subscribe_msg.to_string()
+}
+
+/// Decodes one raw `adl-warning` frame delivered through `on_ws_other`.
+///
+/// Subscription acknowledgements and other event frames decode to an empty
+/// vector. OKX pushes this channel only while a family is in the `warning` or
+/// `adl` state, so callers must treat silence as `normal` and age out stale
+/// states themselves.
+pub fn parse_ws_adl_warning_okx(raw_json: &str) -> InfraResult<Vec<WsAdlWarningOkx>> {
+    match OkxWsData::<WsAdlWarningOkx>::decode_batch(raw_json.as_bytes())? {
+        OkxWsData::ChannelBatch(batch) => Ok(batch.data),
+        OkxWsData::Event(_) => Ok(Vec::new()),
+    }
+}
+
 pub fn get_okx_timestamp() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -155,6 +195,22 @@ pub fn cli_perp_to_okx_inst(symbol: &str) -> String {
     }
 
     upper.replace('_', "-")
+}
+
+pub fn cli_perp_to_okx_inst_family(symbol: &str) -> String {
+    let inst = cli_perp_to_okx_inst(symbol);
+    if let Some(family) = inst.strip_suffix("-SWAP") {
+        return family.to_string();
+    }
+
+    match inst.rsplit_once('-') {
+        Some((family, expiry))
+            if expiry.len() == 6 && expiry.chars().all(|c| c.is_ascii_digit()) =>
+        {
+            family.to_string()
+        },
+        _ => inst,
+    }
 }
 
 pub fn cli_inst_to_okx_inst(symbol: &str, inst_type: &InstrumentType) -> InfraResult<String> {

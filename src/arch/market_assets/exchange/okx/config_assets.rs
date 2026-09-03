@@ -42,3 +42,4 @@ pub const OKX_CT_LEADTRADER_SUBPOSITIONS_HISTORY: &str =
 
 /// WebSocket channels
 pub const OKX_WS_LOGIN: &str = "GET/users/self/verify";
+pub const OKX_WS_ADL_WARNING: &str = "adl-warning";
