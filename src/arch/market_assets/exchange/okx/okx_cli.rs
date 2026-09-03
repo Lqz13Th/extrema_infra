@@ -302,6 +302,34 @@ impl OkxCli {
         res.into_vec()
     }
 
+    pub async fn get_positions_raw(
+        &self,
+        insts: Option<&[String]>,
+    ) -> InfraResult<Vec<RestAccountPosOkx>> {
+        let body = match insts {
+            Some(ids) if !ids.is_empty() => {
+                let okx_ids: Vec<String> = ids.iter().map(|s| cli_perp_to_okx_inst(s)).collect();
+                json!({ "instId": okx_ids.join(",") }).to_string()
+            },
+            _ => "{}".into(),
+        };
+
+        let res: RestResOkx<RestAccountPosOkx> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                body,
+                OKX_BASE_URL,
+                OKX_ACCOUNT_POSITIONS,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
     pub async fn get_account_config(&self) -> InfraResult<Vec<RestAccountConfigOkx>> {
         let res: RestResOkx<RestAccountConfigOkx> = self
             .api_key
@@ -1324,29 +1352,9 @@ impl OkxCli {
     }
 
     async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
-        let body = match insts {
-            Some(ids) if !ids.is_empty() => {
-                let okx_ids: Vec<String> = ids.iter().map(|s| cli_perp_to_okx_inst(s)).collect();
-                json!({ "instId": okx_ids.join(",") }).to_string()
-            },
-            _ => "{}".into(),
-        };
-
-        let res: RestResOkx<RestAccountPosOkx> = self
-            .api_key
-            .as_ref()
-            .ok_or(InfraError::ApiCliNotInitialized)?
-            .send_signed_request(
-                &self.client,
-                RequestMethod::Get,
-                body,
-                OKX_BASE_URL,
-                OKX_ACCOUNT_POSITIONS,
-            )
-            .await?;
-
-        let data: Vec<PositionData> = res
-            .into_vec()?
+        let data: Vec<PositionData> = self
+            .get_positions_raw(insts)
+            .await?
             .into_iter()
             .map(PositionData::from)
             .collect();

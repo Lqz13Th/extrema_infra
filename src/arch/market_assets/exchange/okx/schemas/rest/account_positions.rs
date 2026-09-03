@@ -18,6 +18,8 @@ pub struct RestAccountPosOkx {
     pub markPx: String,
     pub margin: Option<String>,
     pub lever: String,
+    /// ADL level from 0 (lowest priority) to 5 (highest priority).
+    pub adl: Option<String>,
     pub uTime: String,
 }
 

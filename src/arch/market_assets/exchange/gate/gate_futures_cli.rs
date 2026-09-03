@@ -243,6 +243,37 @@ impl GateFuturesCli {
         Ok(msg.to_string())
     }
 
+    pub async fn get_positions_raw(
+        &self,
+        settle: &str,
+    ) -> InfraResult<Vec<RestAccountPosGateFutures>> {
+        let endpoint = GATE_FUTURES_POSITIONS.replace("{settle}", settle);
+        let res: RestResGate<RestAccountPosGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        match res {
+            RestResGate::Error { label, message }
+                if label == "USER_NOT_FOUND"
+                    || message
+                        .contains("please transfer funds first to create futures account") =>
+            {
+                Ok(Vec::new())
+            },
+            other => other.into_vec(),
+        }
+    }
+
     pub async fn get_funding_rate_history(
         &self,
         settle: &str,
@@ -889,35 +920,9 @@ impl GateFuturesCli {
 
         let mut data: Vec<PositionData> = Vec::new();
         for settle in settles {
-            let endpoint = GATE_FUTURES_POSITIONS.replace("{settle}", &settle);
-            let res: RestResGate<RestAccountPosGateFutures> = self
-                .api_key
-                .as_ref()
-                .ok_or(InfraError::ApiCliNotInitialized)?
-                .send_signed_request(
-                    &self.client,
-                    RequestMethod::Get,
-                    None,
-                    None,
-                    GATE_BASE_URL,
-                    &endpoint,
-                )
-                .await?;
-
-            let pos_raw = match res {
-                RestResGate::Error { label, message }
-                    if label == "USER_NOT_FOUND"
-                        || message
-                            .contains("please transfer funds first to create futures account") =>
-                {
-                    continue;
-                },
-                other => other,
-            };
-
             data.extend(
-                pos_raw
-                    .into_vec()?
+                self.get_positions_raw(&settle)
+                    .await?
                     .into_iter()
                     .filter(|p| value_to_f64(&p.size) != 0.0)
                     .filter(|t| match insts {
