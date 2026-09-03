@@ -281,7 +281,7 @@ selected client does not support return `InfraError::Unimplemented`.
   Defines how to build subscription/connect messages for websocket streams.
 
 - **MarketLobApi = LobPublicRest + LobPrivateRest**
-  - **LobPublicRest**: market data (ticker, orderbook, candles, instruments).
+  - **LobPublicRest**: market data (ticker, mark price, orderbook, candles, instruments).
   - **LobPrivateRest**: trading operations (init API key, place/cancel orders, get balance, get positions).
 
 ---

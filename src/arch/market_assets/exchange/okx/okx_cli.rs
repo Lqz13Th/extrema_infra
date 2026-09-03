@@ -37,9 +37,10 @@ use super::{
         ct_public_lead_traders::RestPubLeadTradersOkx,
         ct_public_subpositions_history::RestSubPositionHistoryOkx,
         funding_rate::RestFundingRateOkx, funding_rate_history::RestFundingRateHistoryOkx,
-        market_ticker::RestMarketTickerOkx, order_history::RestOrderHistoryOkx,
-        orderbook::RestOrderBookOkx, price_limit::RestPriceLimitOkx,
-        public_instruments::RestInstrumentsOkx, trade_order::RestOrderAckOkx,
+        mark_price::RestMarkPriceOkx, market_ticker::RestMarketTickerOkx,
+        order_history::RestOrderHistoryOkx, orderbook::RestOrderBookOkx,
+        price_limit::RestPriceLimitOkx, public_instruments::RestInstrumentsOkx,
+        trade_order::RestOrderAckOkx,
     },
 };
 
@@ -67,6 +68,14 @@ impl LobPublicRest for OkxCli {
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
         self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        self._get_mark_prices(insts, inst_type).await
     }
 
     async fn get_candles(
@@ -961,6 +970,30 @@ impl OkxCli {
         res.into_vec()
     }
 
+    pub async fn get_mark_prices_raw(
+        &self,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<RestMarkPriceOkx>> {
+        let inst_type_str = match inst_type.unwrap_or(InstrumentType::Perpetual) {
+            InstrumentType::Futures => "FUTURES",
+            InstrumentType::Perpetual => "SWAP",
+            _ => {
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
+            },
+        };
+
+        let url = format!(
+            "{}{}?instType={}",
+            OKX_BASE_URL, OKX_PUBLIC_MARK_PRICE, inst_type_str
+        );
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResOkx<RestMarkPriceOkx> =
+            parse_json_response("Okx mark_price", response).await?;
+
+        res.into_vec()
+    }
+
     async fn _get_tickers(
         &self,
         insts: Option<&[String]>,
@@ -992,6 +1025,25 @@ impl OkxCli {
                 None => true,
             })
             .map(TickerData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        let data = self
+            .get_mark_prices_raw(inst_type)
+            .await?
+            .into_iter()
+            .filter(|m| match insts {
+                Some(list) => list.contains(&okx_inst_to_cli(&m.instId)),
+                None => true,
+            })
+            .map(MarkPriceData::from)
             .collect();
 
         Ok(data)
@@ -1580,6 +1632,16 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
+
+    #[tokio::test]
+    async fn rejects_spot_mark_price_request() {
+        let cli = OkxCli::default();
+
+        assert!(matches!(
+            cli.get_mark_prices_raw(Some(InstrumentType::Spot)).await,
+            Err(InfraError::ApiCliError(_))
+        ));
+    }
 
     #[test]
     fn builds_okx_lob_subscribe_channels() {

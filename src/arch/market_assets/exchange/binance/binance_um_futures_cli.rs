@@ -69,6 +69,14 @@ impl LobPublicRest for BinanceUmCli {
         self._get_tickers(insts, inst_type).await
     }
 
+    async fn get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        self._get_mark_prices(insts, inst_type).await
+    }
+
     async fn get_candles(
         &self,
         inst: &str,
@@ -692,6 +700,25 @@ impl BinanceUmCli {
                 None => true,
             })
             .map(TickerData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        let data = self
+            .get_premium_index(None)
+            .await?
+            .into_iter()
+            .filter(|p| match insts {
+                Some(list) => list.contains(&binance_fut_inst_to_cli(&p.symbol)),
+                None => true,
+            })
+            .map(MarkPriceData::from)
             .collect();
 
         Ok(data)

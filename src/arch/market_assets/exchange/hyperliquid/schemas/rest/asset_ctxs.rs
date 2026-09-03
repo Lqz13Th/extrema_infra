@@ -4,8 +4,12 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::arch::market_assets::{
-    api_data::utils_data::{FundingRateData, FundingRateInfo},
+    api_data::{
+        price_data::MarkPriceData,
+        utils_data::{FundingRateData, FundingRateInfo},
+    },
     api_general::{get_mills_timestamp, ts_to_micros, value_to_f64},
+    base_data::InstrumentType,
     exchange::hyperliquid::api_utils::{
         hyperliquid_funding_interval_sec, hyperliquid_next_funding_time_ms, hyperliquid_perp_to_cli,
     },
@@ -47,6 +51,26 @@ impl RestMetaAndAssetCtxsHyperliquid {
                     mark => mark,
                 };
                 (meta.name, mark_price)
+            })
+            .collect())
+    }
+
+    pub fn into_perp_mark_price_data(self, quote: &str) -> InfraResult<Vec<MarkPriceData>> {
+        let timestamp = ts_to_micros(get_mills_timestamp());
+        let (meta, asset_ctxs) = self.split()?;
+
+        Ok(meta
+            .universe
+            .into_iter()
+            .zip(asset_ctxs)
+            .map(|(meta, ctx)| MarkPriceData {
+                timestamp,
+                inst: hyperliquid_perp_to_cli(&meta.name, quote),
+                inst_type: InstrumentType::Perpetual,
+                mark_price: match value_to_f64(&ctx.markPx) {
+                    0.0 => value_to_f64(&ctx.midPx),
+                    mark => mark,
+                },
             })
             .collect())
     }
@@ -112,4 +136,37 @@ pub struct RestSpotAssetCtxHyperliquid {
     pub markPx: Value,
     #[serde(default)]
     pub midPx: Value,
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn converts_perp_mark_prices_with_mid_fallback() {
+        let ctxs: RestMetaAndAssetCtxsHyperliquid = serde_json::from_value(json!([
+            {
+                "universe": [
+                    { "name": "BTC", "szDecimals": 5 },
+                    { "name": "ETH", "szDecimals": 4 }
+                ]
+            },
+            [
+                { "funding": "0.0000125", "markPx": "64123.4", "midPx": "64120.1" },
+                { "funding": "0.0000125", "markPx": "0", "midPx": "3210.5" }
+            ]
+        ]))
+        .unwrap();
+
+        let data = ctxs.into_perp_mark_price_data("USDC").unwrap();
+
+        assert_eq!(data.len(), 2);
+        assert_eq!(data[0].inst, "BTC_USDC_PERP");
+        assert_eq!(data[0].inst_type, InstrumentType::Perpetual);
+        assert_eq!(data[0].mark_price, 64123.4);
+        assert_eq!(data[1].inst, "ETH_USDC_PERP");
+        assert_eq!(data[1].mark_price, 3210.5);
+    }
 }

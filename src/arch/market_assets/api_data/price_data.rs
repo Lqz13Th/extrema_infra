@@ -11,6 +11,14 @@ pub struct TickerData {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct MarkPriceData {
+    pub timestamp: u64,
+    pub inst: String,
+    pub inst_type: InstrumentType,
+    pub mark_price: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CandleData {
     pub timestamp: u64,
     pub inst: String,

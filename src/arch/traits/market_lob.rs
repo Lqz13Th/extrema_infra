@@ -32,6 +32,15 @@ pub trait LobPublicRest: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
+    /// Fetches mark prices, optionally restricted by instruments and instrument type.
+    fn get_mark_prices(
+        &self,
+        _insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> impl Future<Output = InfraResult<Vec<MarkPriceData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
     /// Fetches one order book snapshot.
     fn get_orderbook(
         &self,

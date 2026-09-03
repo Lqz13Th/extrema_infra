@@ -62,6 +62,24 @@ impl LobPublicRest for LobClients {
         }
     }
 
+    async fn get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        match self {
+            LobClients::Hyperliquid(c) => c.get_mark_prices(insts, inst_type).await,
+            LobClients::BinanceCm(c) => c.get_mark_prices(insts, inst_type).await,
+            LobClients::BinanceSpot(c) => c.get_mark_prices(insts, inst_type).await,
+            LobClients::BinanceUm(c) => c.get_mark_prices(insts, inst_type).await,
+            LobClients::GateDelivery(c) => c.get_mark_prices(insts, inst_type).await,
+            LobClients::GateFutures(c) => c.get_mark_prices(insts, inst_type).await,
+            LobClients::GateSpot(c) => c.get_mark_prices(insts, inst_type).await,
+            LobClients::GateUni(c) => c.get_mark_prices(insts, inst_type).await,
+            LobClients::Okx(c) => c.get_mark_prices(insts, inst_type).await,
+        }
+    }
+
     async fn get_orderbook(
         &self,
         inst: &str,
