@@ -32,6 +32,7 @@ use super::{
     gate_rest_msg::RestResGate,
     schemas::futures_rest::{
         account_position::RestAccountPosGateFutures,
+        adl_risk_state::RestAdlRiskStatesGateFutures,
         candle::RestCandleGateFutures,
         contract_futures::RestContractGateFutures,
         funding_rate::RestFundingRateGateFutures,
@@ -511,6 +512,25 @@ impl GateFuturesCli {
             parse_json_response("GateFutures tickers", response).await?;
 
         res.into_vec()
+    }
+
+    pub async fn get_adl_risk_states(
+        &self,
+        settle: &str,
+    ) -> InfraResult<RestAdlRiskStatesGateFutures> {
+        let endpoint = GATE_FUTURES_ADL_RISK_STATES.replace("{settle}", settle);
+        let url = [GATE_BASE_URL, &endpoint].concat();
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestAdlRiskStatesGateFutures> =
+            parse_json_response("GateFutures adl_risk_states", response).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Gate ADL risk states returned".into(),
+            ))
     }
 
     async fn _get_tickers(
@@ -1122,6 +1142,9 @@ impl GateFuturesCli {
             WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
             WsChannel::Trades(_) => self._ws_subscribe_trades(insts),
             WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
+            WsChannel::Other(channel) if channel == GATE_WS_FUTURES_ADL_WARNING => {
+                ws_subscribe_adl_warning_msg_gate_futures(insts)
+            },
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -1202,14 +1225,35 @@ impl GateFuturesCli {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
+
     use crate::arch::{
         market_assets::exchange::gate::{
             api_utils::{GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE},
+            config_assets::GATE_WS_FUTURES_ADL_WARNING,
             gate_futures_cli::GateFuturesCli,
         },
         task_execution::task_ws::{LobFrequency, LobParam, WsChannel},
         traits::market_lob::LobWebsocket,
     };
+
+    #[test]
+    fn builds_gate_adl_warning_subscribe_messages() {
+        let cli = GateFuturesCli::default();
+        let channel = WsChannel::Other(GATE_WS_FUTURES_ADL_WARNING.to_string());
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+
+        let all: Value =
+            serde_json::from_str(&cli._get_public_sub_msg(&channel, None).unwrap()).unwrap();
+        assert_eq!(all["channel"], "futures.adl_warning");
+        assert_eq!(all["event"], "subscribe");
+        assert_eq!(all["payload"], serde_json::json!(["!all"]));
+
+        let one: Value =
+            serde_json::from_str(&cli._get_public_sub_msg(&channel, Some(&insts)).unwrap())
+                .unwrap();
+        assert_eq!(one["payload"], serde_json::json!(["BTC_USDT"]));
+    }
 
     #[tokio::test]
     async fn gate_futures_connect_target_requests_decimal_sizes() {

@@ -1504,6 +1504,7 @@ impl OkxCli {
             WsChannel::Candles(_) => OKX_WS_BUS,
             WsChannel::Lob(_) | WsChannel::Trades(None) => OKX_WS_PUB,
             WsChannel::Other(s) if s == "instruments" || s == "funding-rate" => OKX_WS_BUS,
+            WsChannel::Other(s) if s == OKX_WS_ADL_WARNING => OKX_WS_PUB,
             _ => return Err(InfraError::Unimplemented),
         };
 
@@ -1519,6 +1520,9 @@ impl OkxCli {
             WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
             WsChannel::Trades(trades_param) => self._ws_subscribe_trades(trades_param, insts),
             WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
+            WsChannel::Other(channel) if channel == OKX_WS_ADL_WARNING => {
+                Ok(ws_subscribe_adl_warning_msg_okx(insts))
+            },
             _ => Err(InfraError::Unimplemented),
         }
     }
@@ -1641,6 +1645,27 @@ mod tests {
             cli.get_mark_prices_raw(Some(InstrumentType::Spot)).await,
             Err(InfraError::ApiCliError(_))
         ));
+    }
+
+    #[test]
+    fn builds_okx_adl_warning_connect_and_subscribe_messages() {
+        let cli = OkxCli::default();
+        let channel = WsChannel::Other(OKX_WS_ADL_WARNING.to_string());
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+
+        assert_eq!(cli._get_public_connect_msg(&channel).unwrap(), OKX_WS_PUB);
+
+        let all: Value =
+            serde_json::from_str(&cli._get_public_sub_msg(&channel, None).unwrap()).unwrap();
+        assert_eq!(all["op"], "subscribe");
+        assert_eq!(all["args"][0]["channel"], "adl-warning");
+        assert_eq!(all["args"][0]["instType"], "SWAP");
+        assert!(all["args"][0].get("instFamily").is_none());
+
+        let family: Value =
+            serde_json::from_str(&cli._get_public_sub_msg(&channel, Some(&insts)).unwrap())
+                .unwrap();
+        assert_eq!(family["args"][0]["instFamily"], "BTC-USDT");
     }
 
     #[test]
