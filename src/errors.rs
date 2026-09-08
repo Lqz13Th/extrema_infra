@@ -13,7 +13,7 @@ pub enum InfraError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("REST API error: {0}")]
+    #[error("REST API error: {}", crate::arch::market_assets::api_general::describe_reqwest_error(.0))]
     RestApi(#[from] reqwest::Error),
 
     #[error("WebSocket error: {0}")]

@@ -253,15 +253,43 @@ where
     Ok(ts_to_micros(de_u64_from_string_or_number(deserializer)?))
 }
 
+pub fn describe_reqwest_error(e: &reqwest::Error) -> String {
+    let mut out = e.to_string();
+    let mut source = std::error::Error::source(e);
+    while let Some(inner) = source {
+        out.push_str(": ");
+        out.push_str(&inner.to_string());
+        source = inner.source();
+    }
+    let flags: Vec<&str> = [
+        (e.is_timeout(), "timeout"),
+        (e.is_connect(), "connect"),
+        (e.is_request(), "request"),
+        (e.is_body(), "body"),
+        (e.is_decode(), "decode"),
+    ]
+    .into_iter()
+    .filter_map(|(hit, name)| hit.then_some(name))
+    .collect();
+    if !flags.is_empty() {
+        out.push_str(" [");
+        out.push_str(&flags.join(","));
+        out.push(']');
+    }
+    out
+}
+
 pub async fn parse_json_response<T>(label: &str, response: reqwest::Response) -> InfraResult<T>
 where
     T: DeserializeOwned,
 {
     let status = response.status();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| InfraError::Msg(format!("[{label}] body read failed: {e}")))?;
+    let bytes = response.bytes().await.map_err(|e| {
+        InfraError::Msg(format!(
+            "[{label}] body read failed: {}",
+            describe_reqwest_error(&e)
+        ))
+    })?;
 
     let mut bytes = match bytes.try_into_mut() {
         Ok(bytes) => bytes,
@@ -319,6 +347,22 @@ pub struct CancelOrderParams {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn describe_reqwest_error_keeps_the_source_chain_and_flags() {
+        let err = reqwest::Client::new()
+            .get("http://127.0.0.1:9/")
+            .send()
+            .await
+            .expect_err("closed port must fail");
+        let described = describe_reqwest_error(&err);
+        assert!(described.starts_with(&err.to_string()));
+        assert!(described.len() > err.to_string().len(), "{described}");
+        assert!(
+            described.contains("[") && described.contains("connect"),
+            "{described}"
+        );
+    }
 
     #[test]
     fn maps_supported_candle_intervals_to_millis() {
