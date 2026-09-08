@@ -503,6 +503,13 @@ impl GateFuturesCli {
         res.into_vec()
     }
 
+    pub async fn get_futures_contracts_raw(
+        &self,
+        settle: &str,
+    ) -> InfraResult<Vec<RestContractGateFutures>> {
+        self._get_futures_contracts(settle, None, None).await
+    }
+
     pub async fn get_tickers_raw(&self, settle: &str) -> InfraResult<Vec<RestTickerGateFutures>> {
         let endpoint = GATE_FUTURES_TICKERS.replace("{settle}", settle);
         let url = [GATE_BASE_URL, &endpoint].concat();
