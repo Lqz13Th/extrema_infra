@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use data_encoding::HEXLOWER;
 use reqwest::Client;
 use rmp_serde::to_vec_named;
@@ -107,6 +109,23 @@ where
     expires_after: Option<u64>,
 }
 
+static LAST_NONCE: AtomicU64 = AtomicU64::new(0);
+
+/// Millisecond wall clock that never repeats or moves backwards within the
+/// process, so concurrent signers and clock adjustments cannot reuse a nonce.
+pub(crate) fn next_nonce() -> u64 {
+    let now = get_mills_timestamp();
+    let mut last = LAST_NONCE.load(Ordering::Relaxed);
+    loop {
+        let candidate = now.max(last + 1);
+        match LAST_NONCE.compare_exchange_weak(last, candidate, Ordering::AcqRel, Ordering::Relaxed)
+        {
+            Ok(_) => return candidate,
+            Err(actual) => last = actual,
+        }
+    }
+}
+
 impl HyperliquidAuth {
     pub async fn send_withdraw3_raw<T>(
         &self,
@@ -117,7 +136,7 @@ impl HyperliquidAuth {
     where
         T: DeserializeOwned + Send + std::fmt::Debug,
     {
-        let nonce = get_mills_timestamp();
+        let nonce = next_nonce();
         let action = HyperliquidWithdraw3Action {
             kind: "withdraw3",
             destination: normalize_evm_address(destination)?,
@@ -170,7 +189,7 @@ impl HyperliquidAuth {
     where
         T: DeserializeOwned + Send + std::fmt::Debug,
     {
-        let nonce = get_mills_timestamp();
+        let nonce = next_nonce();
         let action = HyperliquidSendToEvmWithDataAction {
             kind: "sendToEvmWithData",
             hyperliquid_chain: HYPERLIQUID_MAINNET_CHAIN.to_string(),
@@ -231,7 +250,7 @@ impl HyperliquidAuth {
         T: DeserializeOwned + Send + std::fmt::Debug,
         A: Serialize,
     {
-        let nonce = get_mills_timestamp();
+        let nonce = next_nonce();
         let signature = self.sign_l1_action(action, nonce, self.vault_address.as_deref())?;
         let body = HyperliquidExchangeRequest {
             action,
@@ -647,5 +666,35 @@ mod tests {
                 .to_string()
                 .contains("Hyperliquid calldata: non-hex digit at offset 1")
         );
+    }
+
+    #[test]
+    fn next_nonce_is_unique_and_increasing_across_threads() {
+        let start = get_mills_timestamp();
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                std::thread::spawn(|| {
+                    let mut seen = Vec::with_capacity(1_000);
+                    for _ in 0..1_000 {
+                        seen.push(next_nonce());
+                    }
+                    seen
+                })
+            })
+            .collect();
+        let mut all: Vec<u64> = Vec::new();
+        for handle in handles {
+            let seen = handle.join().unwrap();
+            assert!(
+                seen.windows(2).all(|w| w[1] > w[0]),
+                "per-thread sequence must increase"
+            );
+            all.extend(seen);
+        }
+        let unique: std::collections::HashSet<u64> = all.iter().copied().collect();
+        assert_eq!(unique.len(), all.len());
+        assert!(all.iter().all(|n| *n >= start));
+        // A burst runs ahead of the clock by at most its own size.
+        assert!(all.iter().max().unwrap() - start <= 8_000 + 1_000);
     }
 }
