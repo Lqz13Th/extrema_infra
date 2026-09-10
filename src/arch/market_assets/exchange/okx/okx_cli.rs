@@ -170,9 +170,8 @@ impl LobPrivateRest for OkxCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit)
             .await
     }
 }
@@ -1485,29 +1484,17 @@ impl OkxCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        let okx_inst = cli_perp_to_okx_inst(inst);
-        let raw = if let Some(order_id) = order_id {
-            vec![
-                self.get_order_raw(OkxOrderReq {
-                    inst_id: okx_inst,
-                    ord_id: Some(order_id.into()),
-                    cl_ord_id: None,
-                })
-                .await?,
-            ]
-        } else {
-            self.get_order_history_raw(OkxOrderHistoryReq {
+        let raw = self
+            .get_order_history_raw(OkxOrderHistoryReq {
                 inst_type: "SWAP".into(),
-                inst_id: Some(okx_inst),
+                inst_id: Some(cli_perp_to_okx_inst(inst)),
                 begin: start_time_us.map(micros_to_millis),
                 end: end_time_us.map(micros_to_millis),
                 limit,
                 ..Default::default()
             })
-            .await?
-        };
+            .await?;
 
         let data = raw.into_iter().map(OrderDetailData::from).collect();
 

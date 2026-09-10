@@ -288,31 +288,30 @@ impl LobPrivateRest for LobClients {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
         match self {
             LobClients::Hyperliquid(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+                c.get_order_history(inst, start_time_us, end_time_us, limit)
                     .await
             },
             LobClients::BinanceSpot(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+                c.get_order_history(inst, start_time_us, end_time_us, limit)
                     .await
             },
             LobClients::BinanceUm(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+                c.get_order_history(inst, start_time_us, end_time_us, limit)
                     .await
             },
             LobClients::GateFutures(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+                c.get_order_history(inst, start_time_us, end_time_us, limit)
                     .await
             },
             LobClients::GateSpot(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+                c.get_order_history(inst, start_time_us, end_time_us, limit)
                     .await
             },
             LobClients::Okx(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+                c.get_order_history(inst, start_time_us, end_time_us, limit)
                     .await
             },
             _ => Err(InfraError::Unimplemented),

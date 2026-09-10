@@ -138,9 +138,8 @@ impl LobPrivateRest for GateSpotCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit)
             .await
     }
 }
@@ -650,27 +649,18 @@ impl GateSpotCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
         let currency_pair = inst.to_uppercase();
-        let (endpoint, query_string) = if let Some(order_id) = order_id {
-            (
-                GATE_SPOT_ORDER.replace("{order_id}", order_id),
-                format!("currency_pair={currency_pair}"),
-            )
-        } else {
-            let mut query = format!("currency_pair={currency_pair}&status=finished");
-            if let Some(start_time_us) = start_time_us {
-                query.push_str(&format!("&from={}", micros_to_seconds(start_time_us)));
-            }
-            if let Some(end_time_us) = end_time_us {
-                query.push_str(&format!("&to={}", micros_to_seconds(end_time_us)));
-            }
-            if let Some(limit) = limit {
-                query.push_str(&format!("&limit={limit}"));
-            }
-            (GATE_SPOT_ORDERS.into(), query)
-        };
+        let mut query_string = format!("currency_pair={currency_pair}&status=finished");
+        if let Some(start_time_us) = start_time_us {
+            query_string.push_str(&format!("&from={}", micros_to_seconds(start_time_us)));
+        }
+        if let Some(end_time_us) = end_time_us {
+            query_string.push_str(&format!("&to={}", micros_to_seconds(end_time_us)));
+        }
+        if let Some(limit) = limit {
+            query_string.push_str(&format!("&limit={limit}"));
+        }
 
         let res: RestResGate<RestOrderHistoryGateSpot> = self
             .api_key
@@ -682,7 +672,7 @@ impl GateSpotCli {
                 Some(&query_string),
                 None,
                 GATE_BASE_URL,
-                &endpoint,
+                GATE_SPOT_ORDERS,
             )
             .await?;
 

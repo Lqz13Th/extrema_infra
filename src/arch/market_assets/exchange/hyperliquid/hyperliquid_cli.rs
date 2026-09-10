@@ -177,9 +177,8 @@ impl LobPrivateRest for HyperliquidCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit)
             .await
     }
 }
@@ -1115,27 +1114,13 @@ impl HyperliquidCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
         validate_hyperliquid_order_history_range(start_time_us, end_time_us)?;
 
-        let user = self._owner_address()?;
-        let body = match order_id {
-            Some(order_id) => json!({
-                "type": "orderStatus",
-                "user": user,
-                "oid": order_id.parse::<u64>().map_err(|_| {
-                    InfraError::ApiCliError(format!(
-                        "Invalid Hyperliquid order_id, expected u64 string: {}",
-                        order_id
-                    ))
-                })?,
-            }),
-            None => json!({
-                "type": "historicalOrders",
-                "user": user,
-            }),
-        };
+        let body = json!({
+            "type": "historicalOrders",
+            "user": self._owner_address()?,
+        });
 
         let normalized_inst = normalize_hyperliquid_cli_inst(inst);
         let raw_coin = self._inst_to_trade_coin(inst)?;
@@ -1165,7 +1150,6 @@ impl HyperliquidCli {
             start_time_us,
             end_time_us,
             limit,
-            order_id.is_none(),
         )
     }
 

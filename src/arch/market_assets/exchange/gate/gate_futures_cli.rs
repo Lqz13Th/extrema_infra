@@ -173,9 +173,8 @@ impl LobPrivateRest for GateFuturesCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit)
             .await
     }
 }
@@ -1116,34 +1115,21 @@ impl GateFuturesCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
         let settle = infer_settle_from_inst(inst);
         let contract = cli_perp_to_gate_inst(inst);
 
-        let (endpoint, query_string) = if let Some(order_id) = order_id {
-            (
-                GATE_FUTURES_ORDER
-                    .replace("{settle}", &settle)
-                    .replace("{order_id}", order_id),
-                None,
-            )
-        } else {
-            let mut query = format!("status=finished&contract={}", contract);
-            if let Some(start_time_us) = start_time_us {
-                query.push_str(&format!("&from={}", micros_to_seconds(start_time_us)));
-            }
-            if let Some(end_time_us) = end_time_us {
-                query.push_str(&format!("&to={}", micros_to_seconds(end_time_us)));
-            }
-            if let Some(limit) = limit {
-                query.push_str(&format!("&limit={}", limit));
-            }
-            (
-                GATE_FUTURES_ORDERS.replace("{settle}", &settle),
-                Some(query),
-            )
-        };
+        let endpoint = GATE_FUTURES_ORDERS.replace("{settle}", &settle);
+        let mut query_string = format!("status=finished&contract={}", contract);
+        if let Some(start_time_us) = start_time_us {
+            query_string.push_str(&format!("&from={}", micros_to_seconds(start_time_us)));
+        }
+        if let Some(end_time_us) = end_time_us {
+            query_string.push_str(&format!("&to={}", micros_to_seconds(end_time_us)));
+        }
+        if let Some(limit) = limit {
+            query_string.push_str(&format!("&limit={}", limit));
+        }
 
         let res: RestResGate<RestFuturesOrderHistoryGateFutures> = self
             .api_key
@@ -1152,7 +1138,7 @@ impl GateFuturesCli {
             .send_signed_request(
                 &self.client,
                 RequestMethod::Get,
-                query_string.as_deref(),
+                Some(&query_string),
                 None,
                 GATE_BASE_URL,
                 &endpoint,
