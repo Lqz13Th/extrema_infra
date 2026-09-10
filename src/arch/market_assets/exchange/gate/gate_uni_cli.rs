@@ -22,7 +22,7 @@ use crate::arch::{
         },
     },
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };

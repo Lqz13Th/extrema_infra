@@ -43,7 +43,7 @@ use crate::arch::{
     strategy_base::command::command_core::WsConnectTarget,
     task_execution::task_ws::WsChannel,
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
@@ -126,6 +126,10 @@ impl LobPrivateRest for GateSpotCli {
 
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
+    }
+
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        self._get_order(inst, order_id).await
     }
 
     async fn get_order_history(
@@ -612,6 +616,30 @@ impl GateSpotCli {
             .filter(|order| order.currency_pair.eq_ignore_ascii_case(&currency_pair))
             .map(OrderDetailData::from)
             .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        let currency_pair = inst.to_uppercase();
+        let endpoint = GATE_SPOT_ORDER.replace("{order_id}", order_id);
+        let query_string = format!("currency_pair={currency_pair}");
+
+        let res: RestResGate<RestOrderHistoryGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res.into_one().map(OrderDetailData::from)?;
 
         Ok(data)
     }

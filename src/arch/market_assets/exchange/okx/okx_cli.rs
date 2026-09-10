@@ -11,7 +11,7 @@ use crate::arch::{
     },
     task_execution::task_ws::*,
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
@@ -160,6 +160,10 @@ impl LobPrivateRest for OkxCli {
         self._get_positions(insts).await
     }
 
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        self._get_order(inst, order_id).await
+    }
+
     async fn get_order_history(
         &self,
         inst: &str,
@@ -274,7 +278,7 @@ impl OkxCli {
         res.into_vec()
     }
 
-    pub async fn get_order_raw(&self, req: OkxOrderReq) -> InfraResult<Vec<RestOrderHistoryOkx>> {
+    pub async fn get_order_raw(&self, req: OkxOrderReq) -> InfraResult<RestOrderHistoryOkx> {
         if req.inst_id.trim().is_empty() {
             return Err(InfraError::ApiCliError(
                 "OKX order detail requires instId".into(),
@@ -308,7 +312,7 @@ impl OkxCli {
             )
             .await?;
 
-        res.into_vec()
+        res.into_one()
     }
 
     pub async fn get_positions_raw(
@@ -1462,6 +1466,19 @@ impl OkxCli {
         Ok(data)
     }
 
+    async fn _get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        let data = self
+            .get_order_raw(OkxOrderReq {
+                inst_id: cli_perp_to_okx_inst(inst),
+                ord_id: Some(order_id.into()),
+                cl_ord_id: None,
+            })
+            .await
+            .map(OrderDetailData::from)?;
+
+        Ok(data)
+    }
+
     async fn _get_order_history(
         &self,
         inst: &str,
@@ -1472,12 +1489,14 @@ impl OkxCli {
     ) -> InfraResult<Vec<OrderDetailData>> {
         let okx_inst = cli_perp_to_okx_inst(inst);
         let raw = if let Some(order_id) = order_id {
-            self.get_order_raw(OkxOrderReq {
-                inst_id: okx_inst,
-                ord_id: Some(order_id.into()),
-                cl_ord_id: None,
-            })
-            .await?
+            vec![
+                self.get_order_raw(OkxOrderReq {
+                    inst_id: okx_inst,
+                    ord_id: Some(order_id.into()),
+                    cl_ord_id: None,
+                })
+                .await?,
+            ]
         } else {
             self.get_order_history_raw(OkxOrderHistoryReq {
                 inst_type: "SWAP".into(),

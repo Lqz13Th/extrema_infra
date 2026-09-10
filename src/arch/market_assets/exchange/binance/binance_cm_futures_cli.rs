@@ -11,7 +11,7 @@ use crate::arch::{
     },
     task_execution::task_ws::*,
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };

@@ -167,6 +167,20 @@ pub trait LobPrivateRest: Send + Sync {
     ) -> impl Future<Output = InfraResult<Vec<OrderDetailData>>> + Send {
         ready(Err(InfraError::Unimplemented))
     }
+
+    /// Fetches one order by exchange order id.
+    ///
+    /// Queries the venue's single-order endpoint and returns the order's
+    /// current state. Prefer this over passing `order_id` to
+    /// [`get_order_history`](LobPrivateRest::get_order_history), which is a
+    /// history-list filter whose meaning differs between venues.
+    fn get_order(
+        &self,
+        _inst: &str,
+        _order_id: &str,
+    ) -> impl Future<Output = InfraResult<OrderDetailData>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
 }
 
 /// Websocket message builder for LOB-style exchanges.

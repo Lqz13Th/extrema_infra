@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::arch::traits::conversion::IntoInfraVec;
+use crate::arch::traits::conversion::{IntoInfraData, exactly_one};
 use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -14,7 +14,7 @@ pub enum RestResGate<T> {
     ObjectField { data: Option<T> },
 }
 
-impl<T> IntoInfraVec<T> for RestResGate<T> {
+impl<T> IntoInfraData<T> for RestResGate<T> {
     fn into_vec(self) -> InfraResult<Vec<T>> {
         match self {
             Self::Data(v) => Ok(v),
@@ -28,6 +28,13 @@ impl<T> IntoInfraVec<T> for RestResGate<T> {
                     label, message
                 )))
             },
+        }
+    }
+
+    fn into_one(self) -> InfraResult<T> {
+        match self {
+            Self::Object(o) | Self::ObjectField { data: Some(o) } => Ok(o),
+            other => exactly_one(other.into_vec()?),
         }
     }
 }

@@ -2,7 +2,7 @@ use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned, de::Erro
 use serde_json::Value;
 use tracing::warn;
 
-use crate::arch::traits::conversion::IntoInfraVec;
+use crate::arch::traits::conversion::{IntoInfraData, exactly_one};
 use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Serialize)]
@@ -18,7 +18,14 @@ pub struct BinanceCodeMsg {
     pub msg: String,
 }
 
-impl<T> IntoInfraVec<T> for RestResBinance<T> {
+impl<T> IntoInfraData<T> for RestResBinance<T> {
+    fn into_one(self) -> InfraResult<T> {
+        match self {
+            Self::Object(o) => Ok(o),
+            other => exactly_one(other.into_vec()?),
+        }
+    }
+
     fn into_vec(self) -> InfraResult<Vec<T>> {
         match self {
             Self::Data(v) => Ok(v),
@@ -136,6 +143,21 @@ mod tests {
                     msg: "second".into()
                 }
             ]
+        );
+    }
+
+    #[test]
+    fn into_one_takes_the_single_object_and_rejects_error_payloads() {
+        assert_eq!(RestResBinance::Object(3u8).into_one().unwrap(), 3);
+        assert_eq!(RestResBinance::Data(vec![4u8]).into_one().unwrap(), 4);
+        assert!(RestResBinance::Data(vec![1u8, 2]).into_one().is_err());
+        assert!(
+            RestResBinance::<u8>::CodeMsg(BinanceCodeMsg {
+                code: -2013,
+                msg: "Order does not exist.".to_string(),
+            })
+            .into_one()
+            .is_err()
         );
     }
 }

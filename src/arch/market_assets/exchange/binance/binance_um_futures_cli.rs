@@ -12,7 +12,7 @@ use crate::arch::{
     },
     task_execution::task_ws::*,
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
@@ -161,6 +161,10 @@ impl LobPrivateRest for BinanceUmCli {
 
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
+    }
+
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        self._get_order(inst, order_id).await
     }
 
     async fn get_order_history(
@@ -1125,6 +1129,31 @@ impl BinanceUmCli {
             })
             .map(PositionData::from)
             .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        let query_string = format!(
+            "symbol={}&orderId={}",
+            cli_perp_to_pure_uppercase(inst),
+            order_id
+        );
+
+        let res: RestResBinance<RestOrderHistoryBinanceUM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                BINANCE_UM_FUTURES_BASE_URL,
+                BINANCE_UM_FUTURES_ORDER,
+            )
+            .await?;
+
+        let data = res.into_one().map(OrderDetailData::from)?;
 
         Ok(data)
     }

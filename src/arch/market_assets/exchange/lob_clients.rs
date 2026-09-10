@@ -318,6 +318,20 @@ impl LobPrivateRest for LobClients {
             _ => Err(InfraError::Unimplemented),
         }
     }
+
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        match self {
+            LobClients::Hyperliquid(c) => c.get_order(inst, order_id).await,
+            LobClients::BinanceCm(c) => c.get_order(inst, order_id).await,
+            LobClients::BinanceSpot(c) => c.get_order(inst, order_id).await,
+            LobClients::BinanceUm(c) => c.get_order(inst, order_id).await,
+            LobClients::GateDelivery(c) => c.get_order(inst, order_id).await,
+            LobClients::GateFutures(c) => c.get_order(inst, order_id).await,
+            LobClients::GateSpot(c) => c.get_order(inst, order_id).await,
+            LobClients::GateUni(c) => c.get_order(inst, order_id).await,
+            LobClients::Okx(c) => c.get_order(inst, order_id).await,
+        }
+    }
 }
 
 #[cfg(feature = "lob_clients")]

@@ -19,7 +19,7 @@ use crate::arch::{
     strategy_base::command::command_core::WsConnectTarget,
     task_execution::task_ws::{CandleParam, LobParam, WsChannel},
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
@@ -161,6 +161,10 @@ impl LobPrivateRest for GateFuturesCli {
 
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
+    }
+
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        self._get_order(inst, order_id).await
     }
 
     async fn get_order_history(
@@ -1077,6 +1081,31 @@ impl GateFuturesCli {
             .filter(|order| order.contract == contract)
             .map(OrderDetailData::from)
             .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        let settle = infer_settle_from_inst(inst);
+        let endpoint = GATE_FUTURES_ORDER
+            .replace("{settle}", &settle)
+            .replace("{order_id}", order_id);
+
+        let res: RestResGate<RestFuturesOrderHistoryGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res.into_one().map(OrderDetailData::from)?;
 
         Ok(data)
     }
