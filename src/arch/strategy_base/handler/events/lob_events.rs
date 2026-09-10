@@ -107,7 +107,11 @@ pub struct WsAccOrder {
     pub inst: String,
     pub inst_type: InstrumentType,
     pub price: f64,
+    /// Order size in the venue's native unit, same unit as `filled_size`.
     pub size: f64,
+    /// Cumulative filled size in the venue's native unit, the websocket
+    /// counterpart of `OrderDetailData::executed_size`. Never the size of the
+    /// latest fill alone.
     pub filled_size: f64,
     pub side: OrderSide,
     pub status: OrderStatus,

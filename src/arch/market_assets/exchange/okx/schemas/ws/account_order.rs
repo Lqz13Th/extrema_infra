@@ -27,6 +27,7 @@ pub(crate) struct WsAccountOrderOkx {
     sz: String,
     fillPx: Option<String>,
     fillSz: Option<String>,
+    accFillSz: Option<String>,
     fillPnl: Option<String>,
     fillTime: Option<String>,
     tradeId: Option<String>,
@@ -56,7 +57,7 @@ impl IntoWsData for WsAccountOrderOkx {
                 .unwrap_or(0.0),
             size: self.sz.parse::<f64>().unwrap_or_default().abs(),
             filled_size: self
-                .fillSz
+                .accFillSz
                 .as_ref()
                 .and_then(|sz| sz.parse::<f64>().ok())
                 .unwrap_or(0.0)
@@ -121,5 +122,56 @@ mod tests {
 
         assert_eq!(ws.order_id.as_deref(), Some("2234567890"));
         assert_eq!(ws.cli_order_id.as_deref(), Some("okx-client-id"));
+    }
+
+    fn order_json(
+        state: &str,
+        sz: &str,
+        fill_sz: &str,
+        acc_fill_sz: Option<&str>,
+    ) -> WsAccountOrderOkx {
+        let mut value = json!({
+            "ordId": "3909420352422744064",
+            "clOrdId": "",
+            "instId": "BONK-USDT-SWAP",
+            "instType": "SWAP",
+            "side": "sell",
+            "posSide": "net",
+            "tdMode": "cross",
+            "ordType": "market",
+            "state": state,
+            "px": null,
+            "sz": sz,
+            "fillPx": "0.00000283",
+            "fillSz": fill_sz,
+            "fillPnl": null,
+            "fillTime": "1789012205691",
+            "tradeId": "2",
+            "fee": "0",
+            "feeCcy": "USDT",
+            "uTime": "1789012205691"
+        });
+        if let Some(acc) = acc_fill_sz {
+            value["accFillSz"] = json!(acc);
+        }
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn filled_size_is_the_accumulated_fill_not_the_last_one() {
+        // Two fills: 1 then 99. The second push carries fillSz=99, accFillSz=100.
+        let ws = order_json("filled", "100", "99", Some("100")).into_ws();
+        assert_eq!(ws.status, OrderStatus::Filled);
+        assert_eq!(ws.size, 100.0);
+        assert_eq!(ws.filled_size, 100.0);
+
+        let partial = order_json("partially_filled", "100", "1", Some("1")).into_ws();
+        assert_eq!(partial.filled_size, 1.0);
+    }
+
+    #[test]
+    fn the_last_fill_alone_is_never_used_as_filled_size() {
+        let ws = order_json("filled", "100", "99", None).into_ws();
+        assert_eq!(ws.filled_size, 0.0);
     }
 }
