@@ -12,7 +12,7 @@ use crate::arch::{
     },
     task_execution::task_ws::WsChannel,
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
@@ -109,6 +109,10 @@ impl LobPrivateRest for BinanceSpotCli {
 
     async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
         self._get_balance(assets).await
+    }
+
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        self._get_order(inst, order_id).await
     }
 
     async fn get_order_history(
@@ -718,6 +722,31 @@ impl BinanceSpotCli {
             })
             .map(BalanceData::from)
             .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        let query_string = format!(
+            "symbol={}&orderId={}",
+            cli_spot_to_binance_spot(inst),
+            order_id
+        );
+
+        let res: RestResBinance<RestOrderHistoryBinanceSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                BINANCE_SPOT_BASE_URL,
+                BINANCE_SPOT_PLACE_ORDER,
+            )
+            .await?;
+
+        let data = res.into_one().map(OrderDetailData::from)?;
 
         Ok(data)
     }

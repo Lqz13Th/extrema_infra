@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use tracing::warn;
 
-use crate::arch::traits::conversion::IntoInfraVec;
+use crate::arch::traits::conversion::{IntoInfraData, exactly_one};
 use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Deserialize)]
@@ -11,7 +11,10 @@ pub struct RestResOkx<T> {
     pub msg: Option<String>,
 }
 
-impl<T: std::fmt::Debug> IntoInfraVec<T> for RestResOkx<T> {
+impl<T> IntoInfraData<T> for RestResOkx<T>
+where
+    T: std::fmt::Debug,
+{
     fn into_vec(self) -> InfraResult<Vec<T>> {
         if self.code != "0" {
             warn!(
@@ -25,6 +28,10 @@ impl<T: std::fmt::Debug> IntoInfraVec<T> for RestResOkx<T> {
         }
 
         Ok(self.data.unwrap_or_default())
+    }
+
+    fn into_one(self) -> InfraResult<T> {
+        exactly_one(self.into_vec()?)
     }
 }
 

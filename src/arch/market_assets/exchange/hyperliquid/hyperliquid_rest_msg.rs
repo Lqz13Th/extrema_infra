@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::arch::traits::conversion::IntoInfraVec;
+use crate::arch::traits::conversion::{IntoInfraData, exactly_one};
 use crate::errors::{InfraError, InfraResult};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -35,7 +35,7 @@ pub enum RestResHyperliquidPayload<T> {
     Object(T),
 }
 
-impl<T> IntoInfraVec<T> for RestResHyperliquid<T>
+impl<T> IntoInfraData<T> for RestResHyperliquid<T>
 where
     T: std::fmt::Debug,
 {
@@ -85,6 +85,13 @@ where
             },
             Self::Data(v) => Ok(v),
             Self::Object(o) => Ok(vec![o]),
+        }
+    }
+
+    fn into_one(self) -> InfraResult<T> {
+        match self {
+            Self::Object(o) => Ok(o),
+            other => exactly_one(other.into_vec()?),
         }
     }
 }

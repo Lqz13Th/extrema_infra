@@ -8,7 +8,7 @@ use crate::arch::{
         base_data::InstrumentType,
     },
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };

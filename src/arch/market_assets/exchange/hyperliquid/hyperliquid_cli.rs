@@ -18,7 +18,7 @@ use crate::arch::{
     },
     task_execution::task_ws::{CandleParam, LobParam, TradesParam, WsChannel},
     traits::{
-        conversion::IntoInfraVec,
+        conversion::IntoInfraData,
         market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
     },
 };
@@ -165,6 +165,10 @@ impl LobPrivateRest for HyperliquidCli {
 
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
         self._get_positions(insts).await
+    }
+
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        self._get_order(inst, order_id).await
     }
 
     async fn get_order_history(
@@ -1072,6 +1076,37 @@ impl HyperliquidCli {
             .collect();
 
         Ok(positions)
+    }
+
+    async fn _get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        let oid = order_id.parse::<u64>().map_err(|_| {
+            InfraError::ApiCliError(format!(
+                "Invalid Hyperliquid order_id, expected u64 string: {}",
+                order_id
+            ))
+        })?;
+        let body = json!({
+            "type": "orderStatus",
+            "user": self._owner_address()?,
+            "oid": oid,
+        });
+        let normalized_inst = normalize_hyperliquid_cli_inst(inst);
+        let perp_quote = if is_hyperliquid_cli_perp_inst(&normalized_inst) {
+            Some(hyperliquid_cli_perp_quote(&normalized_inst)?)
+        } else {
+            None
+        };
+
+        let res: RestResHyperliquid<RestOrderStatusHyperliquid> =
+            self._post_info_raw(&body).await?;
+
+        let data = res.into_one().map(|order| {
+            let mut data = order.into_order_detail_data(perp_quote.as_deref());
+            data.inst.clone_from(&normalized_inst);
+            data
+        })?;
+
+        Ok(data)
     }
 
     async fn _get_order_history(
