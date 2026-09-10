@@ -9,6 +9,7 @@ use crate::arch::{
         },
     },
     task_execution::{
+        TaskKey,
         task_alt::{AltTaskInfo, AltTaskType},
         task_ws::{WsChannel, WsTaskInfo},
     },
@@ -327,6 +328,17 @@ pub trait EventHandler {
         &mut self,
         _msg: InfraMsg<Vec<WsOtherMessage>>,
     ) -> impl Future<Output = ()> + Send {
+        ready(())
+    }
+
+    /// Called when this module's receiver for `key` fell behind and the
+    /// runtime dropped `skipped` events from that task.
+    ///
+    /// Delivery is lossy by design: the ring for one task is bounded and a
+    /// slow module loses the oldest events rather than stalling the
+    /// publisher. Other tasks' channels are unaffected. The module decides
+    /// what to resynchronise, for example re-reading account state over REST.
+    fn on_lagged(&mut self, _key: TaskKey, _skipped: u64) -> impl Future<Output = ()> + Send {
         ready(())
     }
 }

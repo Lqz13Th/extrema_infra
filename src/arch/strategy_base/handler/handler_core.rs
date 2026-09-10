@@ -64,6 +64,7 @@ where
             MuxItem::Event(event) => dispatch_task_event(&mut strategy, event).await,
             MuxItem::Lagged { key, skipped } => {
                 error!(task_key = ?key, skipped, "task event receiver lagged");
+                strategy.on_lagged(key, skipped).await;
             },
             MuxItem::LaggedSuppressed => {},
         }
@@ -285,6 +286,47 @@ mod tests {
         async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
             let _ = self.events.send(msg.task_id);
         }
+    }
+
+    #[derive(Clone)]
+    struct LagProbe {
+        lags: mpsc::UnboundedSender<(TaskKey, u64)>,
+    }
+
+    impl Strategy for LagProbe {
+        async fn initialize(&mut self) {}
+    }
+
+    impl CommandEmitter for LagProbe {
+        fn command_init(&mut self, _registry: Arc<CommandRegistry>) {}
+
+        fn command_registry(&self) -> Arc<CommandRegistry> {
+            Arc::new(CommandRegistry::default())
+        }
+    }
+
+    impl EventHandler for LagProbe {
+        async fn on_lagged(&mut self, key: TaskKey, skipped: u64) {
+            let _ = self.lags.send((key, skipped));
+        }
+    }
+
+    #[tokio::test]
+    async fn lagged_receiver_notifies_the_strategy_with_key_and_count() {
+        let key = scheduler_key(7);
+        let (sender, receiver) = task_receiver(key.clone(), 1);
+        for _ in 0..3 {
+            sender.send(schedule_event(7)).unwrap();
+        }
+
+        let (lags, mut received) = mpsc::unbounded_channel();
+        let handler = tokio::spawn(strategy_handler_loop(LagProbe { lags }, vec![receiver]));
+
+        let (lagged_key, skipped) = received.recv().await.expect("lag notice");
+        assert_eq!(lagged_key, key);
+        assert_eq!(skipped, 2);
+        drop(sender);
+        handler.await.unwrap();
     }
 
     async fn exercise_handler_path(receiver_count: usize) {

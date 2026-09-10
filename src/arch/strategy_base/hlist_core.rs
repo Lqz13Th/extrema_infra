@@ -10,7 +10,7 @@ use crate::arch::{
             ws_events::*,
         },
     },
-    task_execution::{task_alt::AltTaskInfo, task_ws::WsTaskInfo},
+    task_execution::{TaskKey, task_alt::AltTaskInfo, task_ws::WsTaskInfo},
     traits::strategy::*,
 };
 
@@ -142,6 +142,12 @@ where
     async fn on_acc_bal_pos(&mut self, msg: InfraMsg<Vec<WsAccBalPos>>) {
         let fut_head = self.head.on_acc_bal_pos(msg.clone());
         let fut_tail = self.tail.on_acc_bal_pos(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_lagged(&mut self, key: TaskKey, skipped: u64) {
+        let fut_head = self.head.on_lagged(key.clone(), skipped);
+        let fut_tail = self.tail.on_lagged(key, skipped);
         tokio::join!(fut_head, fut_tail);
     }
 
