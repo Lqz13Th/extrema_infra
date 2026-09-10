@@ -121,9 +121,8 @@ impl LobPrivateRest for BinanceSpotCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        self._get_order_history(inst, start_time_us, end_time_us, limit, order_id)
+        self._get_order_history(inst, start_time_us, end_time_us, limit)
             .await
     }
 }
@@ -757,24 +756,17 @@ impl BinanceSpotCli {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
         limit: Option<u32>,
-        order_id: Option<&str>,
     ) -> InfraResult<Vec<OrderDetailData>> {
         let mut query_string = format!("symbol={}", cli_spot_to_binance_spot(inst));
-        let endpoint = if let Some(order_id) = order_id {
-            query_string.push_str(&format!("&orderId={order_id}"));
-            BINANCE_SPOT_PLACE_ORDER
-        } else {
-            if let Some(start_time_us) = start_time_us {
-                query_string.push_str(&format!("&startTime={}", micros_to_millis(start_time_us)));
-            }
-            if let Some(end_time_us) = end_time_us {
-                query_string.push_str(&format!("&endTime={}", micros_to_millis(end_time_us)));
-            }
-            if let Some(limit) = limit {
-                query_string.push_str(&format!("&limit={limit}"));
-            }
-            BINANCE_SPOT_ALL_ORDERS
-        };
+        if let Some(start_time_us) = start_time_us {
+            query_string.push_str(&format!("&startTime={}", micros_to_millis(start_time_us)));
+        }
+        if let Some(end_time_us) = end_time_us {
+            query_string.push_str(&format!("&endTime={}", micros_to_millis(end_time_us)));
+        }
+        if let Some(limit) = limit {
+            query_string.push_str(&format!("&limit={limit}"));
+        }
 
         let res: RestResBinance<RestOrderHistoryBinanceSpot> = self
             .api_key
@@ -785,7 +777,7 @@ impl BinanceSpotCli {
                 RequestMethod::Get,
                 Some(&query_string),
                 BINANCE_SPOT_BASE_URL,
-                endpoint,
+                BINANCE_SPOT_ALL_ORDERS,
             )
             .await?;
 

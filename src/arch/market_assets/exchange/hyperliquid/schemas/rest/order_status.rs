@@ -121,11 +121,8 @@ pub fn finalize_hyperliquid_order_history(
     start_time_us: Option<u64>,
     end_time_us: Option<u64>,
     limit: Option<u32>,
-    require_recent_window_coverage: bool,
 ) -> InfraResult<Vec<OrderDetailData>> {
-    if require_recent_window_coverage {
-        ensure_recent_orders_cover_start(&data, start_time_us)?;
-    }
+    ensure_recent_orders_cover_start(&data, start_time_us)?;
 
     Ok(filter_order_history(
         data,
@@ -232,7 +229,6 @@ mod tests {
             Some(1_500_000),
             Some(3_500_000),
             Some(2),
-            true,
         )
         .unwrap();
 
@@ -251,15 +247,9 @@ mod tests {
             .map(|idx| order_detail("BTC_USDC_PERP", &idx.to_string(), 2_000_000 + idx as u64))
             .collect::<Vec<_>>();
 
-        let err = finalize_hyperliquid_order_history(
-            data,
-            "BTC_USDC_PERP",
-            Some(1_000_000),
-            None,
-            None,
-            true,
-        )
-        .unwrap_err();
+        let err =
+            finalize_hyperliquid_order_history(data, "BTC_USDC_PERP", Some(1_000_000), None, None)
+                .unwrap_err();
 
         assert!(format!("{err:?}").contains("historicalOrders only returns the most recent"));
     }
