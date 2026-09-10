@@ -282,7 +282,7 @@ selected client does not support return `InfraError::Unimplemented`.
 
 - **MarketLobApi = LobPublicRest + LobPrivateRest**
   - **LobPublicRest**: market data (ticker, mark price, orderbook, candles, instruments).
-  - **LobPrivateRest**: trading operations (init API key, place/cancel orders, get balance, get positions).
+  - **LobPrivateRest**: trading operations (init API key, place/cancel orders, open orders, order history, single-order lookup, get balance, get positions).
 
 ---
 
@@ -330,7 +330,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-extrema_infra = { version = "0.3", features = ["all"] }
+extrema_infra = { version = "0.4", features = ["all"] }
 
 # For local development.
 # extrema_infra = { path = "../extrema_infra", features = ["all"] }

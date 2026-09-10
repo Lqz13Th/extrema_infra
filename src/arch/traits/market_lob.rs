@@ -153,10 +153,11 @@ pub trait LobPrivateRest: Send + Sync {
         ready(Err(InfraError::Unimplemented))
     }
 
-    /// Fetches historical orders.
+    /// Fetches historical orders from the venue's order-history list endpoint.
     ///
     /// `start_time_us` and `end_time_us` are Unix timestamps in microseconds.
     /// Exchange adapters convert them to the precision required by the venue.
+    /// Use [`get_order`](LobPrivateRest::get_order) to look one order up by id.
     fn get_order_history(
         &self,
         _inst: &str,
