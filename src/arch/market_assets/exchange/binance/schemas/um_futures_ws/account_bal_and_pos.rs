@@ -42,7 +42,7 @@ struct AccountPosition {
     s: String,  // Symbol
     pa: String, // Position amount
     ep: String, // Entry price
-    cr: String, // (Cross) unrealized PnL
+    cr: String, // (Pre-fee) accumulated realized PnL
     up: String, // Unrealized profit
     mt: String, // Margin type
     iw: String, // Isolated wallet (if isolated)

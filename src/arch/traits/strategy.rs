@@ -332,12 +332,16 @@ pub trait EventHandler {
     }
 
     /// Called when this module's receiver for `key` fell behind and the
-    /// runtime dropped `skipped` events from that task.
+    /// runtime dropped events from that task.
     ///
     /// Delivery is lossy by design: the ring for one task is bounded and a
     /// slow module loses the oldest events rather than stalling the
     /// publisher. Other tasks' channels are unaffected. The module decides
     /// what to resynchronise, for example re-reading account state over REST.
+    ///
+    /// Notices are coalesced per task stream to at most one call per second;
+    /// `skipped` is the total number of events dropped since the previous
+    /// notice for that stream, not the size of a single lag burst.
     fn on_lagged(&mut self, _key: TaskKey, _skipped: u64) -> impl Future<Output = ()> + Send {
         ready(())
     }
