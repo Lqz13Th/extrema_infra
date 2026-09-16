@@ -1169,7 +1169,7 @@ impl OkxCli {
             "side": match order_params.side {
                 OrderSide::BUY => "buy",
                 OrderSide::SELL => "sell",
-                _ => "buy", // fallback
+                _ => unreachable!("validate_side_and_type rejects OrderSide::Unknown"),
             },
             "sz": order_params.size,
             "ordType": match order_params.order_type {
