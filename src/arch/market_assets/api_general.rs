@@ -6,6 +6,7 @@ use std::{
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tracing::warn;
 
 use crate::arch::{
     market_assets::base_data::{MarginMode, OrderSide, OrderType, PositionSide, TimeInForce},
@@ -291,13 +292,17 @@ where
         ))
     })?;
 
-    let mut bytes = match bytes.try_into_mut() {
-        Ok(bytes) => bytes,
-        Err(bytes) => bytes.as_ref().into(),
-    };
-
-    simd_json::from_slice::<T>(bytes.as_mut()).map_err(|e| {
+    if !status.is_success() {
         let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(500)]);
+        warn!("[{label}] non-2xx response status={status} body={preview:?}");
+    }
+
+    let mut body = bytes
+        .try_into_mut()
+        .unwrap_or_else(|bytes| bytes.as_ref().into());
+
+    simd_json::from_slice(&mut body).map_err(|e| {
+        let preview = String::from_utf8_lossy(&body[..body.len().min(500)]);
         InfraError::Msg(format!(
             "[{label}] JSON parse failed status={status} body={preview:?} err={e}"
         ))
