@@ -292,9 +292,9 @@ impl HyperliquidCli {
         let target_inst = normalize_funding_inst_filter(inst)?;
 
         let ctxs = self.get_perp_meta_and_asset_ctxs_raw().await?;
-        let quote = self._perp_quote_from_meta(&ctxs.0).await?;
+        let quote = self._perp_quote_for_conversion()?;
         let data = ctxs
-            .into_funding_rate_data(&quote)?
+            .into_funding_rate_data(quote)?
             .into_iter()
             .filter(|entry| match &target_inst {
                 Some(inst) => entry.inst == *inst,
@@ -312,9 +312,9 @@ impl HyperliquidCli {
         let target_inst = normalize_funding_inst_filter(inst)?;
 
         let ctxs = self.get_perp_meta_and_asset_ctxs_raw().await?;
-        let quote = self._perp_quote_from_meta(&ctxs.0).await?;
+        let quote = self._perp_quote_for_conversion()?;
         let data = ctxs
-            .into_funding_rate_info(&quote)?
+            .into_funding_rate_info(quote)?
             .into_iter()
             .filter(|entry| match &target_inst {
                 Some(inst) => entry.inst == *inst,
@@ -539,9 +539,9 @@ impl HyperliquidCli {
         }
 
         let ctxs = self.get_perp_meta_and_asset_ctxs_raw().await?;
-        let quote = self._perp_quote_from_meta(&ctxs.0).await?;
+        let quote = self._perp_quote_for_conversion()?;
         let data = ctxs
-            .into_perp_mark_price_data(&quote)?
+            .into_perp_mark_price_data(quote)?
             .into_iter()
             .filter(|entry| match insts {
                 Some(list) => list.contains(&entry.inst),
@@ -625,8 +625,9 @@ impl HyperliquidCli {
     ) -> InfraResult<Vec<InstrumentInfo>> {
         match inst_type {
             InstrumentType::Perpetual => {
-                let (data, _) = self._get_perp_instrument_info_with_quote().await?;
-                Ok(data)
+                let meta = self.get_perp_meta_raw().await?;
+                let quote = self._perp_quote_for_conversion()?;
+                Ok(meta.into_instrument_info(quote))
             },
             InstrumentType::Spot => Ok(self._get_spot_meta().await?.into_instrument_info()),
             _ => Err(InfraError::ApiCliError(
@@ -1062,11 +1063,11 @@ impl HyperliquidCli {
 
         let normalized_insts = normalize_inst_filters(insts);
         let ctxs = self.get_perp_meta_and_asset_ctxs_raw().await?;
-        let quote = self._perp_quote_from_meta(&ctxs.0).await?;
+        let quote = self._perp_quote_for_conversion()?;
         let mark_px_by_coin = ctxs.into_perp_mark_px_by_coin()?;
 
         let positions = data
-            .into_position_data(&mark_px_by_coin, &quote)
+            .into_position_data(&mark_px_by_coin, quote)
             .into_iter()
             .filter(|position| match &normalized_insts {
                 Some(insts) => insts.contains(&position.inst),
