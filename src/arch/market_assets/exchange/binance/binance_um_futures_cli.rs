@@ -37,6 +37,7 @@ use super::{
         orderbook::RestOrderBookBinanceUM,
         position_mode::{RestPositionModeBinanceUM, RestPositionModeChangeBinanceUM},
         premium_index::RestPremiumIndexBinanceUM,
+        symbol_adl_risk::RestSymbolAdlRiskBinanceUM,
         symbol_config::RestSymbolConfigBinanceUM,
         ticker::RestTickerBinanceUM,
         trade_order::{RestBatchOrderAckBinanceUM, RestOrderAckBinanceUM},
@@ -416,6 +417,28 @@ impl BinanceUmCli {
                 BINANCE_UM_FUTURES_POSITION_ADL_QUANTILE,
             )
             .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_symbol_adl_risk(
+        &self,
+        inst: Option<&str>,
+    ) -> InfraResult<Vec<RestSymbolAdlRiskBinanceUM>> {
+        let mut url = [
+            BINANCE_UM_FUTURES_BASE_URL,
+            BINANCE_UM_FUTURES_SYMBOL_ADL_RISK,
+        ]
+        .concat();
+
+        if let Some(sym) = inst {
+            let normalized = cli_perp_to_pure_uppercase(sym);
+            url.push_str(&format!("?symbol={}", normalized));
+        }
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestSymbolAdlRiskBinanceUM> =
+            parse_json_response("BinanceUmFutures symbol_adl_risk", response).await?;
 
         res.into_vec()
     }
