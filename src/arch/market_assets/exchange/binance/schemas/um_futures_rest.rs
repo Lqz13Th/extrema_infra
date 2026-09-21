@@ -12,6 +12,7 @@ pub mod order_history;
 pub mod orderbook;
 pub mod position_mode;
 pub mod premium_index;
+pub mod symbol_adl_risk;
 pub mod symbol_config;
 pub mod ticker;
 pub mod trade_order;

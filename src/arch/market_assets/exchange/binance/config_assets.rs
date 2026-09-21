@@ -38,6 +38,7 @@ pub const BINANCE_UM_FUTURES_ACCOUNT_CONFIG: &str = "/fapi/v1/accountConfig";
 pub const BINANCE_UM_FUTURES_SYMBOL_CONFIG: &str = "/fapi/v1/symbolConfig";
 pub const BINANCE_UM_FUTURES_POSITION_RISK_INFO: &str = "/fapi/v3/positionRisk";
 pub const BINANCE_UM_FUTURES_POSITION_ADL_QUANTILE: &str = "/fapi/v1/adlQuantile";
+pub const BINANCE_UM_FUTURES_SYMBOL_ADL_RISK: &str = "/fapi/v1/symbolAdlRisk";
 pub const BINANCE_UM_FUTURES_TICKERS: &str = "/fapi/v2/ticker/price";
 pub const BINANCE_UM_FUTURES_KLINES: &str = "/fapi/v1/klines";
 pub const BINANCE_UM_FUTURES_DEPTH: &str = "/fapi/v1/depth";
