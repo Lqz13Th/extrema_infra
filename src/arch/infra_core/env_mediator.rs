@@ -4,12 +4,15 @@ use tokio::sync::mpsc;
 
 use crate::arch::{
     infra_core::env_core::EnvCore,
-    strategy_base::command::command_core::{CommandHandle, CommandRegistry, TaskCommand},
+    strategy_base::{
+        command::command_core::{CommandHandle, CommandRegistry, TaskCommand},
+        hlist_core::HNil,
+    },
     task_execution::{
         TaskInfo, alt_runner::AltTaskRunner, task_alt::AltTaskInfo, task_ws::WsTaskInfo,
         ws_runner::WsTaskRunner,
     },
-    traits::strategy::Strategy,
+    traits::{market_lob::WsDecoders, strategy::Strategy},
 };
 
 /// Executable runtime produced by [`EnvBuilder`].
@@ -19,14 +22,16 @@ use crate::arch::{
 /// runtime alive.
 ///
 /// [`EnvBuilder`]: crate::arch::infra_core::env_builder::EnvBuilder
-pub struct EnvMediator<S> {
+pub struct EnvMediator<S, D = HNil> {
     pub(crate) core: EnvCore<S>,
     pub(crate) tasks: Vec<TaskInfo>,
+    pub(crate) ws_decoders: D,
 }
 
-impl<S> EnvMediator<S>
+impl<S, D> EnvMediator<S, D>
 where
     S: Strategy,
+    D: WsDecoders,
 {
     /// Returns the runtime task declarations captured when the environment was built.
     pub fn tasks(&self) -> &[TaskInfo] {
@@ -58,7 +63,7 @@ where
         pending::<()>().await;
     }
 
-    fn prepare_tasks(&self) -> (Vec<Arc<CommandHandle>>, Vec<PreparedTask>) {
+    fn prepare_tasks(&self) -> (Vec<Arc<CommandHandle>>, Vec<PreparedTask<D>>) {
         let mut handles = Vec::new();
         let mut tasks = Vec::new();
 
@@ -83,7 +88,7 @@ where
         &self,
         ws_task_info: &Arc<WsTaskInfo>,
         task_ids: impl IntoIterator<Item = u64>,
-    ) -> Vec<(Arc<CommandHandle>, PreparedTask)> {
+    ) -> Vec<(Arc<CommandHandle>, PreparedTask<D>)> {
         task_ids
             .into_iter()
             .map(|task_id| {
@@ -107,7 +112,7 @@ where
                     task_id,
                 };
 
-                (handle, PreparedTask::Ws(ws_task))
+                (handle, PreparedTask::Ws(ws_task, self.ws_decoders.clone()))
             })
             .collect()
     }
@@ -116,7 +121,7 @@ where
         &self,
         alt_task_info: &Arc<AltTaskInfo>,
         task_ids: impl IntoIterator<Item = u64>,
-    ) -> Vec<(Arc<CommandHandle>, PreparedTask)> {
+    ) -> Vec<(Arc<CommandHandle>, PreparedTask<D>)> {
         task_ids
             .into_iter()
             .map(|task_id| {
@@ -146,16 +151,16 @@ where
     }
 }
 
-enum PreparedTask {
-    Ws(WsTaskRunner),
+enum PreparedTask<D> {
+    Ws(WsTaskRunner, D),
     Alt(AltTaskRunner),
 }
 
-impl PreparedTask {
+impl<D: WsDecoders> PreparedTask<D> {
     fn spawn(self) {
         match self {
-            Self::Ws(mut task) => {
-                tokio::spawn(async move { task.ws_mid_relay().await });
+            Self::Ws(mut task, decoders) => {
+                tokio::spawn(async move { task.ws_mid_relay(decoders).await });
             },
             Self::Alt(mut task) => {
                 tokio::spawn(async move { task.alt_mid_relay().await });

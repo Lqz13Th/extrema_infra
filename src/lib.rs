@@ -62,7 +62,10 @@
 //! [`MarketLobApi`], [`LobPublicRest`], [`LobPrivateRest`], and
 //! [`LobWebsocket`] define exchange-client adapters. Implementations translate
 //! exchange-specific REST and websocket details into the normalized data types
-//! consumed by strategy modules.
+//! consumed by strategy modules. [`LobWsDecoder`] plugs the websocket frame
+//! decoding of a venue implemented outside this crate into the runtime: register
+//! it with `EnvBuilder::with_ws_decoder` and declare its tasks on
+//! `Market::Custom(..)`; its events reach the same callbacks as built-in venues.
 //!
 //! # Event Flow
 //!
@@ -175,6 +178,7 @@
 //! [`LobPublicRest`]: crate::arch::traits::market_lob::LobPublicRest
 //! [`LobPrivateRest`]: crate::arch::traits::market_lob::LobPrivateRest
 //! [`LobWebsocket`]: crate::arch::traits::market_lob::LobWebsocket
+//! [`LobWsDecoder`]: crate::arch::traits::market_lob::LobWsDecoder
 #![doc = include_str!("../docs/usage.md")]
 pub mod errors;
 pub mod prelude;

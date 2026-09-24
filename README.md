@@ -284,6 +284,11 @@ selected client does not support return `InfraError::Unimplemented`.
   - **LobPublicRest**: market data (ticker, mark price, orderbook, candles, instruments).
   - **LobPrivateRest**: trading operations (init API key, place/cancel orders, open orders, order history, single-order lookup, get balance, get positions).
 
+- **LobWsDecoder**  
+  Runs a venue implemented outside this crate on the built-in websocket relay. Register
+  it with `EnvBuilder::with_ws_decoder` and declare its tasks on `Market::Custom(id)`;
+  its frames reach the same callbacks as the built-in venues.
+
 ---
 
 ## TLS / rustls Initialization
@@ -330,7 +335,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-extrema_infra = { version = "0.4", features = ["all"] }
+extrema_infra = { version = "0.5", features = ["all"] }
 
 # For local development.
 # extrema_infra = { path = "../extrema_infra", features = ["all"] }

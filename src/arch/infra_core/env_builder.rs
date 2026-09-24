@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tracing::info;
 
 use crate::arch::{
     infra_core::{env_core::EnvCore, env_mediator::EnvMediator},
+    market_assets::market_core::Market,
     strategy_base::{
         handler::task_channel::TaskChannels,
         hlist_core::{HCons, HNil},
@@ -10,7 +11,10 @@ use crate::arch::{
         strategy_module::InnerStrategyModule,
     },
     task_execution::{TaskInfo, TaskKey},
-    traits::strategy::Strategy,
+    traits::{
+        market_lob::{LobWsDecoder, WsDecoders},
+        strategy::Strategy,
+    },
 };
 use crate::errors::{InfraError, InfraResult};
 
@@ -49,10 +53,11 @@ use crate::errors::{InfraError, InfraResult};
 ///     .build()
 ///     .expect("invalid runtime configuration");
 /// ```
-pub struct EnvBuilder<Strategies = HNil> {
+pub struct EnvBuilder<Strategies = HNil, Decoders = HNil> {
     tasks: Vec<TaskInfo>,
     strategies: Strategies,
     explicit_bindings: Vec<Arc<[TaskKey]>>,
+    ws_decoders: Decoders,
 }
 
 impl EnvBuilder<HNil> {
@@ -62,6 +67,7 @@ impl EnvBuilder<HNil> {
             tasks: vec![],
             strategies: HNil,
             explicit_bindings: Vec::new(),
+            ws_decoders: HNil,
         }
     }
 }
@@ -72,7 +78,7 @@ impl Default for EnvBuilder<HNil> {
     }
 }
 
-impl<HeadList> EnvBuilder<HeadList> {
+impl<HeadList, Decoders> EnvBuilder<HeadList, Decoders> {
     /// Adds one runtime task.
     pub fn with_task(mut self, task: impl Into<TaskInfo>) -> Self {
         let task = task.into();
@@ -105,7 +111,7 @@ impl<HeadList> EnvBuilder<HeadList> {
     pub fn with_strategy_module<S>(
         self,
         strategy: S,
-    ) -> EnvBuilder<HCons<InnerStrategyModule<S>, HeadList>>
+    ) -> EnvBuilder<HCons<InnerStrategyModule<S>, HeadList>, Decoders>
     where
         S: Strategy + Clone,
     {
@@ -118,7 +124,7 @@ impl<HeadList> EnvBuilder<HeadList> {
         self,
         strategy: S,
         task_keys: I,
-    ) -> EnvBuilder<HCons<InnerStrategyModule<S>, HeadList>>
+    ) -> EnvBuilder<HCons<InnerStrategyModule<S>, HeadList>, Decoders>
     where
         S: Strategy + Clone,
         I: IntoIterator<Item = TaskKey>,
@@ -146,7 +152,7 @@ impl<HeadList> EnvBuilder<HeadList> {
     pub fn with_strategy_modules<S, I>(
         self,
         strategies: I,
-    ) -> EnvBuilder<HCons<InnerStrategyGroup<S>, HeadList>>
+    ) -> EnvBuilder<HCons<InnerStrategyGroup<S>, HeadList>, Decoders>
     where
         S: Strategy + Clone,
         I: IntoIterator<Item = S>,
@@ -166,7 +172,7 @@ impl<HeadList> EnvBuilder<HeadList> {
     pub fn with_strategy_modules_on<S, I>(
         mut self,
         strategies: I,
-    ) -> EnvBuilder<HCons<InnerStrategyGroup<S>, HeadList>>
+    ) -> EnvBuilder<HCons<InnerStrategyGroup<S>, HeadList>, Decoders>
     where
         S: Strategy + Clone,
         I: IntoIterator<Item = (S, Vec<TaskKey>)>,
@@ -183,11 +189,37 @@ impl<HeadList> EnvBuilder<HeadList> {
         self.with_strategy_node(group, None)
     }
 
+    /// Registers the websocket decoder for `Market::Custom(D::ID)` tasks.
+    ///
+    /// Decoders are kept in a static list, like strategy modules. Each custom
+    /// market id must be registered once, and every websocket task on a
+    /// custom market must have a registered decoder; [`EnvBuilder::build`]
+    /// rejects the configuration otherwise.
+    pub fn with_ws_decoder<D>(self, decoder: D) -> EnvBuilder<HeadList, HCons<D, Decoders>>
+    where
+        D: LobWsDecoder,
+    {
+        info!(
+            "Adding websocket decoder for custom market {}: {}",
+            D::ID,
+            D::NAME
+        );
+        EnvBuilder {
+            tasks: self.tasks,
+            strategies: self.strategies,
+            explicit_bindings: self.explicit_bindings,
+            ws_decoders: HCons {
+                head: decoder,
+                tail: self.ws_decoders,
+            },
+        }
+    }
+
     fn with_strategy_node<N>(
         mut self,
         node: N,
         explicit_binding: Option<Arc<[TaskKey]>>,
-    ) -> EnvBuilder<HCons<N, HeadList>>
+    ) -> EnvBuilder<HCons<N, HeadList>, Decoders>
     where
         N: Strategy + Clone,
     {
@@ -202,16 +234,20 @@ impl<HeadList> EnvBuilder<HeadList> {
             },
             tasks: self.tasks,
             explicit_bindings: self.explicit_bindings,
+            ws_decoders: self.ws_decoders,
         }
     }
 }
 
-impl<Strategies> EnvBuilder<Strategies>
+impl<Strategies, Decoders> EnvBuilder<Strategies, Decoders>
 where
     Strategies: Strategy,
+    Decoders: WsDecoders,
 {
     /// Validates task bindings and creates one broadcast stream per task.
-    pub fn build(self) -> InfraResult<EnvMediator<Strategies>> {
+    pub fn build(self) -> InfraResult<EnvMediator<Strategies, Decoders>> {
+        self.validate_ws_decoders()?;
+
         let mut task_keys = Vec::new();
         for task in &self.tasks {
             task_keys.extend(task.task_keys()?);
@@ -235,7 +271,32 @@ where
                 strategy: self.strategies,
             },
             tasks: self.tasks,
+            ws_decoders: self.ws_decoders,
         })
+    }
+
+    fn validate_ws_decoders(&self) -> InfraResult<()> {
+        let mut names = HashMap::new();
+        for (id, name) in self.ws_decoders.markets() {
+            if let Some(existing) = names.insert(id, name) {
+                return Err(InfraError::Msg(format!(
+                    "duplicate websocket decoder id {id}: {existing}, {name}"
+                )));
+            }
+        }
+
+        for task in &self.tasks {
+            if let TaskInfo::WsTask(ws) = task
+                && let Market::Custom(id) = &ws.market
+                && !names.contains_key(id)
+            {
+                return Err(InfraError::Msg(format!(
+                    "no websocket decoder registered for custom market id {id}"
+                )));
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -253,6 +314,7 @@ mod task_channel_tests {
     };
 
     use super::*;
+    use crate::arch::traits::market_lob::WsFrameRunner;
 
     fn trade_task(market: Market, task_id: u64) -> TaskInfo {
         ws_task(market, WsChannel::Trades(None), task_id)
@@ -396,6 +458,56 @@ mod task_channel_tests {
             .expect("unknown task binding must fail");
 
         assert!(error.to_string().contains("unregistered task"));
+    }
+
+    #[derive(Clone)]
+    struct MockDecoder;
+
+    impl LobWsDecoder for MockDecoder {
+        const ID: u16 = 7;
+        const NAME: &'static str = "mock";
+
+        async fn ws_channel<R: WsFrameRunner>(&self, _: &WsChannel, _: R) {}
+    }
+
+    #[test]
+    fn custom_market_task_requires_a_decoder() {
+        let error = EnvBuilder::new()
+            .with_task(ws_task(Market::Custom(7), WsChannel::Lob(None), 1))
+            .build()
+            .err()
+            .expect("custom market without a decoder must fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("no websocket decoder registered for custom market id 7")
+        );
+    }
+
+    #[test]
+    fn custom_market_task_builds_with_its_decoder() {
+        EnvBuilder::new()
+            .with_ws_decoder(MockDecoder)
+            .with_task(ws_task(Market::Custom(7), WsChannel::Lob(None), 1))
+            .build()
+            .expect("custom market has a registered decoder");
+    }
+
+    #[test]
+    fn duplicate_custom_market_decoders_are_rejected() {
+        let error = EnvBuilder::new()
+            .with_ws_decoder(MockDecoder)
+            .with_ws_decoder(MockDecoder)
+            .build()
+            .err()
+            .expect("one decoder per custom market");
+
+        assert!(
+            error
+                .to_string()
+                .contains("duplicate websocket decoder id 7: mock, mock")
+        );
     }
 
     #[test]

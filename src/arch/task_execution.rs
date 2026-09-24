@@ -18,3 +18,4 @@ pub mod task_ws;
 pub(crate) mod ws_runner;
 
 pub use task_general::{TaskInfo, TaskKey};
+pub use ws_runner::ws_decode::decode_raw_ws;
