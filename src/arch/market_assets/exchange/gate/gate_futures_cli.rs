@@ -509,8 +509,10 @@ impl GateFuturesCli {
     pub async fn get_futures_contracts_raw(
         &self,
         settle: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
     ) -> InfraResult<Vec<RestContractGateFutures>> {
-        self._get_futures_contracts(settle, None, None).await
+        self._get_futures_contracts(settle, limit, offset).await
     }
 
     pub async fn get_tickers_raw(&self, settle: &str) -> InfraResult<Vec<RestTickerGateFutures>> {
