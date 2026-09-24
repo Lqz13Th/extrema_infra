@@ -258,7 +258,7 @@ pub trait LobWebsocket: Send + Sync {
 ///
 /// Register an implementation with
 /// [`EnvBuilder::with_ws_decoder`](crate::arch::infra_core::env_builder::EnvBuilder::with_ws_decoder)
-/// and declare websocket tasks on `Market::custom(Self::MARKET)`. The relay
+/// and declare websocket tasks on `Market::Custom(Self::ID)`. The relay
 /// owns connection IO, reconnects, keepalive, and command handling. On every
 /// connection it calls [`ws_channel`](LobWsDecoder::ws_channel) once; the implementation
 /// matches the task channel and hands the selected decode function to
@@ -278,8 +278,11 @@ pub trait LobWebsocket: Send + Sync {
 /// Returning without calling the runner ends the connection; the relay then
 /// reconnects through `on_ws_event`.
 pub trait LobWsDecoder: Clone + Send + Sync + 'static {
-    /// Name matched against `Market::Custom`.
-    const MARKET: &'static str;
+    /// Id carried by `Market::Custom`, unique among registered decoders.
+    const ID: u16;
+
+    /// Venue name used in logs and errors.
+    const NAME: &'static str;
 
     /// Selects the decoder for `channel` and runs the websocket loop with it.
     fn ws_channel<R: WsFrameRunner>(
@@ -312,8 +315,8 @@ pub trait WsFrameRunner: Send {
 ///
 /// Implemented for the list built by `EnvBuilder::with_ws_decoder`.
 pub trait WsDecoders: Clone + Send + Sync + 'static {
-    /// Custom market names in list order.
-    fn markets(&self) -> Vec<&'static str>;
+    /// Custom market ids and names in list order.
+    fn markets(&self) -> Vec<(u16, &'static str)>;
 
     /// Runs the decoder at `index` in list order for one connection.
     fn ws_channel_at<R: WsFrameRunner>(

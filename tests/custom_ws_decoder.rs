@@ -9,7 +9,7 @@ use tokio_tungstenite::{accept_async, tungstenite::Message};
 const EVENT_TIMEOUT: Duration = Duration::from_secs(15);
 const LOB_TASK: u64 = 7;
 const TX_TASK: u64 = 8;
-const MOCK: Market = Market::custom(MockVenueWs::MARKET);
+const MOCK: Market = Market::Custom(MockVenueWs::ID);
 
 #[derive(Deserialize)]
 struct MockBbo {
@@ -64,7 +64,8 @@ fn level(price: f64) -> LobLevel {
 struct MockVenueWs;
 
 impl LobWsDecoder for MockVenueWs {
-    const MARKET: &'static str = "mock_venue";
+    const ID: u16 = 42;
+    const NAME: &'static str = "mock_venue";
 
     async fn ws_channel<R: WsFrameRunner>(&self, channel: &WsChannel, runner: R) {
         match channel {

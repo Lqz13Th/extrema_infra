@@ -19,17 +19,17 @@ impl WsTaskRunner {
         decoders: &D,
     ) {
         let ws_info = Arc::clone(&self.ws_info);
-        let Market::Custom(name) = &ws_info.market else {
+        let Market::Custom(id) = &ws_info.market else {
             return;
         };
         let Some(index) = decoders
             .markets()
             .iter()
-            .position(|market| *market == name.as_ref())
+            .position(|(market, _)| market == id)
         else {
             self.log(
                 LogLevel::Error,
-                &format!("No websocket decoder registered for custom market: {name}"),
+                &format!("No websocket decoder registered for custom market id {id}"),
             );
             return;
         };

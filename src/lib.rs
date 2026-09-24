@@ -65,7 +65,7 @@
 //! consumed by strategy modules. [`LobWsDecoder`] plugs the websocket frame
 //! decoding of a venue implemented outside this crate into the runtime: register
 //! it with `EnvBuilder::with_ws_decoder` and declare its tasks on
-//! `Market::custom(..)`; its events reach the same callbacks as built-in venues.
+//! `Market::Custom(..)`; its events reach the same callbacks as built-in venues.
 //!
 //! # Event Flow
 //!

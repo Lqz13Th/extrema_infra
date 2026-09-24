@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tracing::info;
 
 use crate::arch::{
@@ -189,17 +189,21 @@ impl<HeadList, Decoders> EnvBuilder<HeadList, Decoders> {
         self.with_strategy_node(group, None)
     }
 
-    /// Registers the websocket decoder for `Market::custom(D::MARKET)` tasks.
+    /// Registers the websocket decoder for `Market::Custom(D::ID)` tasks.
     ///
     /// Decoders are kept in a static list, like strategy modules. Each custom
-    /// market name must be registered once, and every websocket task on a
+    /// market id must be registered once, and every websocket task on a
     /// custom market must have a registered decoder; [`EnvBuilder::build`]
     /// rejects the configuration otherwise.
     pub fn with_ws_decoder<D>(self, decoder: D) -> EnvBuilder<HeadList, HCons<D, Decoders>>
     where
         D: LobWsDecoder,
     {
-        info!("Adding websocket decoder for custom market: {}", D::MARKET);
+        info!(
+            "Adding websocket decoder for custom market {}: {}",
+            D::ID,
+            D::NAME
+        );
         EnvBuilder {
             tasks: self.tasks,
             strategies: self.strategies,
@@ -272,22 +276,22 @@ where
     }
 
     fn validate_ws_decoders(&self) -> InfraResult<()> {
-        let mut markets = HashSet::new();
-        for market in self.ws_decoders.markets() {
-            if !markets.insert(market) {
+        let mut names = HashMap::new();
+        for (id, name) in self.ws_decoders.markets() {
+            if let Some(existing) = names.insert(id, name) {
                 return Err(InfraError::Msg(format!(
-                    "duplicate websocket decoder for custom market: {market}"
+                    "duplicate websocket decoder id {id}: {existing}, {name}"
                 )));
             }
         }
 
         for task in &self.tasks {
             if let TaskInfo::WsTask(ws) = task
-                && let Market::Custom(name) = &ws.market
-                && !markets.contains(name.as_ref())
+                && let Market::Custom(id) = &ws.market
+                && !names.contains_key(id)
             {
                 return Err(InfraError::Msg(format!(
-                    "no websocket decoder registered for custom market: {name}"
+                    "no websocket decoder registered for custom market id {id}"
                 )));
             }
         }
@@ -460,7 +464,8 @@ mod task_channel_tests {
     struct MockDecoder;
 
     impl LobWsDecoder for MockDecoder {
-        const MARKET: &'static str = "mock";
+        const ID: u16 = 7;
+        const NAME: &'static str = "mock";
 
         async fn ws_channel<R: WsFrameRunner>(&self, _: &WsChannel, _: R) {}
     }
@@ -468,7 +473,7 @@ mod task_channel_tests {
     #[test]
     fn custom_market_task_requires_a_decoder() {
         let error = EnvBuilder::new()
-            .with_task(ws_task(Market::custom("mock"), WsChannel::Lob(None), 1))
+            .with_task(ws_task(Market::Custom(7), WsChannel::Lob(None), 1))
             .build()
             .err()
             .expect("custom market without a decoder must fail");
@@ -476,7 +481,7 @@ mod task_channel_tests {
         assert!(
             error
                 .to_string()
-                .contains("no websocket decoder registered for custom market: mock")
+                .contains("no websocket decoder registered for custom market id 7")
         );
     }
 
@@ -484,7 +489,7 @@ mod task_channel_tests {
     fn custom_market_task_builds_with_its_decoder() {
         EnvBuilder::new()
             .with_ws_decoder(MockDecoder)
-            .with_task(ws_task(Market::custom("mock"), WsChannel::Lob(None), 1))
+            .with_task(ws_task(Market::Custom(7), WsChannel::Lob(None), 1))
             .build()
             .expect("custom market has a registered decoder");
     }
@@ -501,7 +506,7 @@ mod task_channel_tests {
         assert!(
             error
                 .to_string()
-                .contains("duplicate websocket decoder for custom market: mock")
+                .contains("duplicate websocket decoder id 7: mock, mock")
         );
     }
 

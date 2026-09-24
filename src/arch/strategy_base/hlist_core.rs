@@ -172,7 +172,7 @@ where
 }
 
 impl WsDecoders for HNil {
-    fn markets(&self) -> Vec<&'static str> {
+    fn markets(&self) -> Vec<(u16, &'static str)> {
         Vec::new()
     }
 
@@ -184,8 +184,8 @@ where
     Head: LobWsDecoder,
     Tail: WsDecoders,
 {
-    fn markets(&self) -> Vec<&'static str> {
-        let mut markets = vec![Head::MARKET];
+    fn markets(&self) -> Vec<(u16, &'static str)> {
+        let mut markets = vec![(Head::ID, Head::NAME)];
         markets.extend(self.tail.markets());
         markets
     }
@@ -261,7 +261,8 @@ mod tests {
     }
 
     impl LobWsDecoder for NamedDecoder<0> {
-        const MARKET: &'static str = "first";
+        const ID: u16 = 0;
+        const NAME: &'static str = "first";
 
         async fn ws_channel<R: WsFrameRunner>(&self, _: &WsChannel, _: R) {
             self.runs.fetch_add(1, Ordering::SeqCst);
@@ -269,7 +270,8 @@ mod tests {
     }
 
     impl LobWsDecoder for NamedDecoder<1> {
-        const MARKET: &'static str = "second";
+        const ID: u16 = 1;
+        const NAME: &'static str = "second";
 
         async fn ws_channel<R: WsFrameRunner>(&self, _: &WsChannel, _: R) {
             self.runs.fetch_add(10, Ordering::SeqCst);
@@ -303,7 +305,7 @@ mod tests {
     fn decoder_list_reports_markets_in_list_order() {
         let runs = Arc::new(AtomicUsize::new(0));
 
-        assert_eq!(decoders(&runs).markets(), vec!["first", "second"]);
+        assert_eq!(decoders(&runs).markets(), vec![(0, "first"), (1, "second")]);
     }
 
     #[tokio::test]
