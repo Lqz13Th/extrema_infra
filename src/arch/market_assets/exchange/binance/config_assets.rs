@@ -1,5 +1,5 @@
 /// Spot API
-pub const BINANCE_SPOT_BASE_URL: &str = "https://api1.binance.com";
+pub const BINANCE_SPOT_BASE_URL: &str = "https://api.binance.com";
 pub const BINANCE_SPOT_WS_API: &str = "wss://ws-api.binance.com:443/ws-api/v3";
 pub const BINANCE_SPOT_EXCHANGE_INFO: &str = "/api/v3/exchangeInfo";
 pub const BINANCE_SPOT_TICKERS: &str = "/api/v3/ticker/price";
