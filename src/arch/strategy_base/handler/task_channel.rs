@@ -35,11 +35,14 @@ const ACC_ORDER_CHANNEL_CAPACITY: usize = 8_192;
 const ACC_BAL_POS_CHANNEL_CAPACITY: usize = 8_192;
 const ACC_POS_CHANNEL_CAPACITY: usize = 8_192;
 
-// Keep the event union complete across feature subsets and for callback types
-// whose exchange producer is not implemented yet.
-#[allow(dead_code)]
+/// Event published into one task's broadcast stream.
+///
+/// Each variant is delivered to the matching `EventHandler` callback. Custom
+/// websocket decoders pass a variant constructor, such as `TaskEvent::Lob`, to
+/// [`WsFrameRunner::ws_loop`](crate::arch::traits::market_lob::WsFrameRunner::ws_loop).
+#[non_exhaustive]
 #[derive(Clone, Debug)]
-pub(crate) enum TaskEvent {
+pub enum TaskEvent {
     Alt(InfraMsg<AltTaskInfo>),
     Ws(InfraMsg<WsTaskInfo>),
     OrderExecute(InfraMsg<Vec<AltOrder>>),

@@ -10,8 +10,15 @@ use crate::arch::{
             ws_events::*,
         },
     },
-    task_execution::{TaskKey, task_alt::AltTaskInfo, task_ws::WsTaskInfo},
-    traits::strategy::*,
+    task_execution::{
+        TaskKey,
+        task_alt::AltTaskInfo,
+        task_ws::{WsChannel, WsTaskInfo},
+    },
+    traits::{
+        market_lob::{LobWsDecoder, WsDecoders, WsFrameRunner},
+        strategy::*,
+    },
 };
 
 #[derive(Clone)]
@@ -164,6 +171,34 @@ where
     }
 }
 
+impl WsDecoders for HNil {
+    fn markets(&self) -> Vec<&'static str> {
+        Vec::new()
+    }
+
+    async fn ws_channel_at<R: WsFrameRunner>(&self, _: usize, _: &WsChannel, _: R) {}
+}
+
+impl<Head, Tail> WsDecoders for HCons<Head, Tail>
+where
+    Head: LobWsDecoder,
+    Tail: WsDecoders,
+{
+    fn markets(&self) -> Vec<&'static str> {
+        let mut markets = vec![Head::MARKET];
+        markets.extend(self.tail.markets());
+        markets
+    }
+
+    async fn ws_channel_at<R: WsFrameRunner>(&self, index: usize, channel: &WsChannel, runner: R) {
+        if index == 0 {
+            self.head.ws_channel(channel, runner).await;
+        } else {
+            self.tail.ws_channel_at(index - 1, channel, runner).await;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{
@@ -172,6 +207,9 @@ mod tests {
     };
 
     use super::*;
+    use crate::arch::{
+        strategy_base::handler::task_channel::TaskEvent, traits::conversion::IntoWsData,
+    };
 
     #[derive(Clone)]
     struct ProbeStrategy {
@@ -215,5 +253,69 @@ mod tests {
         strategies._spawn_strategy_tasks(&task_channels).await;
 
         assert_eq!(spawn_count.load(Ordering::SeqCst), 2);
+    }
+
+    #[derive(Clone)]
+    struct NamedDecoder<const ID: usize> {
+        runs: Arc<AtomicUsize>,
+    }
+
+    impl LobWsDecoder for NamedDecoder<0> {
+        const MARKET: &'static str = "first";
+
+        async fn ws_channel<R: WsFrameRunner>(&self, _: &WsChannel, _: R) {
+            self.runs.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    impl LobWsDecoder for NamedDecoder<1> {
+        const MARKET: &'static str = "second";
+
+        async fn ws_channel<R: WsFrameRunner>(&self, _: &WsChannel, _: R) {
+            self.runs.fetch_add(10, Ordering::SeqCst);
+        }
+    }
+
+    struct NoopRunner;
+
+    impl WsFrameRunner for NoopRunner {
+        async fn ws_loop<WsData, IntoEvent, Decode>(self, _: IntoEvent, _: Decode)
+        where
+            WsData: IntoWsData + Send + 'static,
+            WsData::Output: Send + Sync + 'static,
+            IntoEvent: Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
+            Decode: Fn(&[u8]) -> serde_json::Result<WsData> + Copy + Send,
+        {
+        }
+    }
+
+    fn decoders(runs: &Arc<AtomicUsize>) -> HCons<NamedDecoder<0>, HCons<NamedDecoder<1>, HNil>> {
+        HCons {
+            head: NamedDecoder { runs: runs.clone() },
+            tail: HCons {
+                head: NamedDecoder { runs: runs.clone() },
+                tail: HNil,
+            },
+        }
+    }
+
+    #[test]
+    fn decoder_list_reports_markets_in_list_order() {
+        let runs = Arc::new(AtomicUsize::new(0));
+
+        assert_eq!(decoders(&runs).markets(), vec!["first", "second"]);
+    }
+
+    #[tokio::test]
+    async fn decoder_list_runs_the_decoder_at_index() {
+        let runs = Arc::new(AtomicUsize::new(0));
+        let decoders = decoders(&runs);
+        let channel = WsChannel::Lob(None);
+
+        decoders.ws_channel_at(1, &channel, NoopRunner).await;
+        assert_eq!(runs.load(Ordering::SeqCst), 10);
+
+        decoders.ws_channel_at(0, &channel, NoopRunner).await;
+        assert_eq!(runs.load(Ordering::SeqCst), 11);
     }
 }

@@ -10,12 +10,8 @@ mod gate;
 #[cfg(feature = "okx")]
 mod okx;
 
-#[cfg(any(
-    feature = "hyperliquid",
-    feature = "binance",
-    feature = "gate",
-    feature = "okx"
-))]
+mod custom;
+
 pub(crate) mod ws_decode;
 
 use futures_util::{SinkExt, StreamExt};
@@ -45,7 +41,7 @@ use crate::arch::{
         },
         handler::task_channel::{InfraMsg, TaskEvent},
     },
-    traits::conversion::IntoWsData,
+    traits::{conversion::IntoWsData, market_lob::WsDecoders},
 };
 use crate::errors::{InfraError, InfraResult};
 
@@ -259,7 +255,11 @@ impl WsTaskRunner {
         }
     }
 
-    pub async fn ws_channel_distribution(&mut self, _ws_stream: &mut WsStream) {
+    pub async fn ws_channel_distribution<D: WsDecoders>(
+        &mut self,
+        _ws_stream: &mut WsStream,
+        decoders: &D,
+    ) {
         match &self.ws_info.market {
             #[cfg(feature = "hyperliquid")]
             Market::HyperLiquid => {
@@ -289,6 +289,9 @@ impl WsTaskRunner {
             Market::GateSpot => {
                 self.ws_channel_gate_spot(_ws_stream).await;
             },
+            Market::Custom(_) => {
+                self.ws_channel_custom(_ws_stream, decoders).await;
+            },
             m => self.log(LogLevel::Warn, &format!("Unsupported market: {:?}", m)),
         };
     }
@@ -304,7 +307,7 @@ impl WsTaskRunner {
         }
     }
 
-    pub(crate) async fn ws_mid_relay(&mut self) {
+    pub(crate) async fn ws_mid_relay<D: WsDecoders>(&mut self, decoders: D) {
         let sleep_interval = Duration::from_secs(5);
         self.log(LogLevel::Info, "Spawned ws task");
 
@@ -340,7 +343,8 @@ impl WsTaskRunner {
             };
 
             ack.respond(AckStatus::WsConnect);
-            self.ws_channel_distribution(&mut ws_stream).await;
+            self.ws_channel_distribution(&mut ws_stream, &decoders)
+                .await;
         }
     }
 

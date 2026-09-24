@@ -7,7 +7,9 @@ use serde::de::DeserializeOwned;
 /// Decodes an exchange-specific JSON websocket frame without interpreting its
 /// exchange-specific fields.
 ///
-pub(crate) fn decode_raw_ws(frame: &[u8]) -> serde_json::Result<WsOtherMessage> {
+/// Pass it with `TaskEvent::WsOther` to deliver complete frames through
+/// `EventHandler::on_ws_other`.
+pub fn decode_raw_ws(frame: &[u8]) -> serde_json::Result<WsOtherMessage> {
     let timestamp = get_micros_timestamp();
     serde_json::from_slice::<serde_json::Value>(frame)?;
 
@@ -26,6 +28,15 @@ impl IntoWsData for WsOtherMessage {
 }
 
 /// Tries the runner's expected data shape before falling back to the full frame.
+#[cfg_attr(
+    not(any(
+        feature = "hyperliquid",
+        feature = "binance",
+        feature = "gate",
+        feature = "okx"
+    )),
+    allow(dead_code)
+)]
 pub(crate) fn decode_preferred<Frame, Preferred, Wrap>(
     frame: &[u8],
     wrap: Wrap,
