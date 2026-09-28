@@ -15,9 +15,8 @@ use crate::errors::{InfraError, InfraResult};
 
 /// Unified dispatcher for the built-in limit-order-book exchange clients.
 ///
-/// Dispatcher methods delegate supported client/operation combinations to the
-/// selected concrete client. Combinations not exposed by this aggregate return
-/// [`InfraError::Unimplemented`].
+/// Every method delegates to the selected concrete client. Operations that
+/// client does not support return [`InfraError::Unimplemented`].
 #[derive(Clone, Debug)]
 #[cfg(feature = "lob_clients")]
 pub enum LobClients {
@@ -43,23 +42,30 @@ impl Default for LobClients {
 impl MarketLobApi for LobClients {}
 
 #[cfg(feature = "lob_clients")]
+macro_rules! dispatch {
+    ($self:ident, $c:ident => $call:expr) => {
+        match $self {
+            LobClients::Hyperliquid($c) => $call,
+            LobClients::BinanceCm($c) => $call,
+            LobClients::BinanceSpot($c) => $call,
+            LobClients::BinanceUm($c) => $call,
+            LobClients::GateDelivery($c) => $call,
+            LobClients::GateFutures($c) => $call,
+            LobClients::GateSpot($c) => $call,
+            LobClients::GateUni($c) => $call,
+            LobClients::Okx($c) => $call,
+        }
+    };
+}
+
+#[cfg(feature = "lob_clients")]
 impl LobPublicRest for LobClients {
     async fn get_tickers(
         &self,
         insts: Option<&[String]>,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<TickerData>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_tickers(insts, inst_type).await,
-            LobClients::BinanceCm(c) => c.get_tickers(insts, inst_type).await,
-            LobClients::BinanceSpot(c) => c.get_tickers(insts, inst_type).await,
-            LobClients::BinanceUm(c) => c.get_tickers(insts, inst_type).await,
-            LobClients::GateDelivery(c) => c.get_tickers(insts, inst_type).await,
-            LobClients::GateFutures(c) => c.get_tickers(insts, inst_type).await,
-            LobClients::GateSpot(c) => c.get_tickers(insts, inst_type).await,
-            LobClients::GateUni(c) => c.get_tickers(insts, inst_type).await,
-            LobClients::Okx(c) => c.get_tickers(insts, inst_type).await,
-        }
+        dispatch!(self, c => c.get_tickers(insts, inst_type).await)
     }
 
     async fn get_mark_prices(
@@ -67,17 +73,7 @@ impl LobPublicRest for LobClients {
         insts: Option<&[String]>,
         inst_type: Option<InstrumentType>,
     ) -> InfraResult<Vec<MarkPriceData>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_mark_prices(insts, inst_type).await,
-            LobClients::BinanceCm(c) => c.get_mark_prices(insts, inst_type).await,
-            LobClients::BinanceSpot(c) => c.get_mark_prices(insts, inst_type).await,
-            LobClients::BinanceUm(c) => c.get_mark_prices(insts, inst_type).await,
-            LobClients::GateDelivery(c) => c.get_mark_prices(insts, inst_type).await,
-            LobClients::GateFutures(c) => c.get_mark_prices(insts, inst_type).await,
-            LobClients::GateSpot(c) => c.get_mark_prices(insts, inst_type).await,
-            LobClients::GateUni(c) => c.get_mark_prices(insts, inst_type).await,
-            LobClients::Okx(c) => c.get_mark_prices(insts, inst_type).await,
-        }
+        dispatch!(self, c => c.get_mark_prices(insts, inst_type).await)
     }
 
     async fn get_orderbook(
@@ -86,17 +82,7 @@ impl LobPublicRest for LobClients {
         inst_type: InstrumentType,
         depth: usize,
     ) -> InfraResult<OrderBookData> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_orderbook(inst, inst_type, depth).await,
-            LobClients::BinanceCm(c) => c.get_orderbook(inst, inst_type, depth).await,
-            LobClients::BinanceSpot(c) => c.get_orderbook(inst, inst_type, depth).await,
-            LobClients::BinanceUm(c) => c.get_orderbook(inst, inst_type, depth).await,
-            LobClients::GateDelivery(c) => c.get_orderbook(inst, inst_type, depth).await,
-            LobClients::GateFutures(c) => c.get_orderbook(inst, inst_type, depth).await,
-            LobClients::GateSpot(c) => c.get_orderbook(inst, inst_type, depth).await,
-            LobClients::GateUni(c) => c.get_orderbook(inst, inst_type, depth).await,
-            LobClients::Okx(c) => c.get_orderbook(inst, inst_type, depth).await,
-        }
+        dispatch!(self, c => c.get_orderbook(inst, inst_type, depth).await)
     }
 
     async fn get_candles(
@@ -108,102 +94,36 @@ impl LobPublicRest for LobClients {
         start_time_us: Option<u64>,
         end_time_us: Option<u64>,
     ) -> InfraResult<Vec<CandleData>> {
-        match self {
-            LobClients::Hyperliquid(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-            LobClients::BinanceCm(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-            LobClients::BinanceSpot(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-            LobClients::BinanceUm(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-            LobClients::GateDelivery(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-            LobClients::GateFutures(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-            LobClients::GateSpot(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-            LobClients::GateUni(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-            LobClients::Okx(c) => {
-                c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
-                    .await
-            },
-        }
+        dispatch!(self, c => {
+            c.get_candles(inst, inst_type, interval, limit, start_time_us, end_time_us)
+                .await
+        })
     }
 
     async fn get_instrument_info(
         &self,
         inst_type: InstrumentType,
     ) -> InfraResult<Vec<InstrumentInfo>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_instrument_info(inst_type).await,
-            LobClients::BinanceCm(c) => c.get_instrument_info(inst_type).await,
-            LobClients::BinanceSpot(c) => c.get_instrument_info(inst_type).await,
-            LobClients::BinanceUm(c) => c.get_instrument_info(inst_type).await,
-            LobClients::GateDelivery(c) => c.get_instrument_info(inst_type).await,
-            LobClients::GateFutures(c) => c.get_instrument_info(inst_type).await,
-            LobClients::GateSpot(c) => c.get_instrument_info(inst_type).await,
-            LobClients::GateUni(c) => c.get_instrument_info(inst_type).await,
-            LobClients::Okx(c) => c.get_instrument_info(inst_type).await,
-        }
+        dispatch!(self, c => c.get_instrument_info(inst_type).await)
+    }
+
+    async fn get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        dispatch!(self, c => c.get_live_instruments(inst_type).await)
     }
 }
 
 #[cfg(feature = "lob_clients")]
 impl LobPrivateRest for LobClients {
     fn init_api_key(&mut self) {
-        match self {
-            LobClients::Hyperliquid(c) => c.init_api_key(),
-            LobClients::BinanceCm(c) => c.init_api_key(),
-            LobClients::BinanceSpot(c) => c.init_api_key(),
-            LobClients::BinanceUm(c) => c.init_api_key(),
-            LobClients::GateDelivery(c) => c.init_api_key(),
-            LobClients::GateFutures(c) => c.init_api_key(),
-            LobClients::GateSpot(c) => c.init_api_key(),
-            LobClients::GateUni(c) => c.init_api_key(),
-            LobClients::Okx(c) => c.init_api_key(),
-        }
+        dispatch!(self, c => c.init_api_key())
     }
 
     async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
-        match self {
-            LobClients::Hyperliquid(c) => c.place_order(order_params).await,
-            LobClients::BinanceCm(c) => c.place_order(order_params).await,
-            LobClients::BinanceSpot(c) => c.place_order(order_params).await,
-            LobClients::BinanceUm(c) => c.place_order(order_params).await,
-            LobClients::GateDelivery(c) => c.place_order(order_params).await,
-            LobClients::GateFutures(c) => c.place_order(order_params).await,
-            LobClients::GateSpot(c) => c.place_order(order_params).await,
-            LobClients::GateUni(c) => c.place_order(order_params).await,
-            LobClients::Okx(c) => c.place_order(order_params).await,
-        }
+        dispatch!(self, c => c.place_order(order_params).await)
     }
 
     async fn place_orders(&self, order_params: Vec<OrderParams>) -> InfraResult<Vec<OrderAckData>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.place_orders(order_params).await,
-            LobClients::BinanceUm(c) => c.place_orders(order_params).await,
-            LobClients::GateFutures(c) => c.place_orders(order_params).await,
-            LobClients::Okx(c) => c.place_orders(order_params).await,
-            _ => Err(InfraError::Unimplemented),
-        }
+        dispatch!(self, c => c.place_orders(order_params).await)
     }
 
     async fn cancel_order(
@@ -212,30 +132,14 @@ impl LobPrivateRest for LobClients {
         order_id: Option<&str>,
         cli_order_id: Option<&str>,
     ) -> InfraResult<OrderAckData> {
-        match self {
-            LobClients::Hyperliquid(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-            LobClients::BinanceCm(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-            LobClients::BinanceSpot(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-            LobClients::BinanceUm(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-            LobClients::GateDelivery(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-            LobClients::GateFutures(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-            LobClients::GateSpot(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-            LobClients::GateUni(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-            LobClients::Okx(c) => c.cancel_order(inst, order_id, cli_order_id).await,
-        }
+        dispatch!(self, c => c.cancel_order(inst, order_id, cli_order_id).await)
     }
 
     async fn cancel_orders(
         &self,
         cancel_params: Vec<CancelOrderParams>,
     ) -> InfraResult<Vec<OrderAckData>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.cancel_orders(cancel_params).await,
-            LobClients::BinanceUm(c) => c.cancel_orders(cancel_params).await,
-            LobClients::GateFutures(c) => c.cancel_orders(cancel_params).await,
-            LobClients::Okx(c) => c.cancel_orders(cancel_params).await,
-            _ => Err(InfraError::Unimplemented),
-        }
+        dispatch!(self, c => c.cancel_orders(cancel_params).await)
     }
 
     async fn get_open_orders(
@@ -243,43 +147,15 @@ impl LobPrivateRest for LobClients {
         inst: &str,
         limit: Option<u32>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_open_orders(inst, limit).await,
-            LobClients::BinanceSpot(c) => c.get_open_orders(inst, limit).await,
-            LobClients::BinanceUm(c) => c.get_open_orders(inst, limit).await,
-            LobClients::GateFutures(c) => c.get_open_orders(inst, limit).await,
-            LobClients::GateSpot(c) => c.get_open_orders(inst, limit).await,
-            LobClients::Okx(c) => c.get_open_orders(inst, limit).await,
-            _ => Err(InfraError::Unimplemented),
-        }
+        dispatch!(self, c => c.get_open_orders(inst, limit).await)
     }
 
     async fn get_balance(&self, insts: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_balance(insts).await,
-            LobClients::BinanceCm(c) => c.get_balance(insts).await,
-            LobClients::BinanceSpot(c) => c.get_balance(insts).await,
-            LobClients::BinanceUm(c) => c.get_balance(insts).await,
-            LobClients::GateDelivery(c) => c.get_balance(insts).await,
-            LobClients::GateFutures(c) => c.get_balance(insts).await,
-            LobClients::GateSpot(c) => c.get_balance(insts).await,
-            LobClients::GateUni(c) => c.get_balance(insts).await,
-            LobClients::Okx(c) => c.get_balance(insts).await,
-        }
+        dispatch!(self, c => c.get_balance(insts).await)
     }
 
     async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_positions(insts).await,
-            LobClients::BinanceCm(c) => c.get_positions(insts).await,
-            LobClients::BinanceSpot(c) => c.get_positions(insts).await,
-            LobClients::BinanceUm(c) => c.get_positions(insts).await,
-            LobClients::GateDelivery(c) => c.get_positions(insts).await,
-            LobClients::GateFutures(c) => c.get_positions(insts).await,
-            LobClients::GateSpot(c) => c.get_positions(insts).await,
-            LobClients::GateUni(c) => c.get_positions(insts).await,
-            LobClients::Okx(c) => c.get_positions(insts).await,
-        }
+        dispatch!(self, c => c.get_positions(insts).await)
     }
 
     async fn get_order_history(
@@ -289,47 +165,14 @@ impl LobPrivateRest for LobClients {
         end_time_us: Option<u64>,
         limit: Option<u32>,
     ) -> InfraResult<Vec<OrderDetailData>> {
-        match self {
-            LobClients::Hyperliquid(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit)
-                    .await
-            },
-            LobClients::BinanceSpot(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit)
-                    .await
-            },
-            LobClients::BinanceUm(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit)
-                    .await
-            },
-            LobClients::GateFutures(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit)
-                    .await
-            },
-            LobClients::GateSpot(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit)
-                    .await
-            },
-            LobClients::Okx(c) => {
-                c.get_order_history(inst, start_time_us, end_time_us, limit)
-                    .await
-            },
-            _ => Err(InfraError::Unimplemented),
-        }
+        dispatch!(self, c => {
+            c.get_order_history(inst, start_time_us, end_time_us, limit)
+                .await
+        })
     }
 
     async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_order(inst, order_id).await,
-            LobClients::BinanceCm(c) => c.get_order(inst, order_id).await,
-            LobClients::BinanceSpot(c) => c.get_order(inst, order_id).await,
-            LobClients::BinanceUm(c) => c.get_order(inst, order_id).await,
-            LobClients::GateDelivery(c) => c.get_order(inst, order_id).await,
-            LobClients::GateFutures(c) => c.get_order(inst, order_id).await,
-            LobClients::GateSpot(c) => c.get_order(inst, order_id).await,
-            LobClients::GateUni(c) => c.get_order(inst, order_id).await,
-            LobClients::Okx(c) => c.get_order(inst, order_id).await,
-        }
+        dispatch!(self, c => c.get_order(inst, order_id).await)
     }
 }
 
@@ -340,89 +183,92 @@ impl LobWebsocket for LobClients {
         channel: &WsChannel,
         insts: Option<&[String]>,
     ) -> InfraResult<String> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_public_sub_msg(channel, insts).await,
-            LobClients::BinanceCm(c) => c.get_public_sub_msg(channel, insts).await,
-            LobClients::BinanceSpot(c) => c.get_public_sub_msg(channel, insts).await,
-            LobClients::BinanceUm(c) => c.get_public_sub_msg(channel, insts).await,
-            LobClients::GateDelivery(c) => c.get_public_sub_msg(channel, insts).await,
-            LobClients::GateFutures(c) => c.get_public_sub_msg(channel, insts).await,
-            LobClients::GateSpot(c) => c.get_public_sub_msg(channel, insts).await,
-            LobClients::GateUni(c) => c.get_public_sub_msg(channel, insts).await,
-            LobClients::Okx(c) => c.get_public_sub_msg(channel, insts).await,
-        }
+        dispatch!(self, c => c.get_public_sub_msg(channel, insts).await)
     }
 
     async fn get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_private_sub_msg(channel).await,
-            LobClients::BinanceCm(c) => c.get_private_sub_msg(channel).await,
-            LobClients::BinanceSpot(c) => c.get_private_sub_msg(channel).await,
-            LobClients::BinanceUm(c) => c.get_private_sub_msg(channel).await,
-            LobClients::GateDelivery(c) => c.get_private_sub_msg(channel).await,
-            LobClients::GateFutures(c) => c.get_private_sub_msg(channel).await,
-            LobClients::GateSpot(c) => c.get_private_sub_msg(channel).await,
-            LobClients::GateUni(c) => c.get_private_sub_msg(channel).await,
-            LobClients::Okx(c) => c.get_private_sub_msg(channel).await,
-        }
+        dispatch!(self, c => c.get_private_sub_msg(channel).await)
     }
 
     async fn get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_public_connect_msg(channel).await,
-            LobClients::BinanceCm(c) => c.get_public_connect_msg(channel).await,
-            LobClients::BinanceSpot(c) => c.get_public_connect_msg(channel).await,
-            LobClients::BinanceUm(c) => c.get_public_connect_msg(channel).await,
-            LobClients::GateDelivery(c) => c.get_public_connect_msg(channel).await,
-            LobClients::GateFutures(c) => c.get_public_connect_msg(channel).await,
-            LobClients::GateSpot(c) => c.get_public_connect_msg(channel).await,
-            LobClients::GateUni(c) => c.get_public_connect_msg(channel).await,
-            LobClients::Okx(c) => c.get_public_connect_msg(channel).await,
-        }
+        dispatch!(self, c => c.get_public_connect_msg(channel).await)
     }
 
     async fn get_public_connect_target(&self, channel: &WsChannel) -> InfraResult<WsConnectTarget> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_public_connect_target(channel).await,
-            LobClients::BinanceCm(c) => c.get_public_connect_target(channel).await,
-            LobClients::BinanceSpot(c) => c.get_public_connect_target(channel).await,
-            LobClients::BinanceUm(c) => c.get_public_connect_target(channel).await,
-            LobClients::GateDelivery(c) => c.get_public_connect_target(channel).await,
-            LobClients::GateFutures(c) => c.get_public_connect_target(channel).await,
-            LobClients::GateSpot(c) => c.get_public_connect_target(channel).await,
-            LobClients::GateUni(c) => c.get_public_connect_target(channel).await,
-            LobClients::Okx(c) => c.get_public_connect_target(channel).await,
-        }
+        dispatch!(self, c => c.get_public_connect_target(channel).await)
     }
 
     async fn get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_private_connect_msg(channel).await,
-            LobClients::BinanceCm(c) => c.get_private_connect_msg(channel).await,
-            LobClients::BinanceSpot(c) => c.get_private_connect_msg(channel).await,
-            LobClients::BinanceUm(c) => c.get_private_connect_msg(channel).await,
-            LobClients::GateDelivery(c) => c.get_private_connect_msg(channel).await,
-            LobClients::GateFutures(c) => c.get_private_connect_msg(channel).await,
-            LobClients::GateSpot(c) => c.get_private_connect_msg(channel).await,
-            LobClients::GateUni(c) => c.get_private_connect_msg(channel).await,
-            LobClients::Okx(c) => c.get_private_connect_msg(channel).await,
-        }
+        dispatch!(self, c => c.get_private_connect_msg(channel).await)
     }
 
     async fn get_private_connect_target(
         &self,
         channel: &WsChannel,
     ) -> InfraResult<WsConnectTarget> {
-        match self {
-            LobClients::Hyperliquid(c) => c.get_private_connect_target(channel).await,
-            LobClients::BinanceCm(c) => c.get_private_connect_target(channel).await,
-            LobClients::BinanceSpot(c) => c.get_private_connect_target(channel).await,
-            LobClients::BinanceUm(c) => c.get_private_connect_target(channel).await,
-            LobClients::GateDelivery(c) => c.get_private_connect_target(channel).await,
-            LobClients::GateFutures(c) => c.get_private_connect_target(channel).await,
-            LobClients::GateSpot(c) => c.get_private_connect_target(channel).await,
-            LobClients::GateUni(c) => c.get_private_connect_target(channel).await,
-            LobClients::Okx(c) => c.get_private_connect_target(channel).await,
-        }
+        dispatch!(self, c => c.get_private_connect_target(channel).await)
+    }
+}
+
+#[cfg(all(test, feature = "lob_clients"))]
+mod tests {
+    use super::*;
+    use crate::arch::task_execution::task_ws::LobParam;
+
+    #[tokio::test]
+    async fn unsupported_operations_stay_unimplemented() {
+        let gate_uni = LobClients::GateUni(GateUniCli::default());
+        let binance_cm = LobClients::BinanceCm(BinanceCmCli::default());
+
+        assert!(matches!(
+            gate_uni
+                .get_live_instruments(InstrumentType::Perpetual)
+                .await,
+            Err(InfraError::Unimplemented)
+        ));
+        assert!(matches!(
+            binance_cm.place_orders(Vec::new()).await,
+            Err(InfraError::Unimplemented)
+        ));
+        assert!(matches!(
+            binance_cm.cancel_orders(Vec::new()).await,
+            Err(InfraError::Unimplemented)
+        ));
+        assert!(matches!(
+            binance_cm.get_open_orders("BTC_USD_PERP", None).await,
+            Err(InfraError::Unimplemented)
+        ));
+        assert!(matches!(
+            binance_cm
+                .get_order_history("BTC_USD_PERP", None, None, None)
+                .await,
+            Err(InfraError::Unimplemented)
+        ));
+    }
+
+    #[tokio::test]
+    async fn websocket_messages_come_from_the_selected_client() {
+        let channel = WsChannel::Lob(Some(LobParam::Bbo { frequency: None }));
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+        let direct = BinanceUmCli::default()
+            .get_public_sub_msg(&channel, Some(&insts))
+            .await
+            .unwrap();
+        let dispatched = LobClients::BinanceUm(BinanceUmCli::default())
+            .get_public_sub_msg(&channel, Some(&insts))
+            .await
+            .unwrap();
+
+        assert_eq!(dispatched, direct);
+        assert_eq!(
+            LobClients::Okx(OkxCli::default())
+                .get_public_connect_msg(&channel)
+                .await
+                .unwrap(),
+            OkxCli::default()
+                .get_public_connect_msg(&channel)
+                .await
+                .unwrap()
+        );
     }
 }
