@@ -368,7 +368,7 @@ fn hyperliquid_raw_perp_base(symbol: &str) -> &str {
 
 fn hyperliquid_known_builder_perp_quote(dex: &str) -> Option<&'static str> {
     match dex.to_ascii_lowercase().as_str() {
-        "xyz" | "abcd" | "para" => Some("USDC"),
+        "xyz" | "abcd" | "para" | "mkts" | "io" => Some("USDC"),
         "flx" | "vntl" | "km" => Some("USDH"),
         "hyna" => Some("USDE"),
         "cash" => Some("USDT0"),
@@ -710,6 +710,8 @@ mod tests {
             ("abcd:TEST", "TEST_USDC_PERP"),
             ("cash:WTI", "WTI_USDT0_PERP"),
             ("para:AVGO", "AVGO_USDC_PERP"),
+            ("mkts:US500", "US500_USDC_PERP"),
+            ("io:SNDK", "SNDK_USDC_PERP"),
             ("newdex:ABC", "newdex:ABC"),
             ("@123", "@123"),
             ("PURR/USDC", "PURR_USDC"),
