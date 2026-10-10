@@ -5,7 +5,7 @@ use crate::arch::{
     market_assets::{
         api_general::value_to_f64,
         base_data::{InstrumentType, MarginMode, PositionSide},
-        exchange::hyperliquid::api_utils::hyperliquid_inst_to_cli,
+        exchange::hyperliquid::api_utils::{hyperliquid_inst_to_cli, hyperliquid_is_spot_coin},
     },
     strategy_base::handler::lob_events::WsAccPosition,
     traits::conversion::IntoWsData,
@@ -45,7 +45,7 @@ impl IntoWsData for WsAccountPositionHyperliquid {
 
         WsAccPosition {
             inst: hyperliquid_inst_to_cli(&self.position.coin),
-            inst_type: if self.position.coin.contains('/') || self.position.coin.starts_with('@') {
+            inst_type: if hyperliquid_is_spot_coin(&self.position.coin) {
                 InstrumentType::Spot
             } else {
                 InstrumentType::Perpetual

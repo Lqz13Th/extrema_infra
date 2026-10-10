@@ -5,7 +5,9 @@ use crate::arch::market_assets::{
     api_data::account_data::OrderDetailData,
     api_general::{ts_to_micros, value_to_f64},
     base_data::{OrderSide, OrderStatus, OrderType},
-    exchange::hyperliquid::api_utils::{hyperliquid_inst_to_cli, hyperliquid_perp_to_cli},
+    exchange::hyperliquid::api_utils::{
+        hyperliquid_inst_to_cli, hyperliquid_is_spot_coin, hyperliquid_perp_to_cli,
+    },
 };
 use crate::errors::{InfraError, InfraResult};
 
@@ -46,7 +48,7 @@ impl RestOrderStatusHyperliquid {
         let orig_size = value_to_f64(&d.order.origSz).abs();
         let filled_size = (orig_size - remaining_size).max(0.0);
         let inst = match perp_quote {
-            Some(quote) if !d.order.coin.contains('/') && !d.order.coin.starts_with('@') => {
+            Some(quote) if !hyperliquid_is_spot_coin(&d.order.coin) => {
                 hyperliquid_perp_to_cli(&d.order.coin, quote)
             },
             _ => hyperliquid_inst_to_cli(&d.order.coin),
@@ -212,6 +214,26 @@ mod tests {
             time_in_force: None,
             update_time,
         }
+    }
+
+    #[test]
+    fn order_status_keeps_outcome_coins_out_of_perps() {
+        let raw: RestOrderStatusHyperliquid = serde_json::from_value(serde_json::json!({
+            "order": {
+                "coin": "#102220",
+                "side": "B",
+                "limitPx": "0.5",
+                "sz": "10",
+                "oid": 1_u64,
+                "timestamp": 1781905826733_u64,
+                "origSz": "10"
+            },
+            "status": "open",
+            "statusTimestamp": 1781905826733_u64
+        }))
+        .unwrap();
+
+        assert_eq!(raw.into_order_detail_data(Some("USDC")).inst, "#102220");
     }
 
     #[test]

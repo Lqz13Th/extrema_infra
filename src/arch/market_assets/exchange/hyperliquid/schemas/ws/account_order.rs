@@ -4,7 +4,7 @@ use crate::arch::{
     market_assets::{
         api_general::ts_to_micros,
         base_data::{InstrumentType, OrderSide, OrderStatus, OrderType},
-        exchange::hyperliquid::api_utils::hyperliquid_inst_to_cli,
+        exchange::hyperliquid::api_utils::{hyperliquid_inst_to_cli, hyperliquid_is_spot_coin},
         market_core::Market,
     },
     strategy_base::handler::lob_events::WsAccOrder,
@@ -63,7 +63,7 @@ impl IntoWsData for WsAccountOrderHyperliquid {
 }
 
 fn infer_inst_type(coin: &str) -> InstrumentType {
-    if coin.contains('/') || coin.starts_with('@') {
+    if hyperliquid_is_spot_coin(coin) {
         InstrumentType::Spot
     } else {
         InstrumentType::Perpetual
@@ -120,5 +120,28 @@ mod tests {
 
         assert_eq!(ws.order_id.as_deref(), Some("987654321"));
         assert_eq!(ws.cli_order_id.as_deref(), Some("hl-client-id"));
+    }
+
+    #[test]
+    fn into_ws_keeps_outcome_coins_out_of_perps() {
+        let raw: WsAccountOrderHyperliquid = serde_json::from_value(json!({
+            "order": {
+                "coin": "#102220",
+                "side": "B",
+                "limitPx": "0.5",
+                "sz": "10",
+                "oid": 1_u64,
+                "timestamp": 1781905826733_u64,
+                "origSz": "10"
+            },
+            "status": "open",
+            "statusTimestamp": 1781905826733_u64
+        }))
+        .unwrap();
+
+        let ws = raw.into_ws();
+
+        assert_eq!(ws.inst, "#102220");
+        assert_eq!(ws.inst_type, InstrumentType::Spot);
     }
 }
