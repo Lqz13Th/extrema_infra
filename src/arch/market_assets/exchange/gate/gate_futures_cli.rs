@@ -314,7 +314,7 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestFundingRateGateFutures> =
             parse_json_response("GateFutures funding_rate_history", response).await?;
 
@@ -401,7 +401,7 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestContractGateFutures> =
             parse_json_response("GateFutures funding_rate_info", response).await?;
 
@@ -436,7 +436,7 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestContractGateFutures> =
             parse_json_response("GateFutures funding_rate_live_all", response).await?;
 
@@ -459,7 +459,7 @@ impl GateFuturesCli {
             .replace("{contract}", &cli_perp_to_gate_inst(inst));
 
         let url = [GATE_BASE_URL, &endpoint].concat();
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestContractGateFutures> =
             parse_json_response("GateFutures funding_rate_live", response).await?;
 
@@ -494,12 +494,7 @@ impl GateFuturesCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let response = self
-            .client
-            .get(url)
-            .header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
-            .send()
-            .await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestContractGateFutures> =
             parse_json_response("GateFutures futures_contracts", response).await?;
 
@@ -519,7 +514,7 @@ impl GateFuturesCli {
         let endpoint = GATE_FUTURES_TICKERS.replace("{settle}", settle);
         let url = [GATE_BASE_URL, &endpoint].concat();
 
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestTickerGateFutures> =
             parse_json_response("GateFutures tickers", response).await?;
 
@@ -533,7 +528,7 @@ impl GateFuturesCli {
         let endpoint = GATE_FUTURES_ADL_RISK_STATES.replace("{settle}", settle);
         let url = [GATE_BASE_URL, &endpoint].concat();
 
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestAdlRiskStatesGateFutures> =
             parse_json_response("GateFutures adl_risk_states", response).await?;
 
@@ -618,7 +613,7 @@ impl GateFuturesCli {
 
         let url = format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"));
 
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestCandleGateFutures> =
             parse_json_response("GateFutures candles", response).await?;
 
@@ -666,7 +661,7 @@ impl GateFuturesCli {
         ];
         let url = format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"));
 
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestOrderBookGateFutures> =
             parse_json_response("GateFutures orderbook", response).await?;
 
