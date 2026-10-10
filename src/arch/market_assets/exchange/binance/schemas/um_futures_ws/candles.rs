@@ -13,7 +13,7 @@ use crate::arch::{
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct WsCandleBinanceUM {
-    s: String, // Pair
+    s: String, // Symbol
     k: KlineDetailsBinanceUM,
 }
 

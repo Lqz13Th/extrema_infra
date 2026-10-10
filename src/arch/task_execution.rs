@@ -9,7 +9,8 @@
 //! model prediction workers, instrument-intent relays, and order-execution
 //! relays. [`task_ws::WsTaskInfo`] describes websocket relay workers. The
 //! `*_runner` modules contain the internal runtime machinery that turns those
-//! descriptors into running tasks.
+//! descriptors into running tasks. [`decode_raw_ws`] is re-exported for custom
+//! venue decoders that forward raw frames to `on_ws_other`.
 
 pub(crate) mod alt_runner;
 pub mod task_alt;

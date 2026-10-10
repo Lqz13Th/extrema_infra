@@ -501,6 +501,9 @@ impl GateFuturesCli {
         res.into_vec()
     }
 
+    /// Raw `GET /futures/{settle}/contracts`. Gate caps `limit` at 100 and
+    /// returns the list sorted by name, so `offset` pages through it;
+    /// `None, None` sends one unpaged request.
     pub async fn get_futures_contracts_raw(
         &self,
         settle: &str,

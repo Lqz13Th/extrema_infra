@@ -190,7 +190,7 @@ impl WsTaskRunner {
                 },
                 _ => self.log(
                     LogLevel::Warn,
-                    &format!("Unexpected command, auto-ack: {:?}", cmd),
+                    &format!("Unexpected command ignored: {:?}", cmd),
                 ),
             };
         }

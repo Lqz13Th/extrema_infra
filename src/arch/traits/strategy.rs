@@ -39,8 +39,10 @@ pub trait Strategy: CommandEmitter + EventHandler {
     /// Internal hook used by the strategy-list runtime.
     ///
     /// Strategy modules registered through `EnvBuilder` normally should not
-    /// override this method. The heterogeneous strategy list provides the
-    /// runtime implementation that spawns each module's event handler loop.
+    /// override this method. `EnvBuilder` wraps each module in a strategy
+    /// module or group whose implementation subscribes it to its tasks and
+    /// spawns its event handler loop; the heterogeneous list only forwards the
+    /// call to each entry.
     fn _spawn_strategy_tasks(
         &self,
         _task_channels: &Arc<TaskChannels>,
@@ -100,11 +102,11 @@ pub trait Strategy: CommandEmitter + EventHandler {
 /// }
 /// ```
 ///
-/// [`EnvMediator::execute`]: crate::arch::infra_core::env_mediator::EnvMediator::execute
-/// [`TaskInfo`]: crate::arch::task_execution::TaskInfo
 /// See [`TaskCommand`] for the concrete command variants and what each command
 /// does.
 ///
+/// [`EnvMediator::execute`]: crate::arch::infra_core::env_mediator::EnvMediator::execute
+/// [`TaskInfo`]: crate::arch::task_execution::TaskInfo
 /// [`TaskCommand`]: crate::arch::strategy_base::command::command_core::TaskCommand
 pub trait CommandEmitter: Clone + Send + Sync + 'static {
     /// Stores the command registry supplied by the runtime.
@@ -341,7 +343,10 @@ pub trait EventHandler {
     ///
     /// Notices are coalesced per task stream to at most one call per second;
     /// `skipped` is the total number of events dropped since the previous
-    /// notice for that stream, not the size of a single lag burst.
+    /// notice for that stream, not the size of a single lag burst. A drop
+    /// suppressed by the one-second window is reported only with the next lag
+    /// on that stream; if the stream does not lag again, no further notice is
+    /// sent.
     fn on_lagged(&mut self, _key: TaskKey, _skipped: u64) -> impl Future<Output = ()> + Send {
         ready(())
     }

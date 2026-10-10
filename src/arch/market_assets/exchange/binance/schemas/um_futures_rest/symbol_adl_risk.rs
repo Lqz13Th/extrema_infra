@@ -6,7 +6,7 @@ use serde::Deserialize;
 /// lowercase three-level `high`/`medium`/`low` scale, so callers must map it
 /// themselves and treat unknown values as no signal. `updateTime` is the rating's
 /// own computation time and can lag the current batch — one symbol staying behind
-/// while the other ~768 advance is a state seen in production.
+/// while the rest of the batch advances is a state seen in production.
 #[allow(non_snake_case)]
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct RestSymbolAdlRiskBinanceUM {

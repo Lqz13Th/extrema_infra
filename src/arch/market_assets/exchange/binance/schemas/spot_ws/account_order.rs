@@ -29,7 +29,7 @@ pub(crate) struct WsAccountOrderBinanceSpot {
     o: String, // Order type
     q: String, // Original quantity
     p: String, // Original price
-    L: String, // Filled price
+    L: String, // Last executed price
     z: String, // Cumulative filled quantity
     X: String, // Order status
 }

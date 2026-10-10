@@ -5,9 +5,12 @@ use crate::arch::market_assets::{
     api_general::OrderParams, base_data::InstrumentKey, market_core::Market,
 };
 
+/// Scheduler tick delivered to `EventHandler::on_schedule`.
 #[derive(Clone, Debug)]
 pub struct AltScheduleEvent {
+    /// Tick time in microseconds.
     pub timestamp: u64,
+    /// Interval configured on the `TimeScheduler` task.
     pub duration: Duration,
 }
 
@@ -32,12 +35,19 @@ pub struct AltScheduleEvent {
 /// - conv feature map: `shape=[1, 16, 8, 8]`, `data.len() == 1024`
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AltTensor {
-    pub timestamp: u64,                    // Timestamp of the data
-    pub data: Vec<f32>,                    // Flattened N-dimensional array stored as a 1D vector
-    pub shape: Vec<usize>, // Shape of the tensor, length = number of dimensions (N-D)
-    pub metadata: HashMap<String, String>, // model, instrument, threshold, etc
+    /// Timestamp of the data in microseconds.
+    pub timestamp: u64,
+    /// Flattened tensor values in row-major order.
+    pub data: Vec<f32>,
+    /// Tensor shape before flattening; its length is the number of dimensions.
+    pub shape: Vec<usize>,
+    /// Free-form labels such as model name, instrument or threshold. The ONNX
+    /// runner adds `model_name` and `output_index` to its predictions.
+    pub metadata: HashMap<String, String>,
 }
 
+/// One order in an `OrderExecute` batch, delivered to
+/// `EventHandler::on_order_execution`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct AltOrder {
     pub timestamp: u64,
@@ -46,6 +56,8 @@ pub struct AltOrder {
     pub metadata: HashMap<String, String>,
 }
 
+/// Instrument-level targets published with `TaskCommand::InstIntent` and
+/// delivered to `EventHandler::on_inst_intent`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct AltIntent {
     pub timestamp: u64,
@@ -54,9 +66,12 @@ pub struct AltIntent {
     pub metadata: HashMap<String, String>,
 }
 
+/// Meaning of the values in [`AltIntent::intents`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum IntentType {
+    /// Target weights.
     #[default]
     Weight,
+    /// Target prices.
     Price,
 }

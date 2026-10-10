@@ -20,8 +20,9 @@ use crate::errors::{InfraError, InfraResult};
 
 /// Builder for an `extrema_infra` runtime.
 ///
-/// Use this builder in the final binary to declare runtime tasks and strategy
-/// modules. Every concrete task owns one broadcast stream. Strategies receive
+/// Use this builder in the final binary to declare runtime tasks, strategy
+/// modules and websocket decoders for custom venues. Every concrete task owns
+/// one broadcast stream. Strategies receive
 /// all task streams by default and can opt into an explicit set of [`TaskKey`]
 /// values with [`EnvBuilder::with_strategy_module_on`].
 ///
@@ -244,7 +245,11 @@ where
     Strategies: Strategy,
     Decoders: WsDecoders,
 {
-    /// Validates task bindings and creates one broadcast stream per task.
+    /// Validates the configuration and creates one broadcast stream per task.
+    ///
+    /// Rejects duplicate decoder ids, `Market::Custom` tasks without a
+    /// registered decoder, task ids reused within the same task variant, and
+    /// explicit bindings to unregistered tasks.
     pub fn build(self) -> InfraResult<EnvMediator<Strategies, Decoders>> {
         self.validate_ws_decoders()?;
 

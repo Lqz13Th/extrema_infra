@@ -6,8 +6,10 @@
 //! - [`handler`] defines typed broadcast messages and event payloads.
 //! - [`command`] defines command handles, acknowledgements, and the registry
 //!   used by strategies to send active commands back to tasks.
-//! - [`hlist_core`] stores heterogeneous strategy modules without forcing them
-//!   behind `Box<dyn Strategy>`.
+//! - [`hlist_core`] stores heterogeneous strategy modules and the registered
+//!   websocket decoders without forcing them behind `Box<dyn ...>`.
+//! - [`strategy_module`] and [`strategy_group`] wrap one module or a group of
+//!   same-type modules with their optional task bindings.
 
 pub mod command;
 pub mod handler;

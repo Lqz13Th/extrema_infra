@@ -258,25 +258,52 @@ pub trait LobWebsocket: Send + Sync {
 ///
 /// Register an implementation with
 /// [`EnvBuilder::with_ws_decoder`](crate::arch::infra_core::env_builder::EnvBuilder::with_ws_decoder)
-/// and declare websocket tasks on `Market::Custom(Self::ID)`. The relay
-/// owns connection IO, reconnects, keepalive, and command handling. On every
-/// connection it calls [`ws_channel`](LobWsDecoder::ws_channel) once; the implementation
-/// matches the task channel and hands the selected decode function to
+/// and declare websocket tasks on `Market::Custom(Self::ID)`. No exchange
+/// feature is needed. On every connection the relay calls
+/// [`ws_channel`](LobWsDecoder::ws_channel) once; the implementation matches the
+/// task channel and hands the selected decode function to
 /// [`WsFrameRunner::ws_loop`], the same way built-in venues select their decoder
 /// before entering the websocket loop:
 ///
-/// ```rust,ignore
-/// async fn ws_channel<R: WsFrameRunner>(&self, channel: &WsChannel, runner: R) {
-///     match channel {
-///         WsChannel::Lob(_) => runner.ws_loop(TaskEvent::Lob, MyWsData::<MyLob>::decode).await,
-///         WsChannel::Other(_) => runner.ws_loop(TaskEvent::WsOther, decode_raw_ws).await,
-///         _ => {},
+/// ```rust
+/// # use extrema_infra::prelude::*;
+/// # #[derive(serde::Deserialize)]
+/// # struct MyLob;
+/// # impl IntoWsData for MyLob {
+/// #     type Output = Vec<WsLob>;
+/// #     fn into_ws(self) -> Self::Output {
+/// #         Vec::new()
+/// #     }
+/// # }
+/// # fn decode_lob(frame: &[u8]) -> serde_json::Result<MyLob> {
+/// #     serde_json::from_slice(frame)
+/// # }
+/// #[derive(Clone)]
+/// struct MyVenueWs;
+///
+/// impl LobWsDecoder for MyVenueWs {
+///     const ID: u16 = 42;
+///     const NAME: &'static str = "my_venue";
+///
+///     async fn ws_channel<R: WsFrameRunner>(&self, channel: &WsChannel, runner: R) {
+///         match channel {
+///             WsChannel::Lob(_) => runner.ws_loop(TaskEvent::Lob, decode_lob).await,
+///             WsChannel::Other(_) => runner.ws_loop(TaskEvent::WsOther, decode_raw_ws).await,
+///             _ => {},
+///         }
 ///     }
 /// }
 /// ```
 ///
-/// Returning without calling the runner ends the connection; the relay then
-/// reconnects through `on_ws_event`.
+/// The relay owns connection IO, keepalive and command handling. Keepalive is a
+/// websocket Ping frame after 10 s without an inbound frame; a venue that needs
+/// an application-level ping must send it with `TaskCommand::WsMessage`.
+///
+/// The strategy still connects, authenticates and subscribes in `on_ws_event`.
+/// After a disconnect the relay waits 5 s and emits `on_ws_event` again, where
+/// the owning strategy reconnects. Returning without calling the runner ends the
+/// connection the same way, so a task declared on a channel the decoder ignores
+/// connects, closes and reconnects about every 5 s; do not declare such tasks.
 pub trait LobWsDecoder: Clone + Send + Sync + 'static {
     /// Id carried by `Market::Custom`, unique among registered decoders.
     const ID: u16;
@@ -294,10 +321,12 @@ pub trait LobWsDecoder: Clone + Send + Sync + 'static {
 
 /// Websocket loop handed to [`LobWsDecoder::ws_channel`] for one connection.
 pub trait WsFrameRunner: Send {
-    /// Runs the websocket loop until the connection ends, decoding every text
-    /// or binary frame with `decode` and publishing it through `into_event`.
+    /// Runs the websocket loop until the connection ends or the strategy sends
+    /// `TaskCommand::WsShutdown`, decoding every text or binary frame with
+    /// `decode` and publishing it through `into_event`.
     ///
-    /// Frames that fail to decode are logged unless the task sets
+    /// Every frame that decodes is published, even when `into_ws` returns an
+    /// empty batch. Frames that fail to decode are logged unless the task sets
     /// `filter_channels`, and dropped either way.
     fn ws_loop<WsData, IntoEvent, Decode>(
         self,

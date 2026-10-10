@@ -1,6 +1,8 @@
 //! Multiple strategy modules in one runtime.
 //!
 //! Runs a scheduler module and a Binance public candle module in one runtime.
+//! Neither module is bound to specific tasks, so both receive the scheduler
+//! and the candle streams.
 //!
 //! Run it with:
 //!
@@ -163,7 +165,7 @@ async fn main() -> InfraResult<()> {
         market: Market::BinanceUmFutures,
         ws_channel: WsChannel::Candles(Some(CandleParam::OneMinute)),
         filter_channels: false, // Log websocket decode failures.
-        chunk: 1,               // number of websocket connections for this task
+        chunk: 1,               // Number of task instances to spawn.
         task_base_id: None,
     };
 

@@ -40,6 +40,8 @@ pub const OKX_CT_LEADTRADER_SUBPOSITIONS: &str = "/api/v5/copytrading/public-cur
 pub const OKX_CT_LEADTRADER_SUBPOSITIONS_HISTORY: &str =
     "/api/v5/copytrading/public-subpositions-history";
 
-/// WebSocket channels
+/// WebSocket login signature path
 pub const OKX_WS_LOGIN: &str = "GET/users/self/verify";
+
+/// WebSocket channels
 pub const OKX_WS_ADL_WARNING: &str = "adl-warning";

@@ -463,7 +463,7 @@ impl OkxOrderReq {
 /// All fields are optional and can be used to filter or paginate results.
 #[derive(Clone, Debug, Default)]
 pub struct OkxPublicLeadTradersReq {
-    /// Instrument type: Spot / Perpetual / Option
+    /// Instrument type: Spot / Futures / Perpetual / Options; `None` means Perpetual (SWAP).
     pub inst_type: Option<InstrumentType>,
     /// Sorting type: "overview" / "pnl" / "aum" / "win_ratio" / "pnl_ratio" / "current_copy_trader_pnl".
     pub sort_type: Option<String>,

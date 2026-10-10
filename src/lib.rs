@@ -12,9 +12,10 @@
 //! - [`Strategy`] is the unit of application logic. A binary can register one
 //!   strategy module or several independent modules in the same runtime.
 //! - [`EventHandler`] contains async callbacks for schedule ticks, model
-//!   predictions, order execution intents, trades, LOB updates, candles, and
-//!   private account updates, and raw exchange-specific websocket frames. All
-//!   callbacks default to no-op.
+//!   predictions, order execution intents, trades, LOB updates, candles,
+//!   private account updates, raw exchange-specific websocket frames, and
+//!   `on_lagged` when a slow module lost events. All callbacks default to
+//!   no-op.
 //! - [`CommandEmitter`] gives a strategy access to task command handles after
 //!   the runtime has prepared those tasks.
 //! - [`TaskInfo`] declares work that the runtime owns, such as [`AltTaskInfo`]
@@ -41,6 +42,12 @@
 //! run on independent cadences without forcing one polling loop or one module
 //! to own duplicate IO.
 //!
+//! Delivery is lossy by design. Each task's broadcast ring is bounded, and a
+//! module that falls behind loses the oldest events instead of stalling the
+//! publisher. The runtime then calls `EventHandler::on_lagged(key, skipped)`,
+//! coalesced per task stream to at most once per second; use it to resync, for
+//! example by re-reading account state over REST.
+//!
 //! # Core Trait Responsibilities
 //!
 //! [`Strategy`] is the lifecycle trait. It has one required startup hook,
@@ -49,7 +56,8 @@
 //!
 //! [`EventHandler`] is the inbound event surface. Its methods are callbacks:
 //! `on_schedule`, `on_trade`, `on_candle`, `on_acc_pos`, `on_inst_intent`,
-//! `on_order_execution`, `on_ws_other`, and so on. Every callback defaults to
+//! `on_order_execution`, `on_ws_other`, and so on. `on_lagged(key, skipped)`
+//! is the one callback that takes no `InfraMsg<T>`. Every callback defaults to
 //! no-op, so modules stay narrow and only implement the events that matter to
 //! them. Modules receive every registered task by default; explicit task
 //! bindings avoid receiver creation and wakeups for unrelated tasks.
@@ -77,6 +85,8 @@
 //!   -> expands each declaration into concrete TaskKey values
 //!   -> creates one broadcast stream per concrete task
 //!   -> registers Strategy modules
+//!   -> registers LobWsDecoder values for Market::Custom tasks
+//!   -> build() validates tasks, bindings and decoders
 //!   -> EnvMediator::execute()
 //!       -> Strategy::initialize()
 //!       -> prepare AltTask/WsTask workers and command handles
