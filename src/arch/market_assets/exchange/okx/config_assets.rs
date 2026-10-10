@@ -1,7 +1,7 @@
 /// OKX API Base
-pub const OKX_WS_PUB: &str = "wss://ws.okx.com:8443/ws/v5/public";
-pub const OKX_WS_PRI: &str = "wss://ws.okx.com:8443/ws/v5/private";
-pub const OKX_WS_BUS: &str = "wss://ws.okx.com:8443/ws/v5/business";
+pub const OKX_WS_PUB: &str = "wss://ws.okx.com/ws/v5/public";
+pub const OKX_WS_PRI: &str = "wss://ws.okx.com/ws/v5/private";
+pub const OKX_WS_BUS: &str = "wss://ws.okx.com/ws/v5/business";
 pub const OKX_BASE_URL: &str = "https://www.okx.com";
 
 /// REST endpoints

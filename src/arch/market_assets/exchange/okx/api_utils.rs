@@ -536,19 +536,16 @@ impl OkxAssetWithdrawalHistoryReq {
     }
 }
 
+/// `POST /api/v5/asset/withdrawal`; OKX charges the withdrawal fee on top of `amt`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OkxAssetWithdrawalReq {
     pub ccy: String,
     pub amt: String,
     pub dest: String,
     pub to_addr: String,
-    pub fee: String,
     pub chain: Option<String>,
     pub area_code: Option<String>,
     pub client_id: Option<String>,
-    pub fee_ccy: Option<String>,
-    pub addr_label: Option<String>,
-    pub ln_invoice: Option<String>,
 }
 
 impl OkxAssetWithdrawalReq {
@@ -558,7 +555,6 @@ impl OkxAssetWithdrawalReq {
             "amt": self.amt,
             "dest": self.dest,
             "toAddr": self.to_addr,
-            "fee": self.fee,
         });
 
         if let Some(c) = self.chain.as_deref() {
@@ -569,15 +565,6 @@ impl OkxAssetWithdrawalReq {
         }
         if let Some(c) = self.client_id.as_deref() {
             body["clientId"] = json!(c);
-        }
-        if let Some(c) = self.fee_ccy.as_deref() {
-            body["feeCcy"] = json!(c);
-        }
-        if let Some(l) = self.addr_label.as_deref() {
-            body["addrLabel"] = json!(l);
-        }
-        if let Some(l) = self.ln_invoice.as_deref() {
-            body["lnInvoice"] = json!(l);
         }
 
         body.to_string()
@@ -678,6 +665,24 @@ impl OkxAssetDepositHistoryReq {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn withdrawal_body_has_only_documented_fields() {
+        let req = OkxAssetWithdrawalReq {
+            ccy: "usdt".into(),
+            amt: "10".into(),
+            dest: "4".into(),
+            to_addr: "TXaddr".into(),
+            chain: Some("USDT-TRC20".into()),
+            client_id: Some("cid1".into()),
+            ..Default::default()
+        };
+        let body: serde_json::Value = serde_json::from_str(&req.to_json_body()).unwrap();
+        assert_eq!(
+            body,
+            json!({"ccy": "USDT", "amt": "10", "dest": "4", "toAddr": "TXaddr", "chain": "USDT-TRC20", "clientId": "cid1"})
+        );
+    }
 
     #[test]
     fn converts_okx_instruments_between_cli_and_native_symbol() {

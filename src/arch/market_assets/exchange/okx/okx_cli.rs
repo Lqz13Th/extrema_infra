@@ -1654,6 +1654,13 @@ mod tests {
     }
 
     #[test]
+    fn websocket_urls_use_the_default_tls_port() {
+        for url in [OKX_WS_PUB, OKX_WS_PRI, OKX_WS_BUS] {
+            assert!(url.starts_with("wss://ws.okx.com/ws/v5/"), "{url}");
+        }
+    }
+
+    #[test]
     fn builds_okx_adl_warning_connect_and_subscribe_messages() {
         let cli = OkxCli::default();
         let channel = WsChannel::Other(OKX_WS_ADL_WARNING.to_string());
