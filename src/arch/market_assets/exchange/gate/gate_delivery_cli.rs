@@ -16,7 +16,7 @@ use crate::errors::{InfraError, InfraResult};
 
 use super::{
     api_key::{GateKey, read_gate_env_key},
-    api_utils::gate_fut_inst_to_cli,
+    api_utils::{gate_fut_inst_to_cli, gate_public_get},
     config_assets::{GATE_BASE_URL, GATE_DELIVERY_CONTRACTS},
     gate_rest_msg::RestResGate,
     schemas::delivery_rest::contract_delivery::RestContractGateDelivery,
@@ -96,7 +96,7 @@ impl GateDeliveryCli {
             format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
         };
 
-        let response = self.client.get(url).send().await?;
+        let response = gate_public_get(&self.client, url).send().await?;
         let res: RestResGate<RestContractGateDelivery> =
             parse_json_response("GateDelivery contracts", response).await?;
 

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use reqwest::{Client, IntoUrl, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tracing::{error, warn};
@@ -21,6 +22,12 @@ pub const GATE_CHANNEL_ID_EXTRA_KEY: &str = "gate_channel_id";
 pub const GATE_CHANNEL_ID_HEADER: &str = "X-Gate-Channel-Id";
 pub const GATE_SIZE_DECIMAL_HEADER: &str = "X-Gate-Size-Decimal";
 pub const GATE_SIZE_DECIMAL_HEADER_VALUE: &str = "1";
+
+pub(crate) fn gate_public_get(client: &Client, url: impl IntoUrl) -> RequestBuilder {
+    client
+        .get(url)
+        .header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct RestBatchOrderParamsGateFutures {
@@ -633,6 +640,22 @@ impl GateTransferOrderStatusReq {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn public_get_requests_decimal_sizes() {
+        let req = gate_public_get(
+            &Client::new(),
+            "https://api.gateio.ws/api/v4/futures/usdt/tickers",
+        )
+        .build()
+        .unwrap();
+        assert_eq!(
+            req.headers()
+                .get(GATE_SIZE_DECIMAL_HEADER)
+                .and_then(|v| v.to_str().ok()),
+            Some(GATE_SIZE_DECIMAL_HEADER_VALUE)
+        );
+    }
 
     #[test]
     fn converts_gate_futures_between_cli_and_native_symbol() {
