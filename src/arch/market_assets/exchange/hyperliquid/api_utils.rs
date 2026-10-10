@@ -259,8 +259,12 @@ pub fn hyperliquid_spot_to_cli(symbol: &str, base: &str, quote: &str) -> String 
     )
 }
 
+pub(crate) fn hyperliquid_is_spot_coin(coin: &str) -> bool {
+    coin.starts_with(['@', '#', '+']) || coin.contains('/')
+}
+
 pub fn hyperliquid_inst_to_cli(coin: &str) -> String {
-    if coin.starts_with('@') {
+    if coin.starts_with(['@', '#', '+']) {
         return coin.to_string();
     }
 
@@ -368,10 +372,7 @@ fn hyperliquid_raw_perp_base(symbol: &str) -> &str {
 
 fn hyperliquid_known_builder_perp_quote(dex: &str) -> Option<&'static str> {
     match dex.to_ascii_lowercase().as_str() {
-        "xyz" | "abcd" | "para" | "mkts" | "io" => Some("USDC"),
-        "flx" | "vntl" | "km" => Some("USDH"),
-        "hyna" => Some("USDE"),
-        "cash" => Some("USDT0"),
+        "xyz" | "para" | "mkts" | "io" => Some("USDC"),
         _ => None,
     }
 }
@@ -703,22 +704,29 @@ mod tests {
             ("BTC", "BTC_USDC_PERP"),
             ("kPEPE", "1000PEPE_USDC_PERP"),
             ("xyz:AAPL", "AAPL_USDC_PERP"),
-            ("flx:OIL", "OIL_USDH_PERP"),
-            ("vntl:OPENAI", "OPENAI_USDH_PERP"),
-            ("hyna:BTC", "BTC_USDE_PERP"),
-            ("km:GOLD", "GOLD_USDH_PERP"),
-            ("abcd:TEST", "TEST_USDC_PERP"),
-            ("cash:WTI", "WTI_USDT0_PERP"),
             ("para:AVGO", "AVGO_USDC_PERP"),
             ("mkts:US500", "US500_USDC_PERP"),
             ("io:SNDK", "SNDK_USDC_PERP"),
             ("newdex:ABC", "newdex:ABC"),
+            ("flx:OIL", "flx:OIL"),
             ("@123", "@123"),
+            ("#102220", "#102220"),
+            ("+102220", "+102220"),
             ("PURR/USDC", "PURR_USDC"),
         ];
 
         for (raw, expected) in cases {
             assert_eq!(hyperliquid_inst_to_cli(raw), expected, "raw={raw}");
+        }
+    }
+
+    #[test]
+    fn classifies_spot_and_outcome_coins_as_spot() {
+        for coin in ["@123", "#102220", "+102220", "PURR/USDC"] {
+            assert!(hyperliquid_is_spot_coin(coin), "coin={coin}");
+        }
+        for coin in ["BTC", "kPEPE", "xyz:AAPL"] {
+            assert!(!hyperliquid_is_spot_coin(coin), "coin={coin}");
         }
     }
 
