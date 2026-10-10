@@ -7,7 +7,8 @@
 //! ```
 //!
 //! The prelude contains the runtime builder, strategy traits, task descriptors
-//! and keys, command handles, normalized event data, and shared error/result
+//! and keys, command handles, normalized event data, `TaskEvent`, the custom
+//! venue websocket decoder traits with `decode_raw_ws`, and shared error/result
 //! aliases. Exchange-specific client structs remain available under
 //! `arch::market_assets::exchange::prelude` when the matching feature is
 //! enabled.

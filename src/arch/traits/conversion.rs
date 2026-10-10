@@ -1,7 +1,14 @@
 use crate::errors::InfraResult;
 
+/// Converts one decoded websocket frame into the payload published to strategies.
+///
+/// Built-in exchange schemas implement it, and so do frames of venues
+/// implemented outside this crate, since it bounds the decoder passed to
+/// [`WsFrameRunner::ws_loop`](crate::arch::traits::market_lob::WsFrameRunner::ws_loop).
 pub trait IntoWsData {
+    /// Payload type carried by the matching `TaskEvent` variant.
     type Output;
+    /// Converts the decoded frame.
     fn into_ws(self) -> Self::Output;
 }
 

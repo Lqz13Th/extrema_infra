@@ -76,8 +76,10 @@ async fn main() -> InfraResult<()> {
 }
 ```
 
-`EnvBuilder::build()` validates task identities and explicit bindings, creates
-the task rings, and returns `InfraResult<EnvMediator<_>>`. The
+`EnvBuilder::build()` validates task identities, explicit bindings and
+websocket decoders (unique decoder ids, one registered decoder for every
+`Market::Custom` task), creates the task rings, and returns
+`InfraResult<EnvMediator<_, _>>`. The
 `with_strategy_module` call above subscribes the module to every registered
 task.
 
@@ -105,7 +107,10 @@ only the markets used by the binary:
 extrema_infra = { path = "../extrema_infra", features = ["binance", "okx"] }
 ```
 
-Use `features = ["lob_clients"]` for the `LobClients` aggregate helper.
+Use `features = ["lob_clients"]` for the `LobClients` aggregate helper; it
+also enables all four exchange features (`binance`, `okx`, `gate`,
+`hyperliquid`). Custom venues (`Market::Custom` with `with_ws_decoder`) need no
+exchange feature.
 Use `features = ["model_zmq"]` or `features = ["model_onnx"]` for model
 prediction task variants; `features = ["model_runner"]` enables both. Use
 `features = ["polars"]` only when downstream code needs the Polars error
@@ -328,6 +333,8 @@ Useful callbacks:
 - `on_acc_pos`: position-only updates.
 - `on_ws_other`: raw JSON frames from exchange-specific
   `WsChannel::Other(...)` tasks.
+- `on_lagged`: the module fell behind on a task stream and lost events; resync
+  account state over REST (see [Task Bindings](#task-bindings)).
 
 The relay preserves the complete top-level JSON frame and a local receive
 timestamp. Exchange-specific code can then decode fields such as Hyperliquid's
@@ -349,7 +356,7 @@ Built-in private clients read credentials from the process environment or a
 | Binance | `BINANCE_API_KEY`, `BINANCE_SECRET_KEY` |
 | OKX | `OKX_API_KEY`, `OKX_SECRET_KEY`, `OKX_PASSPHRASE` |
 | Gate | `GATE_API_KEY`, `GATE_SECRET_KEY`, `GATE_USER_ID` |
-| Hyperliquid | `HYPERLIQUID_OWNER_ADDRESS`, `HYPERLIQUID_AGENT_PRIVATE_KEY`; optional `HYPERLIQUID_VAULT_ADDRESS` |
+| Hyperliquid | `HYPERLIQUID_OWNER_ADDRESS`, `HYPERLIQUID_AGENT_PRIVATE_KEY`; optional `HYPERLIQUID_VAULT_ADDRESS`, and `HYPERLIQUID_WITHDRAW_PRIVATE_KEY` (owner key, required only for withdrawals and `sendToEvmWithData`) |
 
 ## Multiple Strategy Modules
 
@@ -454,10 +461,106 @@ cannot share an id even though their full keys differ. Different task types,
 such as Trade and LOB, may reuse an id. This check runs during build, not on the
 message path. Build also rejects an explicit binding to an unregistered key.
 
-Ring capacity is selected internally per concrete task. Total reserved slots
-therefore scale with publisher count, not receiver count: 100 Trade tasks at
-the default capacity of 8,192 reserve 819,200 ring slots. Explicit bindings
-reduce receivers and wakeups, but do not reduce publisher ring capacity.
+Ring capacity is fixed per event type: Schedule 1,024; WS lifecycle,
+InstIntent, Candle and Other 2,048; Trade, account streams, OrderExecute and
+ModelPreds 8,192; Lob 16,384; LobMbo 65,536. Total reserved slots therefore
+scale with publisher count, not receiver count: 100 Trade tasks reserve 819,200
+ring slots. Explicit bindings reduce receivers and wakeups, but do not reduce
+publisher ring capacity.
+
+Delivery is lossy by design. A module that falls behind a full ring loses the
+oldest events instead of stalling the publisher; other tasks' rings are
+unaffected. The runtime then calls `EventHandler::on_lagged(key, skipped)`,
+coalesced per task stream to at most one call per second, with `skipped` the
+total dropped since the previous notice. A drop inside the one-second window is
+reported only with the next lag on that stream. Treat the notice as a signal to
+resync, for example by re-reading positions and open orders over REST.
+
+## Custom Venue Websocket Decoder
+
+A venue implemented outside this crate can run on the built-in websocket relay.
+Implement `LobWsDecoder`, register it with `EnvBuilder::with_ws_decoder`, and
+declare its tasks on `Market::Custom(MyVenueWs::ID)`. No exchange feature is
+needed.
+
+```rust,no_run
+use extrema_infra::prelude::*;
+# use std::sync::Arc;
+# #[derive(serde::Deserialize)]
+# struct MyBbo;
+# impl IntoWsData for MyBbo {
+#     type Output = Vec<WsLob>;
+#     fn into_ws(self) -> Self::Output {
+#         Vec::new()
+#     }
+# }
+# fn decode_bbo(frame: &[u8]) -> serde_json::Result<MyBbo> {
+#     serde_json::from_slice(frame)
+# }
+# #[derive(Clone)]
+# struct MyStrategy;
+# impl Strategy for MyStrategy {
+#     async fn initialize(&mut self) {}
+# }
+# impl CommandEmitter for MyStrategy {
+#     fn command_init(&mut self, _registry: Arc<CommandRegistry>) {}
+#     fn command_registry(&self) -> Arc<CommandRegistry> {
+#         Arc::new(CommandRegistry::default())
+#     }
+# }
+# impl EventHandler for MyStrategy {}
+
+#[derive(Clone)]
+struct MyVenueWs;
+
+impl LobWsDecoder for MyVenueWs {
+    const ID: u16 = 42;
+    const NAME: &'static str = "my_venue";
+
+    async fn ws_channel<R: WsFrameRunner>(&self, channel: &WsChannel, runner: R) {
+        match channel {
+            WsChannel::Lob(_) => runner.ws_loop(TaskEvent::Lob, decode_bbo).await,
+            WsChannel::Other(_) => runner.ws_loop(TaskEvent::WsOther, decode_raw_ws).await,
+            _ => {},
+        }
+    }
+}
+
+# fn main() -> InfraResult<()> {
+let lob_task = WsTaskInfo {
+    market: Market::Custom(MyVenueWs::ID),
+    ws_channel: WsChannel::Lob(None),
+    filter_channels: false,
+    chunk: 1,
+    task_base_id: Some(1),
+};
+
+let env = EnvBuilder::new()
+    .with_ws_decoder(MyVenueWs)
+    .with_task(lob_task)
+    .with_strategy_module(MyStrategy)
+    .build()?;
+# let _ = env;
+# Ok(())
+# }
+```
+
+- `ws_channel` runs once per connection. It picks a decode function for the
+  task's channel and passes it to `WsFrameRunner::ws_loop` with the matching
+  `TaskEvent` constructor, which decides the callback (`TaskEvent::Lob` ->
+  `on_lob`, `TaskEvent::WsOther` -> `on_ws_other`, and so on). `decode_raw_ws`
+  forwards complete frames to `on_ws_other`.
+- The strategy still connects, authenticates and subscribes in `on_ws_event`,
+  as with built-in venues. After a disconnect the relay waits 5 s and emits
+  `on_ws_event` again.
+- The relay sends a websocket Ping frame after 10 s without an inbound frame.
+  Application-level pings must be sent with `TaskCommand::WsMessage`.
+- Do not declare tasks on channels the decoder ignores: returning without
+  calling the runner closes the connection, and the task reconnects about every
+  5 s.
+
+`tests/custom_ws_decoder.rs` is a complete worked example against a local
+websocket server.
 
 ## TLS Setup
 
@@ -487,11 +590,15 @@ Downstream repositories currently exercise these patterns:
   account websocket streams, and evaluation tasks.
 - `api_checkers`: small exchange-focused subcommands that demonstrate REST calls,
   public websocket streams, and private account websocket streams.
-- `examples/empty_strategy_example.rs`: the smallest scheduler example.
-- `examples/multi_strategy_example.rs`: multiple strategy modules in one
-  runtime.
-- `examples/websocket_private_account_example.rs`: private account websocket
-  setup.
-- `examples/hyperliquid_api_usage_example.rs`: read-only Hyperliquid REST API
-  usage, including public market data and optional account balance/position
-  reads by owner address.
+- `tests/custom_ws_decoder.rs`: a custom venue on the built-in websocket relay.
+
+The examples need the features listed in `Cargo.toml`, so a bare
+`cargo build --examples` only builds `empty_strategy_example`:
+
+| Example | Command |
+| --- | --- |
+| The smallest scheduler example | `cargo run --example empty_strategy_example` |
+| Multiple strategy modules in one runtime | `cargo run --example multi_strategy_example --features binance` |
+| Private account websocket setup, including Binance listen-key renewal | `cargo run --example websocket_private_account_example --features binance,okx` |
+| Read-only Hyperliquid REST usage, including optional balance/position reads by owner address | `cargo run --example hyperliquid_api_usage_example --features hyperliquid` |
+| OKX trades, account orders, two ZMQ model tasks and an `OrderExecution` relay with explicit bindings | `cargo run --example complex_strategy_example --features okx,model_zmq` |

@@ -359,8 +359,8 @@ async fn main() -> InfraResult<()> {
     strategy_task_keys.extend(model_b_task.task_keys()?);
 
     // EnvBuilder sets up the environment:
-    // - Register strategy modules
-    // - Register WebSocket tasks
+    // - Register the account WS, trade WS, two ZMQ model and OrderExecution tasks
+    // - Bind each strategy module to its own task keys
     let env = EnvBuilder::new()
         .with_task(acc_order_task)
         .with_task(okx_trade_task)

@@ -15,7 +15,7 @@ At its core: **One unified framework for multiple exchanges and strategies, with
 Explore state-of-the-art example usages, architecture walkthroughs, and community Q&A—no need to run it, just see how strategies and data flows are structured.
 
 👉 **Join the discussion & explore examples:**  
-[GitHub Discussions – SOTA Usages](https://github.com/Lqz13Th/extrema_infra/discussions)
+[GitHub Discussions – Show and tell](https://github.com/Lqz13Th/extrema_infra/discussions/categories/show-and-tell)
 
 ---
 
@@ -30,13 +30,20 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 - **Unified Exchange Abstraction**
   - Supported exchange clients normalize common fields into the shared `Market` enum and data structs.
   - Strategies can consume unified types while still handling exchange-specific capabilities where needed.
+  - Venues implemented outside this crate run on the same websocket relay through `LobWsDecoder`
+    and `Market::Custom`.
 
 - **Task-local Broadcast Distribution**
-  - Every concrete `TaskKey` owns one Tokio broadcast ring.
+  - Every concrete `TaskKey` owns one bounded Tokio broadcast ring.
   - Multiple strategies can consume the same task feed without extra exchange I/O.
   - `with_strategy_module` subscribes a module to every task, while
-    `with_strategy_module_on` binds it to an explicit set of tasks.
+    `with_strategy_module_on` binds it to an explicit set of tasks;
+    `with_strategy_modules` / `with_strategy_modules_on` register many modules of one type,
+    and `with_tasks` registers several tasks at once.
   - A task's lifecycle event and primary data events travel through the same ring.
+  - Delivery is lossy: a module that falls behind loses the oldest events instead of
+    stalling the publisher, and receives `on_lagged(key, skipped)` (at most once per
+    second per task stream) so it can resync, for example over REST.
 
 - **Static Dispatch**
   - HList keeps strategy types concrete, avoiding `Box<dyn Strategy>` and vtable dispatch.
@@ -57,6 +64,9 @@ Explore state-of-the-art example usages, architecture walkthroughs, and communit
 
 ![Extrema Infra Architecture](./arch.png)
 
+The diagram predates the in-process ONNX runner, the `OrderExecution` / `InstIntent`
+relays and the task-local broadcast rings; the flowchart below reflects the current runtime.
+
 ---
 
 ## Architecture Example: From Signal To Execution
@@ -68,12 +78,12 @@ directly sharing mutable state.
 
 ```mermaid
 flowchart TB
-    EXS["N Exchanges<br/>Binance / OKX / Gate / Hyperliquid"]
+    EXS["N Exchanges<br/>Binance / OKX / Gate / Hyperliquid<br/>+ custom venues"]
 
     subgraph RT["Extrema Infra runtime"]
 
         subgraph INGEST["WS ingestion tasks"]
-            PUB["Public market WS<br/>trade / book / price"]
+            PUB["Public market WS<br/>trade / book / candle"]
             ACC["Account WS<br/>position / order / fill"]
         end
 
@@ -111,7 +121,7 @@ flowchart TB
     PUB -->|market events| S1
     PUB -->|market events| S2
     PUB -->|market events| S3
-    PUB -->|price events| ALLOC
+    PUB -->|market events| ALLOC
 
     S1 --> FEAT
     S2 --> FEAT
@@ -175,12 +185,16 @@ With **HList**:
 
 ## Strategy Execution Model
 
-- Trait-driven: `on_trade`, `on_candle`, `on_lob`.
+- Trait-driven: `EventHandler` has one no-op callback per event type, from
+  `on_trade`, `on_lob`, `on_candle` and the account streams to `on_schedule`,
+  `on_preds`, `on_order_execution`, `on_ws_other` and `on_lagged`.
 - Strategy modules receive all registered tasks by default and can opt into
   concrete `TaskKey` bindings when they need a narrower hot path.
 - HList ensures safe registration of multiple strategy types.
 - All infra timestamps are unified to microseconds (µs).
-- All instrument names returned by the internal API are automatically normalized.
+- All instrument names returned by the internal API are automatically normalized,
+  except Hyperliquid `@index` spot ids, `#` / `+` outcome coins and coins of builder
+  dexes outside the known list, which are returned raw.
 
 For a generic end-to-end wiring guide with scheduler, websocket, account-stream,
 and multi-module examples, see [docs/usage.md](docs/usage.md).
@@ -188,7 +202,6 @@ and multi-module examples, see [docs/usage.md](docs/usage.md).
 Instrument naming conventions:
 
 - Crypto: underscore-separated, e.g., BTC_USDT_PERP
-- Stock: underscore-separated, e.g., AAPL_NASDAQ_EQ
 
 ---
 
@@ -203,6 +216,7 @@ The extrema_infra crate provides the core traits to implement trading strategies
   - handle timer or alternative task events.
   - handle Limit Order Book (LOB) events like trades, orderbook, candles, account orders.
   - handle asynchronous model prediction events.
+  - handle `on_lagged(key, skipped)` when the module fell behind and lost events.
 
 - **CommandEmitter**  
   Used to initialize and register command handles for communication with tasks.
@@ -219,6 +233,8 @@ Enable the `model_onnx` feature, or `model_runner` / `all`, to make this backend
 - The ONNX model is loaded once during task initialization.
 - Inference requests are routed through a dedicated worker thread owned by the ONNX task.
 - Callers send an `AltTensor` feature payload and receive an `AltTensor` prediction payload.
+- An inference that takes longer than 20 s is skipped with a warning.
+- Like every alt task, the runner starts 5 s after the runtime launches.
 - For multi-output models, select a specific output with `output_index`.
   Otherwise, the runner prefers the first `f32` or `f64` output; if neither is
   present, it selects the first output that can be converted to `f32`.
@@ -238,16 +254,20 @@ You can initialize the runner in two ways:
 
 The JSON config supports:
 
-- `model_path`: required, relative or absolute path to the ONNX file
-- `model_name`: optional, added into prediction metadata
+- `model_path`: required; a relative path is resolved against the directory of the JSON config
+- `model_name`: optional, defaults to the file stem of the config (or of the direct `.onnx` path)
 - `output_index`: optional, useful for multi-output models such as classifier label + probability outputs
+
+Predictions carry `model_name` and the selected `output_index` in `AltTensor::metadata`.
 
 ### `AltTensor` Contract
 
 `AltTensor` is a generic dense tensor carrier:
 
+- `timestamp`: data time in microseconds
 - `data`: row-major / C-order flattened `Vec<f32>`
 - `shape`: original tensor shape before flattening
+- `metadata`: free-form string labels such as model, instrument or threshold
 - `data.len()` must equal the product of `shape`
 - infra does not perform implicit transpose / squeeze / reshape
 
@@ -335,7 +355,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-extrema_infra = { version = "0.5", features = ["all"] }
+extrema_infra = { version = "0.6", features = ["all"] }
 
 # For local development.
 # extrema_infra = { path = "../extrema_infra", features = ["all"] }

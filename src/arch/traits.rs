@@ -5,8 +5,8 @@
 //! clients implement [`market_lob`] traits to expose public REST, private REST,
 //! and websocket message builders; venues implemented outside this crate also
 //! implement its websocket frame decoder. Conversion traits live in [`conversion`] and
-//! are used by exchange-specific schemas to normalize raw payloads into shared
-//! infra types.
+//! normalize raw payloads into shared infra types; exchange-specific schemas and
+//! custom-venue decoders implement them.
 
 pub mod conversion;
 pub mod market_lob;

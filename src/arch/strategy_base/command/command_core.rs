@@ -175,7 +175,8 @@ pub enum TaskCommand {
     /// connect-message helper. The websocket relay waits for this command
     /// before it starts network IO.
     WsConnect {
-        /// Websocket URL or exchange-specific connect target.
+        /// Websocket URL. Use `WsConnectWithTarget` when the connection needs
+        /// HTTP upgrade headers.
         msg: String,
         /// Acknowledgement handle, usually expected as `AckStatus::WsConnect`.
         ack: AckHandle,
@@ -238,9 +239,10 @@ pub enum TaskCommand {
 impl TaskCommand {
     /// Extracts an acknowledgement handle for the generic unexpected-command path.
     ///
-    /// This is used internally when a task receives an unexpected `WsMessage` or
-    /// `WsShutdown` command and still wants to unblock a caller waiting on an
-    /// ack. `WsConnect` is acknowledged by the websocket relay's connect path.
+    /// Alt tasks use this when they receive a `WsMessage` or `WsShutdown`
+    /// command, so a caller waiting on the ack is unblocked. Websocket relays
+    /// log other unexpected commands and drop them without an ack. `WsConnect`
+    /// is acknowledged by the websocket relay's connect path.
     pub fn get_ack(self) -> Option<AckHandle> {
         match self {
             TaskCommand::WsMessage { ack, .. } | TaskCommand::WsShutdown { ack, .. } => Some(ack),
@@ -259,6 +261,7 @@ pub struct WsConnectTarget {
 }
 
 impl WsConnectTarget {
+    /// Creates a target for `url` without extra headers.
     pub fn new(url: impl Into<String>) -> Self {
         Self {
             url: url.into(),
@@ -266,6 +269,7 @@ impl WsConnectTarget {
         }
     }
 
+    /// Adds an HTTP header to the websocket upgrade request.
     pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.headers.push((key.into(), value.into()));
         self

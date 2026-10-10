@@ -14,9 +14,9 @@ use crate::arch::{
 
 /// Runtime wrapper for registering many same-type strategy modules.
 ///
-/// `EnvBuilder::with_strategy_modules` stores the modules in this group so the
-/// HList runtime can keep one static node while still spawning one handler loop
-/// per child module.
+/// `EnvBuilder::with_strategy_modules` and `with_strategy_modules_on` store the
+/// modules in this group so the HList runtime can keep one static node while
+/// still spawning one handler loop per child module.
 #[derive(Clone)]
 #[doc(hidden)]
 pub struct InnerStrategyGroup<S> {

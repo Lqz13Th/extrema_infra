@@ -216,6 +216,12 @@ impl HyperliquidCli {
         }
     }
 
+    /// Points the client at a builder-deployed perp DEX (`None` = main dex).
+    ///
+    /// Changing the dex clears the instrument cache. A builder-dex client must
+    /// call [`init_inst_index_map`](Self::init_inst_index_map) before public perp
+    /// REST calls (funding, mark prices, perp tickers and instrument info) and
+    /// positions; until then they fail with "perp quote is not initialized".
     pub fn set_perp_dex(&mut self, dex: Option<String>) {
         let normalized_dex = dex.and_then(|dex| {
             let dex = dex.trim().to_string();
@@ -225,6 +231,9 @@ impl HyperliquidCli {
         self.market_cache.set_perp_dex(normalized_dex);
     }
 
+    /// Loads the perp universe of the configured dex, its asset ids and its
+    /// collateral quote. Order placement and cancellation need the asset ids on
+    /// every dex; builder-dex clients also need the quote before perp REST calls.
     pub async fn init_inst_index_map(&mut self) -> InfraResult<()> {
         if self.market_cache.perp_dex.is_some() && self.market_cache.perp_dex_index.is_none() {
             self.init_perp_dex_index().await?;

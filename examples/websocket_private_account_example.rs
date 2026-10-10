@@ -2,7 +2,9 @@
 //!
 //! This example wires private account websocket relays for Binance UM futures
 //! and OKX. Binance UM uses a listen-key websocket URL, while OKX connects,
-//! logs in, and subscribes over the private websocket.
+//! logs in, and subscribes over the private websocket. A 1800 s
+//! `TimeScheduler` task drives `on_schedule`, which calls `renew_listen_key()`;
+//! without it Binance expires the listen key and closes the private stream.
 //!
 //! Run it with:
 //!

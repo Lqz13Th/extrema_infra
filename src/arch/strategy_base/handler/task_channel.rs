@@ -43,19 +43,33 @@ const ACC_POS_CHANNEL_CAPACITY: usize = 8_192;
 #[non_exhaustive]
 #[derive(Clone, Debug)]
 pub enum TaskEvent {
+    /// Delivered to `on_alt_event`.
     Alt(InfraMsg<AltTaskInfo>),
+    /// Delivered to `on_ws_event`.
     Ws(InfraMsg<WsTaskInfo>),
+    /// Delivered to `on_order_execution`.
     OrderExecute(InfraMsg<Vec<AltOrder>>),
+    /// Delivered to `on_inst_intent`.
     InstIntent(InfraMsg<AltIntent>),
+    /// Delivered to `on_preds`.
     ModelPreds(InfraMsg<AltTensor>),
+    /// Delivered to `on_schedule`.
     Schedule(InfraMsg<AltScheduleEvent>),
+    /// Delivered to `on_trade`.
     Trade(InfraMsg<Vec<WsTrade>>),
+    /// Delivered to `on_lob`.
     Lob(InfraMsg<Vec<WsLob>>),
+    /// Delivered to `on_lob_mbo`.
     LobMbo(InfraMsg<Vec<WsLobMbo>>),
+    /// Delivered to `on_candle`.
     Candle(InfraMsg<Vec<WsCandle>>),
+    /// Delivered to `on_acc_order`.
     AccOrder(InfraMsg<Vec<WsAccOrder>>),
+    /// Delivered to `on_acc_bal_pos`.
     AccBalPos(InfraMsg<Vec<WsAccBalPos>>),
+    /// Delivered to `on_acc_pos`.
     AccPos(InfraMsg<Vec<WsAccPosition>>),
+    /// Delivered to `on_ws_other`.
     WsOther(InfraMsg<Vec<WsOtherMessage>>),
 }
 

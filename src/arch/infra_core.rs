@@ -1,8 +1,9 @@
 //! Runtime construction and execution.
 //!
 //! This module contains the environment builder and mediator. Use
-//! [`env_builder::EnvBuilder`] in binaries to register tasks and strategy
-//! modules; the builder creates one broadcast stream per concrete task. Then call
+//! [`env_builder::EnvBuilder`] in binaries to register tasks, strategy
+//! modules and custom-venue websocket decoders; the builder validates them and
+//! creates one broadcast stream per concrete task. Then call
 //! [`env_mediator::EnvMediator::execute`] to start the runtime.
 //!
 //! The runtime owns task spawning and command-registry creation. Strategy

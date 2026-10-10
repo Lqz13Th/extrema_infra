@@ -10,6 +10,8 @@ pub const BINANCE_SPOT_ALL_ORDERS: &str = "/api/v3/allOrders";
 pub const BINANCE_SPOT_ACCOUNT_INFO: &str = "/api/v3/account";
 pub const BINANCE_SPOT_MY_TRADES: &str = "/api/v3/myTrades";
 pub const SPOT_USER_DATA_STREAM: &str = "/api/v3/userDataStream";
+
+/// Wallet and sub-account API (SAPI)
 pub const BINANCE_USER_UNIVERSAL_TRANSFER: &str = "/sapi/v1/asset/transfer";
 pub const BINANCE_SUB_ACCOUNT_UNIVERSAL_TRANSFER: &str = "/sapi/v1/sub-account/universalTransfer";
 pub const BINANCE_CAPITAL_CONFIG_GETALL: &str = "/sapi/v1/capital/config/getall";
