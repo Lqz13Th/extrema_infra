@@ -195,6 +195,22 @@ where
     }
 }
 
+/// A decimal string that must parse to a finite, positive `f64`
+/// (prices and sizes); anything else fails the frame.
+pub fn de_positive_f64_from_str<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    match s.parse::<f64>() {
+        Ok(value) if value.is_finite() && value > 0.0 => Ok(value),
+        _ => Err(de::Error::custom(format!(
+            "expected a positive decimal, got {:?}",
+            s
+        ))),
+    }
+}
+
 pub fn de_u64_from_string_or_number<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,

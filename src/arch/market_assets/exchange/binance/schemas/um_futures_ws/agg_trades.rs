@@ -2,8 +2,10 @@ use serde::Deserialize;
 
 use crate::arch::{
     market_assets::{
-        api_general::ts_to_micros, base_data::*,
-        exchange::binance::api_utils::binance_fut_inst_to_cli, market_core::Market,
+        api_general::{de_positive_f64_from_str, ts_to_micros},
+        base_data::*,
+        exchange::binance::api_utils::binance_fut_inst_to_cli,
+        market_core::Market,
     },
     strategy_base::handler::lob_events::WsTrade,
     traits::conversion::IntoWsData,
@@ -16,8 +18,10 @@ pub(crate) struct WsAggTradeBinanceUM {
     E: u64,    // Event time
     a: u64,    // Aggregate trade ID
     s: String, // Symbol
-    p: String, // Price
-    q: String, // Quantity
+    #[serde(deserialize_with = "de_positive_f64_from_str")]
+    p: f64, // Price
+    #[serde(deserialize_with = "de_positive_f64_from_str")]
+    q: f64, // Quantity
     f: u64,    // First trade ID
     l: u64,    // Last trade ID
     T: u64,    // Trade time
@@ -31,8 +35,8 @@ impl IntoWsData for WsAggTradeBinanceUM {
             timestamp: ts_to_micros(self.T),
             market: Market::BinanceUmFutures,
             inst: binance_fut_inst_to_cli(&self.s),
-            price: self.p.parse().unwrap_or_default(),
-            size: self.q.parse().unwrap_or_default(),
+            price: self.p,
+            size: self.q,
             side: if self.m {
                 OrderSide::SELL
             } else {
@@ -68,5 +72,27 @@ mod tests {
         assert_eq!(trade.size, 0.125);
         assert_eq!(trade.side, OrderSide::SELL);
         assert_eq!(trade.trade_id, 987654321);
+    }
+
+    #[test]
+    fn rejects_malformed_price_instead_of_zero() {
+        for (p, q) in [
+            ("63405.4O", "0.125"),
+            ("63405.40", ""),
+            ("0", "0.125"),
+            ("63405.40", "0"),
+            ("-1", "0.125"),
+            ("inf", "0.125"),
+            ("NaN", "0.125"),
+        ] {
+            let frame = format!(
+                r#"{{"e":"aggTrade","E":1,"a":1,"s":"BTCUSDT","p":"{p}","q":"{q}",
+                "f":1,"l":1,"T":1,"m":false}}"#
+            );
+            assert!(
+                BinanceWsData::<WsAggTradeBinanceUM>::decode_single(frame.as_bytes()).is_err(),
+                "p={p:?} q={q:?} must fail the frame"
+            );
+        }
     }
 }
